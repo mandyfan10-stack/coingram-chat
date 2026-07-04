@@ -1143,12 +1143,23 @@ export const ChatProvider = ({ children }) => {
         activeCallChannelRef.current = activeCallChannel;
 
         const sendOffer = async () => {
-          if (pc.signalingState !== 'stable') {
-            console.log(`Signaling state is not stable (${pc.signalingState}), skipping offer creation.`);
+          if (pc.remoteDescription) {
+            console.log("Remote description already set, skipping offer generation/resend.");
             return;
           }
           if (pc.localDescription) {
-            console.log("Offer already set locally, skipping creation.");
+            console.log("Offer already set locally. Re-broadcasting existing offer...");
+            if (activeCallChannel) {
+              activeCallChannel.send({
+                type: 'broadcast',
+                event: 'signal',
+                payload: { type: 'offer', sdp: pc.localDescription.sdp }
+              });
+            }
+            return;
+          }
+          if (pc.signalingState !== 'stable') {
+            console.log(`Signaling state is not stable (${pc.signalingState}), skipping offer creation.`);
             return;
           }
           try {
@@ -1171,11 +1182,20 @@ export const ChatProvider = ({ children }) => {
             const signal = payload.payload;
             console.log("Received WebRTC signal event:", signal.type);
 
+            if (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected') {
+              console.log("WebRTC already connected, ignoring signal:", signal.type);
+              return;
+            }
+
             if (signal.type === 'ready' && callState.isOutgoing) {
               console.log("Peer is ready. Starting handshake offer...");
               await sendOffer();
             } else if (signal.type === 'offer' && !callState.isOutgoing) {
               try {
+                if (pc.remoteDescription) {
+                  console.log("Receiver remote description already set, ignoring duplicate offer.");
+                  return;
+                }
                 if (pc.signalingState !== 'stable') {
                   console.log(`Receiver signaling state is not stable (${pc.signalingState}), skipping offer.`);
                   return;
@@ -1197,6 +1217,10 @@ export const ChatProvider = ({ children }) => {
               }
             } else if (signal.type === 'answer' && callState.isOutgoing) {
               try {
+                if (pc.remoteDescription) {
+                  console.log("Caller remote description already set, ignoring duplicate answer.");
+                  return;
+                }
                 if (pc.signalingState !== 'have-local-offer') {
                   console.log(`Caller signaling state is not have-local-offer (${pc.signalingState}), skipping answer.`);
                   return;
