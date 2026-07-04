@@ -1203,6 +1203,35 @@ body {
   padding: 12px;
 }
 
+/* --- ChatInfo Delete Button --- */
+.info-delete-section {
+  padding: 16px;
+  border-top: 1px solid var(--border-color);
+  margin-top: 20px;
+}
+.info-delete-btn {
+  width: 100%;
+  padding: 11px;
+  background-color: rgba(246, 79, 89, 0.1);
+  color: #f64f59;
+  border: 1px solid rgba(246, 79, 89, 0.3);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all var(--transition-fast);
+}
+.info-delete-btn:hover {
+  background-color: #f64f59;
+  color: white;
+  border-color: #f64f59;
+  box-shadow: 0 4px 12px rgba(246, 79, 89, 0.3);
+}
+
 /* Media Grid cards */
 .media-grid {
   display: grid;

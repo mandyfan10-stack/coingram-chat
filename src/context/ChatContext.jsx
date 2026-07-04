@@ -1448,6 +1448,56 @@ export const ChatProvider = ({ children }) => {
     setActiveStoryId(storyId);
   };
 
+  // Delete or leave a chat
+  const deleteChat = useCallback(async (chatId) => {
+    if (!currentUser || !chatId) return false;
+    
+    const chatToDelete = chats.find(c => c.id === chatId);
+    if (!chatToDelete) return false;
+
+    if (isSupabaseConfigured) {
+      try {
+        const isCreator = chatToDelete.createdBy === currentUser.id;
+        const isPersonal = chatToDelete.type === 'personal';
+
+        if (isPersonal || isCreator) {
+          // Delete the entire chat
+          const { error } = await supabase
+            .from('chats')
+            .delete()
+            .eq('id', chatId);
+          if (error) throw error;
+        } else {
+          // Leave the group/channel
+          const { error } = await supabase
+            .from('chat_members')
+            .delete()
+            .eq('chat_id', chatId)
+            .eq('profile_id', currentUser.id);
+          if (error) throw error;
+        }
+        
+        // Update local states
+        setChats(prev => prev.filter(c => c.id !== chatId));
+        if (activeChatId === chatId) {
+          setActiveChatId(null);
+        }
+        return true;
+      } catch (e) {
+        console.error("Failed to delete/leave chat in Supabase:", e);
+        alert("Не удалось удалить чат: " + e.message);
+        return false;
+      }
+    } else {
+      // Mock mode
+      setChats(prev => prev.filter(c => c.id !== chatId));
+      if (activeChatId === chatId) {
+        setActiveChatId(null);
+      }
+      return true;
+    }
+  }, [currentUser, chats, activeChatId, setActiveChatId]);
+
   return (
     <ChatContext.Provider value={{
       currentUser,
@@ -1497,7 +1547,8 @@ export const ChatProvider = ({ children }) => {
       updateProfile,
       typingStatuses,
       sendTypingStatus,
-      markMessagesAsRead
+      markMessagesAsRead,
+      deleteChat
     }}>
       {children}
     </ChatContext.Provider>

@@ -8,7 +8,9 @@ export default function ChatInfo() {
     isInfoOpen,
     setIsInfoOpen,
     setActiveChatId,
-    renderAvatar
+    renderAvatar,
+    currentUser,
+    deleteChat
   } = useChat();
 
   const [activeTab, setActiveTab] = useState('media');
@@ -270,6 +272,49 @@ export default function ChatInfo() {
           </div>
         )}
       </div>
+      
+      {/* Delete / Leave Chat Button */}
+      {(() => {
+        const isPersonal = activeChat.type === 'personal';
+        const isCreator = activeChat.createdBy === currentUser?.id;
+        
+        let btnText = '';
+        let confirmPrompt = '';
+
+        if (isPersonal) {
+          btnText = '🗑️ Удалить чат';
+          confirmPrompt = 'Вы уверены, что хотите полностью удалить этот чат и всю историю сообщений? Это действие необратимо.';
+        } else if (isCreator) {
+          btnText = activeChat.type === 'channel' ? '🗑️ Удалить канал' : '🗑️ Удалить группу';
+          confirmPrompt = activeChat.type === 'channel' 
+            ? 'Вы уверены, что хотите удалить этот канал для всех участников? Вся история будет очищена.'
+            : 'Вы уверены, что хотите удалить эту группу для всех участников? Вся история будет очищена.';
+        } else {
+          btnText = activeChat.type === 'channel' ? '🚪 Покинуть канал' : '🚪 Выйти из группы';
+          confirmPrompt = activeChat.type === 'channel'
+            ? 'Вы уверены, что хотите покинуть этот канал?'
+            : 'Вы уверены, что хотите выйти из этой группы?';
+        }
+
+        return (
+          <div className="info-delete-section">
+            <button 
+              type="button"
+              className="info-delete-btn"
+              onClick={async () => {
+                if (window.confirm(confirmPrompt)) {
+                  const success = await deleteChat(activeChat.id);
+                  if (success) {
+                    setIsInfoOpen(false);
+                  }
+                }
+              }}
+            >
+              {btnText}
+            </button>
+          </div>
+        );
+      })()}
     </aside>
   );
 }
