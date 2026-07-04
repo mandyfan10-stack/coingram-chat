@@ -185,7 +185,8 @@ export default function SettingsModal() {
     { id: 'emerald-green', name: 'Изумруд', color: '#0f9d58' },
     { id: 'sakura-pink', name: 'Сакура', color: '#e07a5f' },
     { id: 'electric-purple', name: 'Фиолет', color: '#8a2be2' },
-    { id: 'sunset-amber', name: 'Янтарь', color: '#d97706' }
+    { id: 'sunset-amber', name: 'Янтарь', color: '#d97706' },
+    { id: 'rainbow-pearl', name: 'Радуга', color: 'linear-gradient(135deg, #ff0000, #ff8800, #ffff00, #00ff00, #00ccff, #8a2be2, #ff00ff)' }
   ];
 
   const wallpapers = [

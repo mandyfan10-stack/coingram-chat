@@ -62,6 +62,51 @@ html.theme-sunset-amber {
   --accent-gradient: linear-gradient(135deg, #d97706 0%, #a15203 100%);
 }
 
+html.theme-rainbow-pearl {
+  --accent-color: #e040fb;
+  --accent-color-hover: #c020d9;
+  --accent-color-alpha: rgba(224, 64, 251, 0.15);
+  --accent-gradient: linear-gradient(135deg, #ff0080, #ff8c00, #40e0d0, #8a2be2, #ff0080);
+  --bubble-me: linear-gradient(135deg, #3a1c71 0%, #d76d77 50%, #ffaf7b 100%);
+  --bubble-other: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+}
+
+/* Rainbow shimmer animation for the send button in rainbow theme */
+html.theme-rainbow-pearl .send-message-btn {
+  background: linear-gradient(135deg, #ff0080, #ff8c00, #00e5ff, #8a2be2, #ff0080);
+  background-size: 300% 300%;
+  animation: rainbowShift 4s ease infinite;
+  color: white;
+}
+
+html.theme-rainbow-pearl .send-message-btn:hover {
+  filter: brightness(1.15);
+}
+
+/* Iridescent header accent bar */
+html.theme-rainbow-pearl .chat-header {
+  border-bottom: 2px solid transparent;
+  border-image: linear-gradient(90deg, #ff0080, #ff8c00, #ffff00, #00ff88, #00ccff, #8a2be2, #ff00ff) 1;
+}
+
+/* Rainbow scrollbar track */
+html.theme-rainbow-pearl .chat-body::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #ff0080, #ff8c00, #00e5ff, #8a2be2);
+}
+
+/* Shimmer animation on sidebar active chat */
+html.theme-rainbow-pearl .chat-list-item.active {
+  background: linear-gradient(135deg, rgba(255, 0, 128, 0.12), rgba(138, 43, 226, 0.12), rgba(0, 229, 255, 0.12));
+  background-size: 200% 200%;
+  animation: rainbowShift 5s ease infinite;
+}
+
+@keyframes rainbowShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
 /* --- Wallpaper Configs --- */
 [data-wallpaper="classic"] .chat-body {
   background-color: #0b141a;
@@ -1534,7 +1579,7 @@ body {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background-color: var(--theme-color);
+  background: var(--theme-color);
 }
 .theme-check-icon {
   margin-left: auto;
