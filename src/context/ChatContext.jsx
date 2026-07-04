@@ -340,7 +340,7 @@ export const ChatProvider = ({ children }) => {
         // Fetch chat members profile details
         const { data: membersRaw } = await supabase
           .from('chat_members')
-          .select('profile_id, profiles(display_name, username, avatar, avatar_color)')
+          .select('profile_id, profiles(display_name, username, avatar, avatar_color, bio)')
           .eq('chat_id', chat.id);
 
         // Fetch messages for this chat
@@ -357,17 +357,22 @@ export const ChatProvider = ({ children }) => {
           name: m.profiles?.display_name || m.profiles?.username || 'Пользователь',
           username: m.profiles?.username || '',
           avatar: m.profiles?.avatar || '👤',
-          avatarColor: m.profiles?.avatar_color || '#ccc'
+          avatarColor: m.profiles?.avatar_color || '#ccc',
+          bio: m.profiles?.bio || ''
         }));
+
+        const otherMember = chat.type === 'personal'
+          ? formattedMembers.find(m => m.id !== currentUser.id) || formattedMembers[0]
+          : null;
 
         return {
           id: chat.id,
-          name: chat.name,
+          name: otherMember ? otherMember.name : chat.name,
           type: chat.type,
-          avatar: chat.avatar,
-          avatarColor: chat.avatar_color,
-          bio: chat.bio,
-          username: chat.username,
+          avatar: otherMember ? otherMember.avatar : chat.avatar,
+          avatarColor: otherMember ? otherMember.avatarColor : chat.avatar_color,
+          bio: otherMember ? otherMember.bio : chat.bio,
+          username: otherMember ? otherMember.username : chat.username,
           createdBy: chat.created_by,
           pinned: membership?.pinned || false,
           notifications: membership?.notifications ?? true,

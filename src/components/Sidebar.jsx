@@ -219,32 +219,6 @@ export default function Sidebar() {
                 </span>
               </div>
               <span className="story-username">Моя история</span>
-
-              {showMyStoriesMenu && (
-                <div className="my-stories-dropdown" onClick={(e) => e.stopPropagation()}>
-                  <button 
-                    type="button"
-                    className="my-stories-dropdown-btn" 
-                    onClick={() => {
-                      setShowMyStoriesMenu(false);
-                      const storyToOpen = myStoriesList.find(s => !s.viewed) || myStoriesList[0];
-                      if (storyToOpen) viewStory(storyToOpen.id);
-                    }}
-                  >
-                    👁️ Посмотреть
-                  </button>
-                  <button 
-                    type="button"
-                    className="my-stories-dropdown-btn" 
-                    onClick={() => {
-                      setShowMyStoriesMenu(false);
-                      setIsCreateStoryOpen(true);
-                    }}
-                  >
-                    ➕ Добавить
-                  </button>
-                </div>
-              )}
             </div>
           );
         })()}
@@ -400,6 +374,35 @@ export default function Sidebar() {
           </>
         )}
       </div>
+
+      {showMyStoriesMenu && (() => {
+        const myStoriesList = stories.filter(s => s.userId === currentUser?.id);
+        return (
+          <div className="my-stories-dropdown" style={{ top: '172px', left: '12px' }} onClick={(e) => e.stopPropagation()}>
+            <button 
+              type="button"
+              className="my-stories-dropdown-btn" 
+              onClick={() => {
+                setShowMyStoriesMenu(false);
+                const storyToOpen = myStoriesList.find(s => !s.viewed) || myStoriesList[0];
+                if (storyToOpen) viewStory(storyToOpen.id);
+              }}
+            >
+              👁️ Посмотреть
+            </button>
+            <button 
+              type="button"
+              className="my-stories-dropdown-btn" 
+              onClick={() => {
+                setShowMyStoriesMenu(false);
+                setIsCreateStoryOpen(true);
+              }}
+            >
+              ➕ Добавить
+            </button>
+          </div>
+        );
+      })()}
     </aside>
   );
 }
