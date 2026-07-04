@@ -284,6 +284,13 @@ body {
 .story-avatar-initials {
   font-size: 18px;
   z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
 }
 .current-user-story .story-avatar-wrapper.plus-icon::after {
   content: '+';

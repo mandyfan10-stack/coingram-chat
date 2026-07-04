@@ -23,27 +23,73 @@ export default function ChatInfo() {
 
   if (!isInfoOpen || !activeChat) return null;
 
-  // Mock list for tabs
-  const mediaFiles = [
-    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80',
-    'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=300&q=80',
-    'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=300&q=80',
-    'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=300&q=80',
-    'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=300&q=80',
-    'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=300&q=80'
-  ];
+  // Extract files, media, and links dynamically from messages
+  const mediaFiles = [];
+  const docFiles = [];
+  const linksList = [];
 
-  const docFiles = [
-    { name: 'Архитектурный_план.pdf', size: '2.4 MB', date: 'Вчера, 12:44' },
-    { name: 'Техническая_спецификация.docx', size: '840 KB', date: '28 июня, 17:02' },
-    { name: 'Бюджет_проекта_2026.xlsx', size: '1.2 MB', date: '15 июня, 11:15' }
-  ];
+  if (activeChat && activeChat.messages) {
+    activeChat.messages.forEach(m => {
+      if (m.media) {
+        // Simple check if it's an image
+        const isImage = /\.(jpeg|jpg|gif|png|webp|svg)/i.test(m.media) || m.media.startsWith('data:image');
+        if (isImage) {
+          mediaFiles.push(m.media);
+        } else {
+          // Document file
+          const filename = m.media.split('/').pop().split('_').slice(1).join('_') || 'Вложенный файл';
+          docFiles.push({
+            name: filename,
+            size: 'Вложение',
+            date: new Date(m.timestamp).toLocaleDateString([], { day: '2-digit', month: 'short' })
+          });
+        }
+      }
 
-  const linksList = [
-    { title: 'Официальный сайт React', url: 'https://react.dev', host: 'react.dev' },
-    { title: 'Документация Vite 6', url: 'https://vite.dev', host: 'vite.dev' },
-    { title: 'DeepMind Advanced Coding', url: 'https://deepmind.google', host: 'deepmind.google' }
-  ];
+      // Extract URLs from text
+      if (m.text) {
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        const matches = m.text.match(urlRegex);
+        if (matches) {
+          matches.forEach(url => {
+            try {
+              const parsed = new URL(url);
+              linksList.push({
+                title: url,
+                url: url,
+                host: parsed.hostname
+              });
+            } catch (e) {
+              // ignore
+            }
+          });
+        }
+      }
+    });
+  }
+
+  // Preseeded mock data fallback only for demo chats to keep initial UI engaging
+  const isPreseededMock = activeChat && ['chat-1', 'chat-2', 'chat-6'].includes(activeChat.id);
+  if (isPreseededMock && mediaFiles.length === 0 && docFiles.length === 0 && linksList.length === 0) {
+    mediaFiles.push(
+      'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80',
+      'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=300&q=80',
+      'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=300&q=80',
+      'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=300&q=80',
+      'https://images.unsplash.com/photo-1509042239860-f550ce710b93?auto=format&fit=crop&w=300&q=80',
+      'https://images.unsplash.com/photo-1513364776144-60967b0f800f?auto=format&fit=crop&w=300&q=80'
+    );
+    docFiles.push(
+      { name: 'Архитектурный_план.pdf', size: '2.4 MB', date: 'Вчера, 12:44' },
+      { name: 'Техническая_спецификация.docx', size: '840 KB', date: '28 июня, 17:02' },
+      { name: 'Бюджет_проекта_2026.xlsx', size: '1.2 MB', date: '15 июня, 11:15' }
+    );
+    linksList.push(
+      { title: 'Официальный сайт React', url: 'https://react.dev', host: 'react.dev' },
+      { title: 'Документация Vite 6', url: 'https://vite.dev', host: 'vite.dev' },
+      { title: 'DeepMind Advanced Coding', url: 'https://deepmind.google', host: 'deepmind.google' }
+    );
+  }
 
   const handleMemberClick = (memberId) => {
     if (memberId === 'current') return;
