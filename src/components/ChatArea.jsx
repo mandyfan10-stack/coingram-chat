@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
+import StickerMessage from './StickerMessage';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import {
   Send,
@@ -286,7 +287,8 @@ export default function ChatArea() {
     typingStatuses,
     sendTypingStatus,
     wallpaper,
-    renderAvatar
+    renderAvatar,
+    installedStickers
   } = useChat();
 
   const isCustomWallpaper = wallpaper && !['classic', 'sunset', 'space', 'mint', 'cyber'].includes(wallpaper);
@@ -299,6 +301,14 @@ export default function ChatArea() {
 
   const [inputVal, setInputVal] = useState('');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [pickerTab, setPickerTab] = useState('emoji'); // 'emoji' | 'sticker'
+  const [activeStickerPackId, setActiveStickerPackId] = useState(null);
+
+  useEffect(() => {
+    if (installedStickers.length > 0 && !activeStickerPackId) {
+      setActiveStickerPackId(installedStickers[0].id);
+    }
+  }, [installedStickers, activeStickerPackId]);
   const [replyingTo, setReplyingTo] = useState(null);
   const [showMsgActionsId, setShowMsgActionsId] = useState(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
@@ -846,6 +856,7 @@ export default function ChatArea() {
 
             const isVoice = msg.text && msg.text.startsWith('🎤 Голосовое сообщение') && msg.media;
             const isVideo = msg.text && msg.text.startsWith('🎬 Видеосообщение') && msg.media;
+            const isSticker = msg.text && msg.text.startsWith('sticker:') && msg.media;
 
             return (
               <div
@@ -858,7 +869,7 @@ export default function ChatArea() {
                 }}
               >
                 {/* Bubble */}
-                <div className={`message-bubble ${isMe ? 'bubble-me' : 'bubble-other'} ${isVideo ? 'bubble-video' : ''}`}>
+                <div className={`message-bubble ${isMe ? 'bubble-me' : 'bubble-other'} ${isVideo ? 'bubble-video' : ''} ${isSticker ? 'bubble-sticker' : ''}`}>
                   {showSenderName && isFirstInGroup && (
                     <span className="sender-name">{msg.senderName}</span>
                   )}
@@ -872,13 +883,47 @@ export default function ChatArea() {
                   )}
 
                   {/* Media attachment if any */}
-                  {msg.media && !isVoice && !isVideo && (
+                  {msg.media && !isVoice && !isVideo && !isSticker && (
                     <div className="bubble-media-wrapper">
                       <img src={msg.media} alt="Вложение" className="bubble-media" />
                     </div>
                   )}
 
-                  {isVideo ? (
+                  {isSticker ? (
+                    <div style={{ position: 'relative', display: 'inline-block' }}>
+                      <StickerMessage mediaUrl={msg.media} />
+                      <div className="bubble-metadata sticker-metadata" style={{
+                        position: 'absolute',
+                        bottom: '4px',
+                        right: '4px',
+                        background: 'rgba(0, 0, 0, 0.45)',
+                        padding: '1px 5px',
+                        borderRadius: '8px',
+                        color: 'white',
+                        zIndex: 10,
+                        fontSize: '9px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '2px',
+                        pointerEvents: 'none'
+                      }}>
+                        <span className="message-time" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '9px' }}>
+                          {getFormatTime(msg.timestamp)}
+                        </span>
+                        {isMe && (
+                          <span className="check-icons" style={{ color: 'white' }}>
+                            {activeChat.type === 'channel' ? (
+                              <SingleCheck className="seen-check" style={{ width: '10px', height: '10px' }} />
+                            ) : msg.read ? (
+                              <DoubleCheck className="seen-check blue" style={{ width: '10px', height: '10px' }} />
+                            ) : (
+                              <SingleCheck className="seen-check" style={{ width: '10px', height: '10px' }} />
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ) : isVideo ? (
                     <div style={{ position: 'relative' }}>
                       <VideoMessagePlayer videoUrl={msg.media} />
                       <div className="bubble-metadata" style={{
@@ -1130,18 +1175,117 @@ export default function ChatArea() {
                   </button>
 
                   {showEmojiPicker && (
-                    <div className="emoji-picker-popup">
-                      <div className="emoji-picker-grid">
-                        {emojis.map(emo => (
-                          <span
-                            key={emo}
-                            className="emoji-item"
-                            onClick={() => handleEmojiClick(emo)}
-                          >
-                            {emo}
-                          </span>
-                        ))}
+                    <div className="emoji-picker-popup tabbed-picker">
+                      <div className="picker-header-tabs">
+                        <button
+                          type="button"
+                          className={`picker-tab-btn ${pickerTab === 'emoji' ? 'active' : ''}`}
+                          onClick={() => setPickerTab('emoji')}
+                        >
+                          Смайлы
+                        </button>
+                        <button
+                          type="button"
+                          className={`picker-tab-btn ${pickerTab === 'sticker' ? 'active' : ''}`}
+                          onClick={() => setPickerTab('sticker')}
+                        >
+                          Стикеры
+                        </button>
                       </div>
+
+                      {pickerTab === 'emoji' ? (
+                        <div className="emoji-picker-grid">
+                          {emojis.map(emo => (
+                            <span
+                              key={emo}
+                              className="emoji-item"
+                              onClick={() => handleEmojiClick(emo)}
+                            >
+                              {emo}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="sticker-picker-container">
+                          {installedStickers.length === 0 ? (
+                            <div className="no-stickers-placeholder">
+                              <p style={{ margin: '0 0 4px 0', fontWeight: '500' }}>Нет установленных стикеров</p>
+                              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                                Вы можете импортировать их в настройках профиля
+                              </span>
+                            </div>
+                          ) : (
+                            <>
+                              {/* Sticker Pack Tabs */}
+                              <div className="sticker-pack-tabs">
+                                {installedStickers.map((pack) => {
+                                  const firstSticker = pack.stickers?.[0];
+                                  if (!firstSticker) return null;
+                                  const isPublicUrl = firstSticker.filePath.startsWith('http');
+                                  const coverUrl = isPublicUrl 
+                                    ? firstSticker.filePath 
+                                    : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/stickers/${firstSticker.filePath}`;
+
+                                  return (
+                                    <button
+                                      key={pack.id}
+                                      type="button"
+                                      className={`sticker-pack-tab-btn ${activeStickerPackId === pack.id ? 'active' : ''}`}
+                                      onClick={() => setActiveStickerPackId(pack.id)}
+                                      title={pack.title}
+                                    >
+                                      {pack.is_animated ? (
+                                        <span style={{ fontSize: '15px' }}>✨</span>
+                                      ) : pack.is_video ? (
+                                        <span style={{ fontSize: '15px' }}>🎬</span>
+                                      ) : (
+                                        <img src={coverUrl} alt="set-cover" className="pack-tab-icon" />
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Sticker Grid */}
+                              <div className="sticker-grid">
+                                {(() => {
+                                  const activePack = installedStickers.find(p => p.id === activeStickerPackId) || installedStickers[0];
+                                  if (!activePack) return null;
+
+                                  return activePack.stickers.map((st) => {
+                                    const isPublicUrl = st.filePath.startsWith('http');
+                                    const fileUrl = isPublicUrl 
+                                      ? st.filePath 
+                                      : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/stickers/${st.filePath}`;
+
+                                    const handleStickerSend = () => {
+                                      sendMessage(`sticker:${activePack.name}`, null, fileUrl);
+                                      setShowEmojiPicker(false);
+                                    };
+
+                                    return (
+                                      <div
+                                        key={st.id}
+                                        className="sticker-picker-item"
+                                        onClick={handleStickerSend}
+                                        title={st.emoji || 'sticker'}
+                                      >
+                                        {activePack.is_animated ? (
+                                          <span style={{ fontSize: '24px' }}>{st.emoji || '✨'}</span>
+                                        ) : activePack.is_video ? (
+                                          <video src={fileUrl} autoPlay loop muted playsInline className="picker-sticker-preview" />
+                                        ) : (
+                                          <img src={fileUrl} alt="sticker" className="picker-sticker-preview" />
+                                        )}
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

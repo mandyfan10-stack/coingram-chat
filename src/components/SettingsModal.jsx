@@ -16,13 +16,46 @@ export default function SettingsModal() {
     logOut,
     settingsTab,
     setSettingsTab,
-    renderAvatar
+    renderAvatar,
+    installedStickers,
+    importStickerPack
   } = useChat();
 
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [notif, setNotif] = useState(true);
   const [copied, setCopied] = useState(false);
+
+  const [stickerPackInput, setStickerPackInput] = useState('');
+  const [importLoading, setImportLoading] = useState(false);
+  const [importStatus, setImportStatus] = useState('');
+
+  const handleImportStickers = async () => {
+    let packName = stickerPackInput.trim();
+    if (!packName) return;
+
+    if (packName.includes('addstickers/')) {
+      packName = packName.split('addstickers/').pop().split('?')[0].split('#')[0];
+    } else if (packName.includes('t.me/')) {
+      packName = packName.split('t.me/').pop().split('?')[0].split('#')[0];
+    }
+
+    setImportLoading(true);
+    setImportStatus('');
+    try {
+      const res = await importStickerPack(packName);
+      if (res.error) {
+        setImportStatus(`❌ ${res.error}`);
+      } else {
+        setImportStatus(`✅ Пак "${res.title}" успешно импортирован!`);
+        setStickerPackInput('');
+      }
+    } catch (e) {
+      setImportStatus(`❌ Ошибка импорта: ${e.message}`);
+    } finally {
+      setImportLoading(false);
+    }
+  };
 
   const [customWallpaperUrl, setCustomWallpaperUrl] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -201,7 +234,7 @@ export default function SettingsModal() {
       <div className="settings-container">
         {/* Header */}
         <div className="settings-header">
-          <h3>{settingsTab === 'profile' ? 'Профиль' : 'Настройки'}</h3>
+          <h3>{settingsTab === 'profile' ? 'Профиль' : settingsTab === 'settings' ? 'Настройки' : 'Стикеры'}</h3>
           <button className="settings-close-btn" onClick={() => setIsSettingsOpen(false)}>
             <X size={20} />
           </button>
@@ -223,11 +256,18 @@ export default function SettingsModal() {
           >
             Настройки
           </button>
+          <button 
+            type="button" 
+            className={`settings-tab-btn ${settingsTab === 'stickers' ? 'active' : ''}`}
+            onClick={() => setSettingsTab('stickers')}
+          >
+            Стикеры
+          </button>
         </div>
 
         {/* Modal Body */}
         <div className="settings-body">
-          {settingsTab === 'profile' ? (
+          {settingsTab === 'profile' && (
             <>
               {/* Avatar Section */}
               <div className="settings-avatar-section">
@@ -314,8 +354,10 @@ export default function SettingsModal() {
               />
             </div>
           </div>
-          </>
-          ) : (
+            </>
+          )}
+
+          {settingsTab === 'settings' && (
             <>
 
           {/* Theme Customizer */}
@@ -520,7 +562,85 @@ export default function SettingsModal() {
               <span>Выйти из аккаунта</span>
             </button>
           </div>
-          </>
+            </>
+          )}
+
+          {settingsTab === 'stickers' && (
+            <div className="settings-stickers-tab" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              {/* Import Section */}
+              <div className="settings-section">
+                <h5 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><Upload size={16} /> Импортировать стикер-пак</h5>
+                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
+                  Вставьте имя стикер-пака или ссылку на него из Telegram (например: <code>https://t.me/addstickers/set_name</code>)
+                </p>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input
+                    type="text"
+                    placeholder="Имя или ссылка на пак..."
+                    value={stickerPackInput}
+                    onChange={(e) => setStickerPackInput(e.target.value)}
+                    style={{ flex: 1, padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)' }}
+                    disabled={importLoading}
+                  />
+                  <button
+                    type="button"
+                    className="btn-primary auth-submit-btn"
+                    onClick={handleImportStickers}
+                    disabled={importLoading || !stickerPackInput.trim()}
+                    style={{ width: 'auto', padding: '8px 16px', fontSize: '13px', margin: 0 }}
+                  >
+                    {importLoading ? 'Импорт...' : 'Импорт'}
+                  </button>
+                </div>
+                {importStatus && (
+                  <div style={{ marginTop: '8px', fontSize: '12.5px', color: importStatus.startsWith('❌') ? '#ff4d4f' : '#2ecc71', fontWeight: '500' }}>
+                    {importStatus}
+                  </div>
+                )}
+              </div>
+
+              {/* List of installed packs */}
+              <div className="settings-section">
+                <h5 className="section-title">📦 Ваши стикер-паки ({installedStickers.length})</h5>
+                {installedStickers.length === 0 ? (
+                  <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', textAlign: 'center', padding: '16px 0' }}>
+                    У вас пока нет установленных стикер-паков
+                  </p>
+                ) : (
+                  <div className="installed-packs-list" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                    {installedStickers.map(pack => (
+                      <div
+                        key={pack.id}
+                        className="installed-pack-item"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          backgroundColor: 'var(--bg-input)',
+                          padding: '10px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid var(--border-color)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <span style={{ fontSize: '20px' }}>
+                            {pack.is_animated ? '✨' : pack.is_video ? '🎬' : '🖼️'}
+                          </span>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontSize: '13.5px', fontWeight: '500', color: 'var(--text-primary)' }}>
+                              {pack.title}
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                              {pack.stickers?.length || 0} стикеров ({pack.is_animated ? 'анимированный' : pack.is_video ? 'видео' : 'статический'})
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
 

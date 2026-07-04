@@ -1,13 +1,38 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
-import { Mic, MicOff, PhoneOff, Phone } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, Phone, Video, VideoOff } from 'lucide-react';
 
 export default function CallOverlay() {
-  const { callState, setCallState, endCall, toggleCallMute, acceptCall, rejectCall, chats, renderAvatar, currentUser } = useChat();
+  const { 
+    callState, 
+    setCallState, 
+    endCall, 
+    toggleCallMute, 
+    acceptCall, 
+    rejectCall, 
+    chats, 
+    renderAvatar, 
+    currentUser,
+    localVideoStream,
+    remoteVideoStream,
+    toggleCallVideo
+  } = useChat();
+
   const [pulseScale, setPulseScale] = useState(1);
   const ringRef = useRef(null);
   const timerRef = useRef(null);
   const connectSoundPlayedRef = useRef(false);
+
+  const localVideoRef = useRef(null);
+  const remoteVideoRef = useRef(null);
+
+  // Drag position offset for floating preview window
+  const [dragPos, setDragPos] = useState({ x: 318, y: 12 });
+  const dragRef = useRef(null);
+  const containerRef = useRef(null);
+  const isDragging = useRef(false);
+  const dragStart = useRef({ x: 0, y: 0 });
+  const elementStart = useRef({ x: 0, y: 0 });
 
   // If outgoing call, target is callState.chatId. If incoming, display caller info.
   const activeChat = chats.find(c => c.id === callState.chatId);
@@ -190,6 +215,99 @@ export default function CallOverlay() {
     };
   }, [callState.status, callState.webrtcState]);
 
+  // Bind local and remote video streams to refs
+  useEffect(() => {
+    if (localVideoRef.current && localVideoStream) {
+      localVideoRef.current.srcObject = localVideoStream;
+    }
+    if (localVideoStream) {
+      setDragPos({ x: 318, y: 12 });
+    }
+  }, [localVideoStream]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteVideoStream) {
+      remoteVideoRef.current.srcObject = remoteVideoStream;
+    }
+  }, [remoteVideoStream]);
+
+  // Interactive Drag-and-drop Handlers
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    isDragging.current = true;
+    dragStart.current = { x: e.clientX, y: e.clientY };
+    elementStart.current = { x: dragPos.x, y: dragPos.y };
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDragging.current) return;
+    const dx = e.clientX - dragStart.current.x;
+    const dy = e.clientY - dragStart.current.y;
+    
+    if (containerRef.current && dragRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const elementRect = dragRef.current.getBoundingClientRect();
+      
+      let newX = elementStart.current.x + dx;
+      let newY = elementStart.current.y + dy;
+      
+      const maxX = containerRect.width - elementRect.width - 12;
+      const maxY = containerRect.height - elementRect.height - 12;
+      
+      newX = Math.max(12, Math.min(newX, maxX));
+      newY = Math.max(12, Math.min(newY, maxY));
+      
+      setDragPos({ x: newX, y: newY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    isDragging.current = false;
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleTouchStart = (e) => {
+    isDragging.current = true;
+    const touch = e.touches[0];
+    dragStart.current = { x: touch.clientX, y: touch.clientY };
+    elementStart.current = { x: dragPos.x, y: dragPos.y };
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDragging.current) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const dx = touch.clientX - dragStart.current.x;
+    const dy = touch.clientY - dragStart.current.y;
+
+    if (containerRef.current && dragRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const elementRect = dragRef.current.getBoundingClientRect();
+
+      let newX = elementStart.current.x + dx;
+      let newY = elementStart.current.y + dy;
+
+      const maxX = containerRect.width - elementRect.width - 12;
+      const maxY = containerRect.height - elementRect.height - 12;
+
+      newX = Math.max(12, Math.min(newX, maxX));
+      newY = Math.max(12, Math.min(newY, maxY));
+
+      setDragPos({ x: newX, y: newY });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    isDragging.current = false;
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
+  };
+
   if (callState.status === 'idle') return null;
 
   // Formatting calling duration
@@ -234,11 +352,44 @@ export default function CallOverlay() {
     statusText = 'Звонок завершен';
   }
 
+  const showBackgroundAvatar = !remoteVideoStream;
+  const hasVideo = !!(localVideoStream || remoteVideoStream);
+
   return (
     <div className={`call-overlay-wrapper ${callState.status !== 'idle' ? 'active' : ''}`}>
-      <div className="call-card">
+      <div className={`call-card ${remoteVideoStream ? 'has-remote-video' : ''} ${hasVideo ? 'has-video' : ''}`} ref={containerRef}>
+        
+        {/* Remote Video Stream Feed */}
+        {remoteVideoStream && (
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className="remote-video-feed"
+          />
+        )}
+
+        {/* Local Video Stream Preview (Draggable) */}
+        {localVideoStream && (
+          <div
+            ref={dragRef}
+            className="local-video-preview"
+            style={{ left: `${dragPos.x}px`, top: `${dragPos.y}px` }}
+            onMouseDown={handleMouseDown}
+            onTouchStart={handleTouchStart}
+          >
+            <video
+              ref={localVideoRef}
+              autoPlay
+              playsInline
+              muted
+              className="local-video-feed"
+            />
+          </div>
+        )}
+
         {/* Background Visual Wave Glow Circles */}
-        <div className="call-avatar-section">
+        <div className={`call-avatar-section ${!showBackgroundAvatar ? 'fade-out' : ''}`}>
           {callState.status === 'connected' && callState.webrtcState === 'connected' && !callState.muted && (
             <>
               <div className="wave-pulse wave-1" style={{ transform: `scale(${pulseScale * 1.15})`, opacity: 0.15 }} />
@@ -288,6 +439,16 @@ export default function CallOverlay() {
                 {callState.muted ? <MicOff size={22} /> : <Mic size={22} />}
               </button>
               
+              <button 
+                type="button"
+                className={`call-ctrl-btn ${localVideoStream ? 'active-video' : ''}`}
+                onClick={toggleCallVideo}
+                disabled={callState.status === 'ended'}
+                title={localVideoStream ? 'Выключить камеру' : 'Включить камеру'}
+              >
+                {localVideoStream ? <VideoOff size={22} /> : <Video size={22} />}
+              </button>
+
               <button 
                 type="button"
                 className="call-ctrl-btn call-hangup"

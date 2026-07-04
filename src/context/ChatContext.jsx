@@ -144,6 +144,48 @@ const initialChatsMock = [
   }
 ];
 
+const defaultMockPacks = [
+  {
+    id: 'pack-animals',
+    name: 'AnimalsMock',
+    title: 'Cute Animals 🦊',
+    is_animated: false,
+    is_video: false,
+    stickers: [
+      { id: 'st-cat', emoji: '🐱', filePath: 'https://img.icons8.com/color/180/cat.png' },
+      { id: 'st-dog', emoji: '🐶', filePath: 'https://img.icons8.com/color/180/dog.png' },
+      { id: 'st-rabbit', emoji: '🐰', filePath: 'https://img.icons8.com/color/180/rabbit.png' },
+      { id: 'st-fox', emoji: '🦊', filePath: 'https://img.icons8.com/color/180/fox.png' },
+      { id: 'st-panda', emoji: '🐼', filePath: 'https://img.icons8.com/color/180/panda.png' },
+      { id: 'st-lion', emoji: '🦁', filePath: 'https://img.icons8.com/color/180/lion.png' },
+      { id: 'st-koala', emoji: '🐨', filePath: 'https://img.icons8.com/color/180/koala-bear.png' }
+    ]
+  },
+  {
+    id: 'pack-animated',
+    name: 'AnimatedMock',
+    title: 'Animations ✨',
+    is_animated: true,
+    is_video: false,
+    stickers: [
+      { id: 'st-anim1', emoji: '🎉', filePath: 'https://assets5.lottiefiles.com/packages/lf20_u4yrau.json' },
+      { id: 'st-anim2', emoji: '❤️', filePath: 'https://assets9.lottiefiles.com/packages/lf20_yg16kv9p.json' },
+      { id: 'st-anim3', emoji: '🚀', filePath: 'https://assets1.lottiefiles.com/packages/lf20_yjrdpceb.json' }
+    ]
+  },
+  {
+    id: 'pack-video',
+    name: 'VideoMock',
+    title: 'Video Loops 🎬',
+    is_animated: false,
+    is_video: true,
+    stickers: [
+      { id: 'st-vid1', emoji: '🐱', filePath: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExOHY5b3h5a3VjMWoxeXU3dWthdjV2bnhmdzJjZTh1MGFhMG51N2x0ZCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/33OrjzUFwkwEg/giphy.webm' },
+      { id: 'st-vid2', emoji: '🍔', filePath: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExZnp4NWN6YW44bnR0YmExMnBpeThmOWthNXh6d3p2azVxdG1qbjI3ZSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9cw/3o7bu3XilJ5BOiSGic/giphy.webm' }
+    ]
+  }
+];
+
 const quizQuestions = [
   { q: "Какой язык программирования используется для веб-страниц чаще всего?", a: "javascript" },
   { q: "Какая планета Солнечной системы самая большая?", a: "юпитер" },
@@ -156,6 +198,7 @@ export const ChatProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [chats, setChats] = useState([]);
+  const [installedStickers, setInstalledStickers] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [stories, setStories] = useState(initialStories);
   const [activeStoryId, setActiveStoryId] = useState(null);
@@ -186,7 +229,11 @@ export const ChatProvider = ({ children }) => {
     webrtcState: 'disconnected'
   });
 
+  const [localVideoStream, setLocalVideoStream] = useState(null);
+  const [remoteVideoStream, setRemoteVideoStream] = useState(null);
+
   const localStreamRef = useRef(null);
+  const localVideoStreamRef = useRef(null);
   const pcRef = useRef(null);
   const globalSignalingChannelRef = useRef(null);
   const activeCallChannelRef = useRef(null);
@@ -464,6 +511,136 @@ export const ChatProvider = ({ children }) => {
       console.error("Failed to fetch chats from Supabase:", e);
     }
   }, [currentUser]);
+
+  const fetchStickers = useCallback(async () => {
+    if (!isSupabaseConfigured || !currentUser) return;
+    try {
+      const { data: userPacks, error: err1 } = await supabase
+        .from('user_sticker_packs')
+        .select('pack_id, sticker_packs(*)')
+        .eq('user_id', currentUser.id);
+
+      if (err1) throw err1;
+
+      const formatted = await Promise.all((userPacks || []).map(async (up) => {
+        const pack = up.sticker_packs;
+        if (!pack) return null;
+        const { data: stickerList, error: err2 } = await supabase
+          .from('stickers')
+          .select('*')
+          .eq('pack_id', pack.id)
+          .order('created_at', { ascending: true });
+
+        if (err2) throw err2;
+
+        return {
+          id: pack.id,
+          name: pack.name,
+          title: pack.title,
+          is_animated: pack.is_animated,
+          is_video: pack.is_video,
+          stickers: (stickerList || []).map(s => ({
+            id: s.id,
+            emoji: s.emoji,
+            filePath: s.file_path,
+            width: s.width,
+            height: s.height
+          }))
+        };
+      }));
+
+      setInstalledStickers(formatted.filter(Boolean));
+    } catch (e) {
+      console.error("Failed to fetch sticker packs:", e);
+    }
+  }, [currentUser]);
+
+  const importStickerPack = useCallback(async (packName) => {
+    if (!currentUser) return { error: "Вы не авторизованы!" };
+
+    if (isSupabaseConfigured) {
+      try {
+        console.log(`Invoking Edge Function to import pack: ${packName}...`);
+        const { data, error } = await supabase.functions.invoke('import-sticker-pack', {
+          body: { packName, userId: currentUser.id }
+        });
+
+        if (error) {
+          let errMsg = error.message;
+          if (error.context && typeof error.context.json === 'function') {
+            try {
+              const body = await error.context.json();
+              if (body && body.error) {
+                errMsg = body.error;
+              }
+            } catch (_) {}
+          }
+          throw new Error(errMsg);
+        }
+        await fetchStickers();
+        return { success: true, title: data.title };
+      } catch (e) {
+        console.error("Sticker import failed:", e);
+        return { error: e.message };
+      }
+    } else {
+      // Mock import
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          const normalized = packName.toLowerCase().trim();
+          let matchedDefault = defaultMockPacks.find(p => p.name.toLowerCase() === normalized);
+          
+          if (!matchedDefault) {
+            matchedDefault = {
+              id: `pack-${Date.now()}`,
+              name: packName,
+              title: `${packName} Pack 🌟`,
+              is_animated: false,
+              is_video: false,
+              stickers: [
+                { id: `st-c1-${Date.now()}`, emoji: '⭐', filePath: 'https://img.icons8.com/color/180/star--v1.png' },
+                { id: `st-c2-${Date.now()}`, emoji: '✨', filePath: 'https://img.icons8.com/color/180/sparkling-light-.png' },
+                { id: `st-c3-${Date.now()}`, emoji: '🔥', filePath: 'https://img.icons8.com/color/180/fire.png' }
+              ]
+            };
+          }
+
+          setInstalledStickers(prev => {
+            if (prev.some(p => p.name.toLowerCase() === normalized)) {
+              return prev; // Already installed
+            }
+            const updated = [...prev, matchedDefault];
+            localStorage.setItem('tg-stickers-mock', JSON.stringify(updated));
+            return updated;
+          });
+
+          resolve({ success: true, title: matchedDefault.title });
+        }, 1200);
+      });
+    }
+  }, [currentUser, fetchStickers]);
+
+  useEffect(() => {
+    if (currentUser) {
+      if (isSupabaseConfigured) {
+        fetchStickers();
+      } else {
+        const saved = localStorage.getItem('tg-stickers-mock');
+        if (saved) {
+          try {
+            setInstalledStickers(JSON.parse(saved));
+          } catch (e) {
+            setInstalledStickers(defaultMockPacks);
+          }
+        } else {
+          setInstalledStickers(defaultMockPacks);
+          localStorage.setItem('tg-stickers-mock', JSON.stringify(defaultMockPacks));
+        }
+      }
+    } else {
+      setInstalledStickers([]);
+    }
+  }, [currentUser, fetchStickers]);
 
   // Fetch stories from Supabase
   const fetchStories = useCallback(async () => {
@@ -1025,6 +1202,12 @@ export const ChatProvider = ({ children }) => {
         ...prev,
         status: 'ended'
       }));
+      if (localVideoStreamRef.current) {
+        localVideoStreamRef.current.getTracks().forEach(track => track.stop());
+        localVideoStreamRef.current = null;
+      }
+      setLocalVideoStream(null);
+      setRemoteVideoStream(null);
       setTimeout(() => {
         setCallState({
           status: 'idle',
@@ -1116,18 +1299,24 @@ export const ChatProvider = ({ children }) => {
       pc.ontrack = (event) => {
         console.log("Remote WebRTC track received:", event.track.kind);
         const remoteStream = event.streams[0] || new MediaStream([event.track]);
-        let audioEl = document.getElementById('webrtc-call-audio');
-        if (!audioEl) {
-          audioEl = document.createElement('audio');
-          audioEl.id = 'webrtc-call-audio';
-          audioEl.autoplay = true;
-          audioEl.playsInline = true;
-          document.body.appendChild(audioEl);
+        
+        if (event.track.kind === 'audio') {
+          let audioEl = document.getElementById('webrtc-call-audio');
+          if (!audioEl) {
+            audioEl = document.createElement('audio');
+            audioEl.id = 'webrtc-call-audio';
+            audioEl.autoplay = true;
+            audioEl.playsInline = true;
+            document.body.appendChild(audioEl);
+          }
+          audioEl.srcObject = remoteStream;
+          audioEl.play().catch(e => {
+            console.warn("Audio element autoplay failed, manual triggering:", e);
+          });
+        } else if (event.track.kind === 'video') {
+          console.log("Setting remote video stream state.");
+          setRemoteVideoStream(remoteStream);
         }
-        audioEl.srcObject = remoteStream;
-        audioEl.play().catch(e => {
-          console.warn("Audio element autoplay failed, manual triggering:", e);
-        });
       };
 
       // 5. Add local tracks
@@ -1182,8 +1371,9 @@ export const ChatProvider = ({ children }) => {
             const signal = payload.payload;
             console.log("Received WebRTC signal event:", signal.type);
 
-            if (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected') {
-              console.log("WebRTC already connected, ignoring signal:", signal.type);
+            const isInitialSignal = ['ready', 'offer', 'answer'].includes(signal.type);
+            if (isInitialSignal && (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected')) {
+              console.log("WebRTC already connected, ignoring initial signal:", signal.type);
               return;
             }
 
@@ -1231,6 +1421,34 @@ export const ChatProvider = ({ children }) => {
               } catch (e) {
                 console.error("Error setting remote answer:", e);
               }
+            } else if (signal.type === 'renegotiate-offer') {
+              try {
+                console.log("Received renegotiation SDP Offer. Setting remote description...");
+                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
+                console.log("Remote description set (renegotiation offer). Creating answer...");
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                console.log("Local description set (renegotiation answer). Broadcasting answer...");
+                activeCallChannel.send({
+                  type: 'broadcast',
+                  event: 'signal',
+                  payload: { type: 'renegotiate-answer', sdp: answer.sdp }
+                });
+                await processCandidateQueue();
+              } catch (e) {
+                console.error("Error setting renegotiation offer or creating answer:", e);
+              }
+            } else if (signal.type === 'renegotiate-answer') {
+              try {
+                console.log("Received renegotiation SDP Answer. Setting remote description...");
+                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
+                await processCandidateQueue();
+              } catch (e) {
+                console.error("Error setting remote renegotiation answer:", e);
+              }
+            } else if (signal.type === 'video-stopped') {
+              console.log("Peer stopped their video feed.");
+              setRemoteVideoStream(null);
             } else if (signal.type === 'candidate') {
               try {
                 const iceCandidate = new RTCIceCandidate(signal.candidate);
@@ -1278,6 +1496,12 @@ export const ChatProvider = ({ children }) => {
         localStreamRef.current.getTracks().forEach(track => track.stop());
         localStreamRef.current = null;
       }
+      if (localVideoStreamRef.current) {
+        localVideoStreamRef.current.getTracks().forEach(track => track.stop());
+        localVideoStreamRef.current = null;
+      }
+      setLocalVideoStream(null);
+      setRemoteVideoStream(null);
       if (pcRef.current) {
         pcRef.current.close();
         pcRef.current = null;
@@ -1591,6 +1815,84 @@ export const ChatProvider = ({ children }) => {
       });
     }
   }, [callState.muted]);
+
+  const toggleCallVideo = useCallback(async () => {
+    if (callState.status !== 'connected') return;
+
+    if (localVideoStream) {
+      // Turn off video
+      console.log("Turning off local camera stream...");
+      localVideoStream.getTracks().forEach(track => track.stop());
+      localVideoStreamRef.current = null;
+      
+      // Remove video track from pc
+      if (pcRef.current) {
+        const senders = pcRef.current.getSenders();
+        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+        if (videoSender) {
+          pcRef.current.removeTrack(videoSender);
+        }
+      }
+      
+      setLocalVideoStream(null);
+      
+      // Notify peer that we turned off video
+      if (activeCallChannelRef.current) {
+        activeCallChannelRef.current.send({
+          type: 'broadcast',
+          event: 'signal',
+          payload: { type: 'video-stopped' }
+        });
+        
+        // Renegotiate track removal
+        try {
+          console.log("Creating renegotiation offer after track removal...");
+          const offer = await pcRef.current.createOffer();
+          await pcRef.current.setLocalDescription(offer);
+          activeCallChannelRef.current.send({
+            type: 'broadcast',
+            event: 'signal',
+            payload: { type: 'renegotiate-offer', sdp: offer.sdp }
+          });
+        } catch (e) {
+          console.error("Renegotiation failed:", e);
+        }
+      }
+    } else {
+      // Turn on video
+      console.log("Requesting camera access...");
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        setLocalVideoStream(stream);
+        localVideoStreamRef.current = stream;
+        
+        const videoTrack = stream.getVideoTracks()[0];
+        
+        // Add video track to pc
+        if (pcRef.current) {
+          pcRef.current.addTrack(videoTrack, stream);
+          
+          if (activeCallChannelRef.current) {
+            try {
+              console.log("Creating renegotiation offer after track addition...");
+              const offer = await pcRef.current.createOffer();
+              await pcRef.current.setLocalDescription(offer);
+              activeCallChannelRef.current.send({
+                type: 'broadcast',
+                event: 'signal',
+                payload: { type: 'renegotiate-offer', sdp: offer.sdp }
+              });
+            } catch (e) {
+              console.error("Renegotiation failed:", e);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Failed to capture video:", err);
+        alert("Не удалось получить доступ к камере!");
+      }
+    }
+  }, [callState.status, localVideoStream]);
 
   // Create Chat/Start dialog
   const createChat = useCallback(async (target, typeOrIsGroup = 'personal') => {
@@ -2217,7 +2519,12 @@ export const ChatProvider = ({ children }) => {
       endCall,
       toggleCallMute,
       acceptCall,
-      rejectCall
+      rejectCall,
+      localVideoStream,
+      remoteVideoStream,
+      toggleCallVideo,
+      installedStickers,
+      importStickerPack
     }}>
       {children}
     </ChatContext.Provider>
