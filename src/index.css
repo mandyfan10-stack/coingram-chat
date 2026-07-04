@@ -448,6 +448,17 @@ html.theme-rainbow-pearl .reaction-badge.active {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+button, a, input, textarea, .chat-item, .story-item, .folder-tab {
+  touch-action: manipulation;
+}
+
+.chat-body, .chat-list, .stories-tray, .folders-nav {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 body {
@@ -2274,6 +2285,16 @@ body {
     height: 100vh;
   }
 
+  .sidebar, 
+  .chat-area, 
+  .drawer-container, 
+  .settings-container, 
+  .story-viewer-overlay {
+    will-change: transform, opacity !important;
+    backface-visibility: hidden !important;
+    perspective: 1000px !important;
+  }
+
   .sidebar {
     position: absolute !important;
     top: 0;
@@ -2299,22 +2320,22 @@ body {
 
   /* Toggling panels based on whether an active chat is selected */
   .app-container:not(.active-chat-selected) .sidebar {
-    transform: translateX(0) !important;
+    transform: translate3d(0, 0, 0) !important;
     opacity: 1 !important;
     pointer-events: auto !important;
   }
   .app-container:not(.active-chat-selected) .chat-area {
-    transform: translateX(100%) !important;
+    transform: translate3d(100%, 0, 0) !important;
     pointer-events: none !important;
   }
 
   .app-container.active-chat-selected .sidebar {
-    transform: translateX(-25%) !important;
+    transform: translate3d(-25%, 0, 0) !important;
     opacity: 0.6 !important;
     pointer-events: none !important;
   }
   .app-container.active-chat-selected .chat-area {
-    transform: translateX(0) !important;
+    transform: translate3d(0, 0, 0) !important;
     pointer-events: auto !important;
   }
 
