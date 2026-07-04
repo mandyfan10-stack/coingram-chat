@@ -35,11 +35,31 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
     const audio = audioRef.current;
     if (!audio) return;
 
+    let isCalculating = false;
+
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
-    const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
-    const handleLoadedMetadata = () => {
-      if (audio.duration && audio.duration !== Infinity) {
+    const handleTimeUpdate = () => {
+      if (!isCalculating) {
+        setCurrentTime(audio.currentTime);
+      }
+    };
+
+    const handleDurationCompute = () => {
+      if (audio.duration === Infinity) {
+        isCalculating = true;
+        audio.currentTime = 1e101;
+        
+        const onSeeked = () => {
+          audio.removeEventListener('seeked', onSeeked);
+          setMaxDuration(audio.duration);
+          audio.currentTime = 0;
+          setTimeout(() => {
+            isCalculating = false;
+          }, 150);
+        };
+        audio.addEventListener('seeked', onSeeked);
+      } else if (audio.duration && !isNaN(audio.duration)) {
         setMaxDuration(audio.duration);
       }
     };
@@ -47,7 +67,8 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
     audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('loadedmetadata', handleDurationCompute);
+    audio.addEventListener('durationchange', handleDurationCompute);
 
     setIsPlaying(false);
     setCurrentTime(0);
@@ -56,7 +77,8 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('loadedmetadata', handleDurationCompute);
+      audio.removeEventListener('durationchange', handleDurationCompute);
     };
   }, [audioUrl]);
 
@@ -129,8 +151,10 @@ function VideoMessagePlayer({ videoUrl }) {
     const video = videoRef.current;
     if (!video) return;
 
+    let isCalculating = false;
+
     const handleTimeUpdate = () => {
-      if (video.duration) {
+      if (!isCalculating && video.duration && video.duration !== Infinity) {
         setProgress((video.currentTime / video.duration) * 100);
       }
     };
@@ -142,10 +166,28 @@ function VideoMessagePlayer({ videoUrl }) {
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
 
+    const handleDurationCompute = () => {
+      if (video.duration === Infinity) {
+        isCalculating = true;
+        video.currentTime = 1e101;
+        
+        const onSeeked = () => {
+          video.removeEventListener('seeked', onSeeked);
+          video.currentTime = 0;
+          setTimeout(() => {
+            isCalculating = false;
+          }, 150);
+        };
+        video.addEventListener('seeked', onSeeked);
+      }
+    };
+
     video.addEventListener('timeupdate', handleTimeUpdate);
     video.addEventListener('ended', handleEnded);
     video.addEventListener('play', handlePlay);
     video.addEventListener('pause', handlePause);
+    video.addEventListener('loadedmetadata', handleDurationCompute);
+    video.addEventListener('durationchange', handleDurationCompute);
 
     video.play().catch(() => {
       setIsPlaying(false);
@@ -156,6 +198,8 @@ function VideoMessagePlayer({ videoUrl }) {
       video.removeEventListener('ended', handleEnded);
       video.removeEventListener('play', handlePlay);
       video.removeEventListener('pause', handlePause);
+      video.removeEventListener('loadedmetadata', handleDurationCompute);
+      video.removeEventListener('durationchange', handleDurationCompute);
     };
   }, [videoUrl]);
 
