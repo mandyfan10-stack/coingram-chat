@@ -3221,6 +3221,236 @@ input:checked + .switch-slider:before {
   opacity: 1;
 }
 
+/* --- Voice & Video Messages Recording & Players --- */
+
+/* Inline Recording Panel (replaces text area during voice recording) */
+.recording-panel {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  padding: 8px 16px;
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.record-dot {
+  width: 8px;
+  height: 8px;
+  background-color: #f64f59;
+  border-radius: 50%;
+  animation: blink 1s infinite alternate;
+}
+
+@keyframes blink {
+  0% { opacity: 0.2; }
+  100% { opacity: 1; }
+}
+
+.record-timer {
+  font-weight: 600;
+  font-family: monospace;
+}
+
+.record-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 12px;
+  flex: 1;
+}
+
+.record-wave-bar {
+  width: 2px;
+  height: 4px;
+  background-color: var(--accent-color);
+  animation: wavePulse 1s infinite ease-in-out;
+}
+
+.record-wave-bar:nth-child(2) { animation-delay: 0.15s; }
+.record-wave-bar:nth-child(3) { animation-delay: 0.3s; }
+.record-wave-bar:nth-child(4) { animation-delay: 0.45s; }
+.record-wave-bar:nth-child(5) { animation-delay: 0.6s; }
+
+@keyframes wavePulse {
+  0%, 100% { height: 4px; }
+  50% { height: 12px; }
+}
+
+.record-cancel-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  animation: slideText 2s infinite ease-in-out;
+}
+
+@keyframes slideText {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(-4px); }
+}
+
+/* Floating Circular Video Recording Overlay */
+.video-record-preview-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  gap: 16px;
+  animation: fadeIn var(--transition-fast);
+}
+
+.video-record-circle {
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4px solid #f64f59;
+  box-shadow: 0 0 25px rgba(246, 79, 89, 0.5);
+  background-color: black;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-record-circle video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1); /* mirror preview */
+}
+
+.video-record-timer {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: monospace;
+  background-color: rgba(0, 0, 0, 0.6);
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.video-record-hint {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+/* Voice Message Player in Bubble */
+.voice-player-bubble {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+  background-color: transparent;
+  width: 230px;
+}
+
+.voice-play-btn {
+  background-color: var(--accent-color);
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform var(--transition-fast);
+}
+.voice-play-btn:hover {
+  transform: scale(1.05);
+}
+
+.voice-player-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.voice-seek-bar {
+  width: 100%;
+  accent-color: var(--accent-color);
+  cursor: pointer;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.voice-player-meta {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+/* Circular Video Message Bubble */
+.video-message-bubble {
+  display: flex;
+  justify-content: flex-start;
+  padding: 2px;
+  position: relative;
+}
+
+.round-video-wrapper {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  overflow: hidden;
+  position: relative;
+  border: 2px solid var(--border-color);
+  background-color: black;
+  box-shadow: var(--shadow-md);
+  cursor: pointer;
+}
+
+.round-video-element {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.video-progress-ring {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 184px;
+  height: 184px;
+  pointer-events: none;
+}
+
+.video-progress-ring-circle {
+  transition: stroke-dashoffset 0.1s linear;
+}
+
+.video-mute-icon-overlay {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background-color: rgba(0, 0, 0, 0.5);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+}
+
+.message-bubble.bubble-video {
+  padding: 2px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+
 
 
 
