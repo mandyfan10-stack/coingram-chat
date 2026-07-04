@@ -16,7 +16,8 @@ import {
   Pause,
   Lock,
   Sparkles,
-  Film
+  Film,
+  ArrowLeft
 } from 'lucide-react';
 
 const SingleCheck = ({ className }) => (
@@ -290,7 +291,8 @@ export default function ChatArea() {
     sendTypingStatus,
     wallpaper,
     renderAvatar,
-    installedStickers
+    installedStickers,
+    setActiveChatId
   } = useChat();
 
   const isCustomWallpaper = wallpaper && !['classic', 'sunset', 'space', 'mint', 'cyber'].includes(wallpaper);
@@ -820,6 +822,17 @@ export default function ChatArea() {
       {/* Header */}
       <header className="chat-header" onClick={() => setIsInfoOpen(!isInfoOpen)}>
         <div className="chat-header-info">
+          <button 
+            type="button" 
+            className="chat-back-btn" 
+            onClick={(e) => {
+              e.stopPropagation();
+              setActiveChatId(null);
+            }} 
+            title="Назад"
+          >
+            <ArrowLeft size={20} />
+          </button>
           <div className="chat-avatar header-avatar" style={{ background: activeChat.avatarColor }}>
             {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥')}
           </div>

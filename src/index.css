@@ -1766,7 +1766,8 @@ body {
 }
 
 .settings-container {
-  width: 440px;
+  width: 100%;
+  max-width: 440px;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 16px;
@@ -2261,16 +2262,57 @@ body {
     box-shadow: -5px 0 15px rgba(0,0,0,0.5);
   }
 }
+.chat-back-btn {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .sidebar {
-    width: 100%;
-    min-width: 100%;
+    width: 100% !important;
+    min-width: 100% !important;
   }
+  
   .chat-area {
-    display: none; /* In a full layout you'd toggle view, but we are fine for web clone demo */
+    width: 100% !important;
+    min-width: 100% !important;
   }
+
+  /* Toggling panels based on whether an active chat is selected */
+  .app-container:not(.active-chat-selected) .sidebar {
+    display: flex !important;
+  }
+  .app-container:not(.active-chat-selected) .chat-area {
+    display: none !important;
+  }
+
+  .app-container.active-chat-selected .sidebar {
+    display: none !important;
+  }
+  .app-container.active-chat-selected .chat-area {
+    display: flex !important;
+  }
+
   .chat-info {
     display: none !important;
+  }
+
+  .chat-back-btn {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 6px;
+    margin-right: 8px;
+    border-radius: 50%;
+    transition: background var(--transition-fast), color var(--transition-fast);
+  }
+  
+  .chat-back-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
   }
 }
 
@@ -3463,6 +3505,7 @@ html.theme-light .empty-state p {
 
 .drawer-container {
   width: 300px;
+  max-width: 85%;
   height: 100%;
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
