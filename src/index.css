@@ -2267,29 +2267,55 @@ body {
 }
 
 @media (max-width: 768px) {
+  .app-container {
+    position: relative;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+  }
+
   .sidebar {
+    position: absolute !important;
+    top: 0;
+    left: 0;
     width: 100% !important;
     min-width: 100% !important;
+    height: 100% !important;
+    z-index: 1;
+    transition: transform 0.32s cubic-bezier(0.1, 0.76, 0.55, 0.94), opacity 0.32s ease !important;
   }
   
   .chat-area {
+    position: absolute !important;
+    top: 0;
+    left: 0;
     width: 100% !important;
     min-width: 100% !important;
+    height: 100% !important;
+    z-index: 5;
+    transition: transform 0.32s cubic-bezier(0.1, 0.76, 0.55, 0.94) !important;
+    box-shadow: -6px 0 20px rgba(0, 0, 0, 0.35);
   }
 
   /* Toggling panels based on whether an active chat is selected */
   .app-container:not(.active-chat-selected) .sidebar {
-    display: flex !important;
+    transform: translateX(0) !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
   }
   .app-container:not(.active-chat-selected) .chat-area {
-    display: none !important;
+    transform: translateX(100%) !important;
+    pointer-events: none !important;
   }
 
   .app-container.active-chat-selected .sidebar {
-    display: none !important;
+    transform: translateX(-25%) !important;
+    opacity: 0.6 !important;
+    pointer-events: none !important;
   }
   .app-container.active-chat-selected .chat-area {
-    display: flex !important;
+    transform: translateX(0) !important;
+    pointer-events: auto !important;
   }
 
   .chat-info {
@@ -2307,12 +2333,57 @@ body {
     padding: 6px;
     margin-right: 8px;
     border-radius: 50%;
-    transition: background var(--transition-fast), color var(--transition-fast);
+    transition: background var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
   }
   
   .chat-back-btn:hover {
     background: rgba(255, 255, 255, 0.08);
     color: var(--text-primary);
+  }
+
+  /* Refinements for Stories tray */
+  .story-item {
+    width: 70px !important;
+    gap: 6px !important;
+  }
+  .story-username {
+    font-size: 11px !important;
+    text-align: center !important;
+    width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Refinements for Folder Tabs and Header */
+  .folders-nav {
+    padding: 0 12px !important;
+  }
+  .folder-tab {
+    padding: 10px 16px !important;
+  }
+  .sidebar-header {
+    padding: 10px 12px !important;
+    gap: 8px !important;
+  }
+
+  /* Active press scaling effects for touch feedback */
+  .menu-btn,
+  .chat-back-btn,
+  .chat-header-btn,
+  .folder-tab,
+  .chat-item,
+  .story-item {
+    transition: transform var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast) !important;
+  }
+
+  .menu-btn:active,
+  .chat-back-btn:active,
+  .chat-header-btn:active,
+  .folder-tab:active,
+  .chat-item:active,
+  .story-item:active {
+    transform: scale(0.97) !important;
   }
 }
 

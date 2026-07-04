@@ -26,3 +26,10 @@ dist-ssr
 .vercel
 .env
 
+# Portable JDKs
+jdk17/
+jdk21/
+
+# Built APKs
+*.apk
+
