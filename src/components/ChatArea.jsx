@@ -14,7 +14,9 @@ import {
   ArrowDown,
   Play,
   Pause,
-  Lock
+  Lock,
+  Sparkles,
+  Film
 } from 'lucide-react';
 
 const SingleCheck = ({ className }) => (
@@ -1235,9 +1237,9 @@ export default function ChatArea() {
                                       title={pack.title}
                                     >
                                       {pack.is_animated ? (
-                                        <span style={{ fontSize: '15px' }}>✨</span>
+                                        <Sparkles size={16} style={{ color: 'var(--text-secondary)' }} />
                                       ) : pack.is_video ? (
-                                        <span style={{ fontSize: '15px' }}>🎬</span>
+                                        <Film size={16} style={{ color: 'var(--text-secondary)' }} />
                                       ) : (
                                         <img src={coverUrl} alt="set-cover" className="pack-tab-icon" />
                                       )}
@@ -1271,7 +1273,11 @@ export default function ChatArea() {
                                         title={st.emoji || 'sticker'}
                                       >
                                         {activePack.is_animated ? (
-                                          <span style={{ fontSize: '24px' }}>{st.emoji || '✨'}</span>
+                                          st.emoji ? (
+                                            <span style={{ fontSize: '24px' }}>{st.emoji}</span>
+                                          ) : (
+                                            <Sparkles size={24} style={{ color: 'var(--text-secondary)', display: 'block', margin: 'auto' }} />
+                                          )
                                         ) : activePack.is_video ? (
                                           <video src={fileUrl} autoPlay loop muted playsInline className="picker-sticker-preview" />
                                         ) : (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useChat } from '../context/ChatContext';
 import { isSupabaseConfigured, supabase } from '../supabaseClient';
-import { X, Check, Bell, Palette, Image as ImageIcon, UserCircle, LogOut, Copy, Info, Lock, Trash2, Upload } from 'lucide-react';
+import { X, Check, Bell, Palette, Image as ImageIcon, UserCircle, LogOut, Copy, Info, Lock, Trash2, Upload, Package, Sparkles, Film, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function SettingsModal() {
   const {
@@ -28,7 +28,7 @@ export default function SettingsModal() {
 
   const [stickerPackInput, setStickerPackInput] = useState('');
   const [importLoading, setImportLoading] = useState(false);
-  const [importStatus, setImportStatus] = useState('');
+  const [importStatus, setImportStatus] = useState({ text: '', type: null });
 
   const handleImportStickers = async () => {
     let packName = stickerPackInput.trim();
@@ -41,17 +41,17 @@ export default function SettingsModal() {
     }
 
     setImportLoading(true);
-    setImportStatus('');
+    setImportStatus({ text: '', type: null });
     try {
       const res = await importStickerPack(packName);
       if (res.error) {
-        setImportStatus(`❌ ${res.error}`);
+        setImportStatus({ text: res.error, type: 'error' });
       } else {
-        setImportStatus(`✅ Пак "${res.title}" успешно импортирован!`);
+        setImportStatus({ text: `Пак "${res.title}" успешно импортирован!`, type: 'success' });
         setStickerPackInput('');
       }
     } catch (e) {
-      setImportStatus(`❌ Ошибка импорта: ${e.message}`);
+      setImportStatus({ text: `Ошибка импорта: ${e.message}`, type: 'error' });
     } finally {
       setImportLoading(false);
     }
@@ -137,7 +137,7 @@ export default function SettingsModal() {
     }
   };
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [passwordStatus, setPasswordStatus] = useState('');
+  const [passwordStatus, setPasswordStatus] = useState({ text: '', type: null });
   const [passwordLoading, setPasswordLoading] = useState(false);
 
   // Sync state with currentUser when modal opens
@@ -156,7 +156,7 @@ export default function SettingsModal() {
       }
       setNewPassword('');
       setConfirmPassword('');
-      setPasswordStatus('');
+      setPasswordStatus({ text: '', type: null });
     }
   }, [currentUser, isSettingsOpen]);
 
@@ -190,24 +190,24 @@ export default function SettingsModal() {
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (newPassword !== confirmPassword) {
-      setPasswordStatus('❌ Пароли не совпадают!');
+      setPasswordStatus({ text: 'Пароли не совпадают!', type: 'error' });
       return;
     }
     if (newPassword.length < 6) {
-      setPasswordStatus('❌ Пароль должен быть не менее 6 символов!');
+      setPasswordStatus({ text: 'Пароль должен быть не менее 6 символов!', type: 'error' });
       return;
     }
     
     setPasswordLoading(true);
-    setPasswordStatus('');
+    setPasswordStatus({ text: '', type: null });
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
-      setPasswordStatus('✅ Пароль успешно изменен!');
+      setPasswordStatus({ text: 'Пароль успешно изменен!', type: 'success' });
       setNewPassword('');
       setConfirmPassword('');
     } catch (err) {
-      setPasswordStatus(`❌ Ошибка: ${err.message}`);
+      setPasswordStatus({ text: `Ошибка: ${err.message}`, type: 'error' });
     } finally {
       setPasswordLoading(false);
     }
@@ -498,9 +498,10 @@ export default function SettingsModal() {
                     required
                   />
                 </div>
-                {passwordStatus && (
-                  <div className="password-status-msg" style={{ marginTop: '8px', fontSize: '12.5px', fontWeight: '500' }}>
-                    {passwordStatus}
+                {passwordStatus.text && (
+                  <div className="password-status-msg" style={{ marginTop: '8px', fontSize: '12.5px', fontWeight: '500', color: passwordStatus.type === 'error' ? '#ff4d4f' : '#2ecc71', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {passwordStatus.type === 'error' ? <AlertCircle size={15} /> : <CheckCircle2 size={15} />}
+                    <span>{passwordStatus.text}</span>
                   </div>
                 )}
                 <button
@@ -592,16 +593,20 @@ export default function SettingsModal() {
                     {importLoading ? 'Импорт...' : 'Импорт'}
                   </button>
                 </div>
-                {importStatus && (
-                  <div style={{ marginTop: '8px', fontSize: '12.5px', color: importStatus.startsWith('❌') ? '#ff4d4f' : '#2ecc71', fontWeight: '500' }}>
-                    {importStatus}
+                {importStatus.text && (
+                  <div style={{ marginTop: '8px', fontSize: '12.5px', color: importStatus.type === 'error' ? '#ff4d4f' : '#2ecc71', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {importStatus.type === 'error' ? <AlertCircle size={15} /> : <CheckCircle2 size={15} />}
+                    <span>{importStatus.text}</span>
                   </div>
                 )}
               </div>
 
               {/* List of installed packs */}
               <div className="settings-section">
-                <h5 className="section-title">📦 Ваши стикер-паки ({installedStickers.length})</h5>
+                <h5 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Package size={16} />
+                  <span>Ваши стикер-паки ({installedStickers.length})</span>
+                </h5>
                 {installedStickers.length === 0 ? (
                   <p style={{ fontSize: '12.5px', color: 'var(--text-secondary)', textAlign: 'center', padding: '16px 0' }}>
                     У вас пока нет установленных стикер-паков
@@ -623,8 +628,8 @@ export default function SettingsModal() {
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                          <span style={{ fontSize: '20px' }}>
-                            {pack.is_animated ? '✨' : pack.is_video ? '🎬' : '🖼️'}
+                          <span style={{ display: 'flex', alignItems: 'center', color: 'var(--text-secondary)' }}>
+                            {pack.is_animated ? <Sparkles size={18} /> : pack.is_video ? <Film size={18} /> : <ImageIcon size={18} />}
                           </span>
                           <div style={{ display: 'flex', flexDirection: 'column' }}>
                             <span style={{ fontSize: '13.5px', fontWeight: '500', color: 'var(--text-primary)' }}>

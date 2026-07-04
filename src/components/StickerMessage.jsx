@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Image } from 'lucide-react';
 
 // Load lottie-web dynamically from CDN to keep package size small
 const loadLottie = () => {
@@ -61,7 +62,11 @@ export default function StickerMessage({ mediaUrl }) {
   }, [mediaUrl, isLottie]);
 
   if (error) {
-    return <div className="sticker-fallback" style={{ fontSize: '28px', padding: '10px' }}>✨</div>;
+    return (
+      <div className="sticker-fallback" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '130px', height: '130px', backgroundColor: 'var(--bg-input)', borderRadius: '12px', border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}>
+        <Image size={32} />
+      </div>
+    );
   }
 
   if (isLottie) {
