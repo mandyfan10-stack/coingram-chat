@@ -135,13 +135,7 @@ export default function StoryViewer() {
               <span className="story-user-time">{activeStory.timestamp}</span>
             </div>
           </div>
-          <div 
-            className="story-header-actions" 
-            onMouseDown={(e) => e.stopPropagation()}
-            onMouseUp={(e) => e.stopPropagation()}
-            onTouchStart={(e) => e.stopPropagation()}
-            onTouchEnd={(e) => e.stopPropagation()}
-          >
+          <div className="story-header-actions">
             <button className="story-icon-btn" onClick={() => setIsPaused(!isPaused)}>
               {isPaused ? <Play size={18} /> : <Pause size={18} />}
             </button>
@@ -152,7 +146,7 @@ export default function StoryViewer() {
         </div>
 
         {/* Next/Prev Navigation overlay triggers */}
-        <div className="story-nav-triggers" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="story-nav-triggers">
           <button className="story-nav-btn prev" onClick={handlePrev} disabled={activeIndexInUserStories === 0}>
             <ChevronLeft size={28} />
           </button>
