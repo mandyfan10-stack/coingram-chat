@@ -708,6 +708,16 @@ export const ChatProvider = ({ children }) => {
                 timestamp: new Date(newMsg.created_at)
               };
 
+              // Check if we can replace an optimistic message
+              let replacedOptimistic = false;
+              const nextMessages = chat.messages.map(m => {
+                if (isMe && m.isOptimistic && (m.text === newMsg.text || (m.media && m.media === newMsg.media)) && !replacedOptimistic) {
+                  replacedOptimistic = true;
+                  return formattedMsg;
+                }
+                return m;
+              });
+
               return prevChats.map(c => {
                 if (c.id === newMsg.chat_id) {
                   // Simulate Bot response trigger
@@ -716,7 +726,7 @@ export const ChatProvider = ({ children }) => {
                   }
                   return {
                     ...c,
-                    messages: [...c.messages, formattedMsg]
+                    messages: replacedOptimistic ? nextMessages : [...c.messages, formattedMsg]
                   };
                 }
                 return c;
@@ -1152,22 +1162,58 @@ export const ChatProvider = ({ children }) => {
     if (!currentUser || !activeChatId) return;
 
     if (isSupabaseConfigured) {
-      try {
-        const { error } = await supabase
-          .from('messages')
-          .insert({
-            chat_id: activeChatId,
-            sender_id: currentUser.id,
-            text: text,
-            media: media,
-            reply_to: replyToId
-          });
+      // 1. Create optimistic message
+      const optimisticMsg = {
+        id: `optimistic-${Date.now()}`,
+        senderId: currentUser.id,
+        senderName: currentUser.name || 'Вы',
+        text: text,
+        media: media,
+        replyTo: replyToId,
+        read: false,
+        timestamp: new Date(),
+        isOptimistic: true
+      };
 
-        if (error) throw error;
-        playSound('outgoing');
-      } catch (e) {
-        console.error("Message send failed:", e);
-      }
+      // 2. Add to local state immediately
+      setChats(prevChats => prevChats.map(c => {
+        if (c.id === activeChatId) {
+          return {
+            ...c,
+            messages: [...c.messages, optimisticMsg]
+          };
+        }
+        return c;
+      }));
+
+      playSound('outgoing');
+
+      // 3. Send in background
+      supabase
+        .from('messages')
+        .insert({
+          chat_id: activeChatId,
+          sender_id: currentUser.id,
+          text: text,
+          media: media,
+          reply_to: replyToId
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.error("Message send failed:", error);
+            // Remove optimistic message on error
+            setChats(prevChats => prevChats.map(c => {
+              if (c.id === activeChatId) {
+                return {
+                  ...c,
+                  messages: c.messages.filter(m => m.id !== optimisticMsg.id)
+                };
+              }
+              return c;
+            }));
+            alert("Не удалось отправить сообщение: " + error.message);
+          }
+        });
     } else {
       // Mock Send message logic
       const newMessage = {

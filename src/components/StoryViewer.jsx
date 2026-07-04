@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useChat } from '../context/ChatContext';
 import { X, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 
@@ -11,17 +11,11 @@ export default function StoryViewer() {
     viewStory
   } = useChat();
 
-  const [progress, setProgress] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const timerRef = useRef(null);
-  const startTimeRef = useRef(Date.now());
-  const elapsedBeforePauseRef = useRef(0);
 
   const activeStory = stories.find(s => s.id === activeStoryId);
   const userStories = activeStory ? stories.filter(s => s.userId === activeStory.userId) : [];
   const activeIndexInUserStories = userStories.findIndex(s => s.id === activeStoryId);
-
-  const DURATION = 5000; // 5 seconds per story
 
   const handleClose = () => {
     setActiveStoryId(null);
@@ -29,9 +23,7 @@ export default function StoryViewer() {
 
   const handleNext = () => {
     if (activeIndexInUserStories < userStories.length - 1) {
-      setProgress(0);
-      elapsedBeforePauseRef.current = 0;
-      startTimeRef.current = Date.now();
+      setIsPaused(false);
       setActiveStoryId(userStories[activeIndexInUserStories + 1].id);
     } else {
       handleClose();
@@ -40,46 +32,10 @@ export default function StoryViewer() {
 
   const handlePrev = () => {
     if (activeIndexInUserStories > 0) {
-      setProgress(0);
-      elapsedBeforePauseRef.current = 0;
-      startTimeRef.current = Date.now();
+      setIsPaused(false);
       setActiveStoryId(userStories[activeIndexInUserStories - 1].id);
     }
   };
-
-  // Timer logic for automated story progress
-  useEffect(() => {
-    if (!activeStoryId) return;
-
-    if (isPaused) {
-      if (timerRef.current) {
-        cancelAnimationFrame(timerRef.current);
-      }
-      return;
-    }
-
-    startTimeRef.current = Date.now() - elapsedBeforePauseRef.current;
-
-    const updateProgress = () => {
-      const elapsed = Date.now() - startTimeRef.current;
-      const percent = Math.min((elapsed / DURATION) * 100, 100);
-      setProgress(percent);
-
-      if (percent >= 100) {
-        handleNext();
-      } else {
-        timerRef.current = requestAnimationFrame(updateProgress);
-      }
-    };
-
-    timerRef.current = requestAnimationFrame(updateProgress);
-
-    return () => {
-      if (timerRef.current) {
-        cancelAnimationFrame(timerRef.current);
-      }
-    };
-  }, [activeStoryId, isPaused]);
 
   // Automatically mark the current story as viewed when activeStoryId changes
   useEffect(() => {
@@ -91,7 +47,6 @@ export default function StoryViewer() {
   // Pause when clicking and holding the mouse / tapping and holding on touch screen
   const handleMouseDown = () => {
     setIsPaused(true);
-    elapsedBeforePauseRef.current = Date.now() - startTimeRef.current;
   };
 
   const handleMouseUp = () => {
@@ -114,13 +69,16 @@ export default function StoryViewer() {
         {/* Top Progress Bars */}
         <div className="story-progress-container">
           {userStories.map((s, idx) => {
-            let fillWidth = '0%';
-            if (idx < activeIndexInUserStories) fillWidth = '100%';
-            if (idx === activeIndexInUserStories) fillWidth = `${progress}%`;
+            let statusClass = '';
+            if (idx < activeIndexInUserStories) statusClass = 'filled';
+            else if (idx === activeIndexInUserStories) statusClass = `active ${isPaused ? 'paused' : ''}`;
 
             return (
               <div key={s.id} className="story-progress-track">
-                <div className="story-progress-fill" style={{ width: fillWidth }} />
+                <div 
+                  className={`story-progress-fill ${statusClass}`} 
+                  onAnimationEnd={handleNext}
+                />
               </div>
             );
           })}

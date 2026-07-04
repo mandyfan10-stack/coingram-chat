@@ -1695,7 +1695,22 @@ body {
 .story-progress-fill {
   height: 100%;
   background-color: white;
-  width: 0%;
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+}
+.story-progress-fill.filled {
+  transform: scaleX(1);
+}
+.story-progress-fill.active {
+  animation: storyProgress 5s linear forwards;
+}
+.story-progress-fill.active.paused {
+  animation-play-state: paused;
+}
+@keyframes storyProgress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 .story-header {
