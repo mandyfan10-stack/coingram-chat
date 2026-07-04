@@ -1439,6 +1439,32 @@ export const ChatProvider = ({ children }) => {
     }, 1500);
   }, []);
 
+  const sendSignalingMessage = useCallback((targetUserId, event, payload) => {
+    if (!isSupabaseConfigured) return;
+    const channelName = `call-signals-${targetUserId}`;
+    console.log(`Sending out-of-call signaling message '${event}' to channel '${channelName}'...`);
+    const channel = supabase.channel(channelName);
+    channel.subscribe((status) => {
+      if (status === 'SUBSCRIBED') {
+        channel.send({
+          type: 'broadcast',
+          event,
+          payload
+        }).then((res) => {
+          console.log(`Successfully sent broadcast '${event}' to '${channelName}':`, res);
+          // Retain reference in a timeout closure for 3 seconds to prevent garbage collection
+          setTimeout(() => {
+            channel.unsubscribe();
+            console.log(`Unsubscribed from temporary sender channel: ${channelName}`);
+          }, 3000);
+        }).catch(err => {
+          console.error(`Failed to send broadcast '${event}' to '${channelName}':`, err);
+          channel.unsubscribe();
+        });
+      }
+    });
+  }, []);
+
   const startCall = useCallback((chatId) => {
     if (!currentUser) return;
     const chat = chats.find(c => c.id === chatId);
@@ -1460,21 +1486,12 @@ export const ChatProvider = ({ children }) => {
     });
 
     if (isSupabaseConfigured && otherUserId) {
-      const inviteChannel = supabase.channel(`call-signals-${otherUserId}`);
-      inviteChannel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          inviteChannel.send({
-            type: 'broadcast',
-            event: 'incoming-call',
-            payload: {
-              callerId: currentUser.id,
-              callerName: currentUser.name || currentUser.username || 'Пользователь',
-              callerAvatar: currentUser.avatar,
-              callerAvatarColor: currentUser.avatarColor,
-              chatId
-            }
-          });
-        }
+      sendSignalingMessage(otherUserId, 'incoming-call', {
+        callerId: currentUser.id,
+        callerName: currentUser.name || currentUser.username || 'Пользователь',
+        callerAvatar: currentUser.avatar,
+        callerAvatarColor: currentUser.avatarColor,
+        chatId
       });
     } else if (!isSupabaseConfigured) {
       // Simulate answer after 3 seconds in mock mode
@@ -1491,20 +1508,11 @@ export const ChatProvider = ({ children }) => {
         });
       }, 3000);
     }
-  }, [currentUser, chats]);
+  }, [currentUser, chats, sendSignalingMessage]);
 
   const acceptCall = useCallback(() => {
     if (isSupabaseConfigured && callState.otherUserId) {
-      const acceptChannel = supabase.channel(`call-signals-${callState.otherUserId}`);
-      acceptChannel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          acceptChannel.send({
-            type: 'broadcast',
-            event: 'call-accepted',
-            payload: {}
-          });
-        }
-      });
+      sendSignalingMessage(callState.otherUserId, 'call-accepted', {});
     }
     setCallState(prev => ({
       ...prev,
@@ -1523,23 +1531,14 @@ export const ChatProvider = ({ children }) => {
         });
       }, 1500);
     }
-  }, [callState.otherUserId]);
+  }, [callState.otherUserId, sendSignalingMessage]);
 
   const rejectCall = useCallback(() => {
     if (isSupabaseConfigured && callState.otherUserId) {
-      const rejectChannel = supabase.channel(`call-signals-${callState.otherUserId}`);
-      rejectChannel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          rejectChannel.send({
-            type: 'broadcast',
-            event: 'call-rejected',
-            payload: {}
-          });
-        }
-      });
+      sendSignalingMessage(callState.otherUserId, 'call-rejected', {});
     }
     endCallLocally();
-  }, [callState.otherUserId, endCallLocally]);
+  }, [callState.otherUserId, endCallLocally, sendSignalingMessage]);
 
   const endCall = useCallback(() => {
     if (isSupabaseConfigured && callState.otherUserId) {
@@ -1550,16 +1549,7 @@ export const ChatProvider = ({ children }) => {
           payload: {}
         });
       } else {
-        const rejectChannel = supabase.channel(`call-signals-${callState.otherUserId}`);
-        rejectChannel.subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            rejectChannel.send({
-              type: 'broadcast',
-              event: 'call-rejected',
-              payload: {}
-            });
-          }
-        });
+        sendSignalingMessage(callState.otherUserId, 'call-rejected', {});
       }
     }
     endCallLocally();
