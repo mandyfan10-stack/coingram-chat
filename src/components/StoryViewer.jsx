@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
 import { X, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 
@@ -17,12 +17,27 @@ export default function StoryViewer() {
   const userStories = activeStory ? stories.filter(s => s.userId === activeStory.userId) : [];
   const activeIndexInUserStories = userStories.findIndex(s => s.id === activeStoryId);
 
+  const DURATION = 5000; // 5 seconds per story
+  const timeoutRef = useRef(null);
+  const startTimeRef = useRef(null);
+  const remainingTimeRef = useRef(DURATION);
+
+  const resetTimer = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    remainingTimeRef.current = DURATION;
+    startTimeRef.current = null;
+  };
+
   const handleClose = () => {
+    resetTimer();
     setActiveStoryId(null);
   };
 
   const handleNext = () => {
     if (activeIndexInUserStories < userStories.length - 1) {
+      resetTimer();
       setIsPaused(false);
       setActiveStoryId(userStories[activeIndexInUserStories + 1].id);
     } else {
@@ -32,10 +47,38 @@ export default function StoryViewer() {
 
   const handlePrev = () => {
     if (activeIndexInUserStories > 0) {
+      resetTimer();
       setIsPaused(false);
       setActiveStoryId(userStories[activeIndexInUserStories - 1].id);
     }
   };
+
+  // Timer Effect for automated story playback
+  useEffect(() => {
+    if (!activeStoryId) return;
+
+    if (isPaused) {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      if (startTimeRef.current) {
+        const elapsed = Date.now() - startTimeRef.current;
+        remainingTimeRef.current = Math.max(0, remainingTimeRef.current - elapsed);
+      }
+      return;
+    }
+
+    startTimeRef.current = Date.now();
+    timeoutRef.current = setTimeout(() => {
+      handleNext();
+    }, remainingTimeRef.current);
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [activeStoryId, isPaused]);
 
   // Automatically mark the current story as viewed when activeStoryId changes
   useEffect(() => {
@@ -75,10 +118,7 @@ export default function StoryViewer() {
 
             return (
               <div key={s.id} className="story-progress-track">
-                <div 
-                  className={`story-progress-fill ${statusClass}`} 
-                  onAnimationEnd={handleNext}
-                />
+                <div className={`story-progress-fill ${statusClass}`} />
               </div>
             );
           })}
@@ -95,7 +135,13 @@ export default function StoryViewer() {
               <span className="story-user-time">{activeStory.timestamp}</span>
             </div>
           </div>
-          <div className="story-header-actions" onMouseDown={(e) => e.stopPropagation()}>
+          <div 
+            className="story-header-actions" 
+            onMouseDown={(e) => e.stopPropagation()}
+            onMouseUp={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+          >
             <button className="story-icon-btn" onClick={() => setIsPaused(!isPaused)}>
               {isPaused ? <Play size={18} /> : <Pause size={18} />}
             </button>
