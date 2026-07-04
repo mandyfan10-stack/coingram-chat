@@ -12,7 +12,7 @@ create table public.profiles (
   display_name text,
   avatar text default '⚡',
   avatar_color text default 'linear-gradient(135deg, #12c2e9 0%, #c471ed 50%, #f64f59 100%)',
-  bio text default 'Создаю самый крутой Telegram клон! 🚀💻',
+  bio text default '',
   theme text default 'telegram-blue',
   wallpaper text default 'classic',
   last_seen timestamp with time zone default now()
@@ -178,7 +178,7 @@ begin
     display_name_val,
     '🪙',
     'linear-gradient(135deg, #12c2e9 0%, #c471ed 50%, #f64f59 100%)',
-    'Создаю самый крутой CoinGram! 🪙💻'
+    ''
   );
   return new;
 end;

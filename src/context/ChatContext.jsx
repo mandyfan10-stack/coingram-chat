@@ -923,7 +923,7 @@ export const ChatProvider = ({ children }) => {
         username,
         name: displayName,
         avatarColor: 'linear-gradient(135deg, #12c2e9 0%, #c471ed 50%, #f64f59 100%)',
-        bio: 'Создаю самый крутой CoinGram! 🪙💻',
+        bio: '',
         theme: 'telegram-blue',
         wallpaper: 'classic',
         avatar: '🪙'
