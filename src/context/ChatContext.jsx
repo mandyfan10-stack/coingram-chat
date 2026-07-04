@@ -169,15 +169,7 @@ export const ChatProvider = ({ children }) => {
     return localStorage.getItem('coingram-dark-mode') !== 'false';
   });
 
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.remove('theme-light');
-      localStorage.setItem('coingram-dark-mode', 'true');
-    } else {
-      document.documentElement.classList.add('theme-light');
-      localStorage.setItem('coingram-dark-mode', 'false');
-    }
-  }, [isDarkMode]);
+  // Dark mode effect merged into theme sync effect below
 
   const [settingsTab, setSettingsTab] = useState('profile');
   const [newChatModalTab, setNewChatModalTab] = useState('personal');
@@ -210,10 +202,26 @@ export const ChatProvider = ({ children }) => {
 
   const quizStateRef = useRef({});
 
-  // Sync settings with HTML tags/classes
+  // Sync theme + dark mode classes together to prevent conflicts
   useEffect(() => {
-    document.documentElement.className = `theme-${theme}`;
-  }, [theme]);
+    // 1. Manage theme-light class based on dark mode & rainbow theme
+    if (isDarkMode || theme === 'rainbow-pearl') {
+      document.documentElement.classList.remove('theme-light');
+    } else {
+      document.documentElement.classList.add('theme-light');
+    }
+    localStorage.setItem('coingram-dark-mode', isDarkMode ? 'true' : 'false');
+
+    // 2. Manage theme-* classes
+    let classes = document.documentElement.className.split(' ').filter(c => c === 'theme-light');
+    if (theme === 'rainbow-pearl') {
+      classes = [];
+    }
+
+    // Add the accent theme class
+    classes.push(`theme-${theme}`);
+    document.documentElement.className = classes.join(' ').trim();
+  }, [theme, isDarkMode]);
 
   useEffect(() => {
     document.documentElement.setAttribute('data-wallpaper', wallpaper);

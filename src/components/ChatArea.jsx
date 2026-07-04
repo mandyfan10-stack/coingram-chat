@@ -10,7 +10,10 @@ import {
   CornerUpLeft,
   Trash2,
   X,
-  ArrowDown
+  ArrowDown,
+  Play,
+  Pause,
+  Lock
 } from 'lucide-react';
 
 const SingleCheck = ({ className }) => (
@@ -304,6 +307,8 @@ export default function ChatArea() {
 
   const [recordMode, setRecordMode] = useState('voice'); // 'voice' or 'video'
   const [isRecording, setIsRecording] = useState(false);
+  const [isRecordingLocked, setIsRecordingLocked] = useState(false);
+  const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [recordDuration, setRecordDuration] = useState(0);
 
   const messagesEndRef = useRef(null);
@@ -318,7 +323,12 @@ export default function ChatArea() {
   const streamRef = useRef(null);
   const recordingTimerRef = useRef(null);
   const recordStartX = useRef(0);
+  const recordStartY = useRef(0);
   const isCancelledRef = useRef(false);
+  const isLockedRef = useRef(false);
+  const isPausedRef = useRef(false);
+  const [isLockActive, setIsLockActive] = useState(false);
+  const isLockActiveRef = useRef(false);
   const videoPreviewRef = useRef(null);
 
   const emojis = ['😀', '😂', '😍', '👍', '🔥', '🎉', '👏', '❤️', '🤔', '👀', '✨', '🚀', '💯', '😎', '🎉'];
@@ -400,22 +410,48 @@ export default function ChatArea() {
     if (!isRecording) return;
 
     const handlePointerMove = (e) => {
+      // If already committed to lock state, gestures no longer apply
+      if (isLockedRef.current) return;
+
       const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-      if (clientX === undefined) return;
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+      if (clientX === undefined || clientY === undefined) return;
 
       const diffX = recordStartX.current - clientX;
-      if (diffX > 100 && !isCancelledRef.current) {
+      const diffY = recordStartY.current - clientY;
+
+      // 1. Swipe left to cancel (only if not sliding up to lock)
+      if (diffX > 100 && diffY < 40 && !isCancelledRef.current) {
         isCancelledRef.current = true;
         stopRecordingAndSend(true);
+      }
+
+      // 2. Slide up to lock / back down to cancel lock
+      if (diffY > 80) {
+        if (!isLockActiveRef.current) {
+          isLockActiveRef.current = true;
+          setIsLockActive(true);
+        }
+      } else if (diffY < 30) {
+        if (isLockActiveRef.current) {
+          isLockActiveRef.current = false;
+          setIsLockActive(false);
+        }
       }
     };
 
     const handleGlobalPointerUp = () => {
+      if (isLockActiveRef.current) {
+        isLockedRef.current = true;
+        setIsRecordingLocked(true);
+        return;
+      }
+      if (isLockedRef.current) return;
       stopRecordingAndSend(false);
     };
 
     window.addEventListener('mousemove', handlePointerMove);
-    window.addEventListener('touchmove', handlePointerMove);
+    window.addEventListener('touchmove', handlePointerMove, { passive: true });
     window.addEventListener('mouseup', handleGlobalPointerUp);
     window.addEventListener('touchend', handleGlobalPointerUp);
 
@@ -525,8 +561,47 @@ export default function ChatArea() {
     }
   };
 
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.pause();
+      setIsRecordingPaused(true);
+      isPausedRef.current = true;
+
+      if (recordingTimerRef.current) {
+        clearInterval(recordingTimerRef.current);
+        recordingTimerRef.current = null;
+      }
+
+      if (recordMode === 'video' && videoPreviewRef.current) {
+        videoPreviewRef.current.pause();
+      }
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+      mediaRecorderRef.current.resume();
+      setIsRecordingPaused(false);
+      isPausedRef.current = false;
+
+      recordingTimerRef.current = setInterval(() => {
+        setRecordDuration(prev => prev + 1);
+      }, 1000);
+
+      if (recordMode === 'video' && videoPreviewRef.current) {
+        videoPreviewRef.current.play().catch(e => console.error("Preview resume play failed", e));
+      }
+    }
+  };
+
   const cleanupRecordingState = () => {
     setIsRecording(false);
+    setIsRecordingLocked(false);
+    setIsRecordingPaused(false);
+    isLockedRef.current = false;
+    isPausedRef.current = false;
+    setIsLockActive(false);
+    isLockActiveRef.current = false;
     setRecordDuration(0);
     if (videoPreviewRef.current) {
       videoPreviewRef.current.srcObject = null;
@@ -576,8 +651,16 @@ export default function ChatArea() {
   const handlePointerDown = (e) => {
     if (e.button && e.button !== 0) return;
     const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
     recordStartX.current = clientX;
+    recordStartY.current = clientY;
     isCancelledRef.current = false;
+    isLockedRef.current = false;
+    isPausedRef.current = false;
+    setIsRecordingLocked(false);
+    setIsRecordingPaused(false);
+    setIsLockActive(false);
+    isLockActiveRef.current = false;
 
     holdTimeoutRef.current = setTimeout(() => {
       holdTimeoutRef.current = null;
@@ -591,6 +674,12 @@ export default function ChatArea() {
       holdTimeoutRef.current = null;
       setRecordMode(prev => prev === 'voice' ? 'video' : 'voice');
     } else if (isRecording) {
+      if (isLockActiveRef.current) {
+        isLockedRef.current = true;
+        setIsRecordingLocked(true);
+        return;
+      }
+      if (isLockedRef.current) return;
       stopRecordingAndSend(false);
     }
   };
@@ -916,17 +1005,56 @@ export default function ChatArea() {
 
         <div className="input-row">
           {isRecording ? (
-            <div className="recording-panel">
-              <div className="record-dot" />
+            <div className={`recording-panel ${isRecordingLocked ? 'locked' : ''}`}>
+              <div className={`record-dot ${isRecordingPaused ? 'paused' : ''}`} />
+              {isRecordingLocked && (
+                <div className="record-locked-badge">
+                  <Lock size={13} />
+                </div>
+              )}
               <span className="record-timer">{formatDuration(recordDuration)}</span>
-              <div className="record-wave">
-                <span className="record-wave-bar" />
-                <span className="record-wave-bar" />
-                <span className="record-wave-bar" />
-                <span className="record-wave-bar" />
-                <span className="record-wave-bar" />
-              </div>
-              <span className="record-cancel-hint">← Проведите влево для отмены</span>
+              
+              {!isRecordingLocked ? (
+                <>
+                  <div className="record-wave">
+                    <span className="record-wave-bar" />
+                    <span className="record-wave-bar" />
+                    <span className="record-wave-bar" />
+                    <span className="record-wave-bar" />
+                    <span className="record-wave-bar" />
+                  </div>
+                  <span className="record-cancel-hint">← Проведите влево для отмены</span>
+                </>
+              ) : (
+                <div className="record-locked-controls">
+                  <button 
+                    type="button" 
+                    className="record-control-btn btn-trash" 
+                    onClick={() => stopRecordingAndSend(true)}
+                    title="Удалить запись"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                  
+                  <button 
+                    type="button" 
+                    className="record-control-btn btn-pause-resume" 
+                    onClick={isRecordingPaused ? resumeRecording : pauseRecording}
+                    title={isRecordingPaused ? "Продолжить запись" : "Приостановить запись"}
+                  >
+                    {isRecordingPaused ? <Play size={18} fill="currentColor" /> : <Pause size={18} fill="currentColor" />}
+                  </button>
+                  
+                  <button 
+                    type="button" 
+                    className="record-control-btn btn-send" 
+                    onClick={() => stopRecordingAndSend(false)}
+                    title="Отправить"
+                  >
+                    <Send size={18} />
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <>
@@ -1003,44 +1131,64 @@ export default function ChatArea() {
               <Send size={20} />
             </button>
           ) : (
-            <button
-              className={`send-message-btn ${isRecording ? 'recording' : ''}`}
-              onMouseDown={handlePointerDown}
-              onMouseUp={handlePointerUp}
-              onTouchStart={handlePointerDown}
-              onTouchEnd={handlePointerUp}
-              title={recordMode === 'voice' ? 'Голосовое сообщение' : 'Видеосообщение'}
-              style={{
-                backgroundColor: isRecording ? '#f64f59' : undefined,
-                color: isRecording ? 'white' : undefined,
-                transform: isRecording ? 'scale(1.2)' : undefined,
-                transition: 'all 0.2s ease-in-out',
-                touchAction: 'none'
-              }}
-            >
-              {recordMode === 'voice' ? <Mic size={20} /> : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                  <circle cx="12" cy="13" r="4"/>
-                </svg>
+            <div style={{ position: 'relative' }}>
+              {isRecording && !isRecordingLocked && (
+                <div className={`recording-lock-indicator ${isLockActive ? 'active' : ''}`}>
+                  <div className="lock-arrow-up">▲</div>
+                  <div className="lock-icon-wrapper">
+                    <Lock size={15} />
+                  </div>
+                </div>
               )}
-            </button>
+              <button
+                className={`send-message-btn ${isRecording ? 'recording' : ''}`}
+                onMouseDown={handlePointerDown}
+                onMouseUp={handlePointerUp}
+                onTouchStart={handlePointerDown}
+                onTouchEnd={handlePointerUp}
+                title={recordMode === 'voice' ? 'Голосовое сообщение' : 'Видеосообщение'}
+                style={{
+                  backgroundColor: isRecording ? '#f64f59' : undefined,
+                  color: isRecording ? 'white' : undefined,
+                  transform: isRecording ? 'scale(1.2)' : undefined,
+                  transition: 'all 0.2s ease-in-out',
+                  touchAction: 'none'
+                }}
+              >
+                {recordMode === 'voice' ? <Mic size={20} /> : (
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                    <circle cx="12" cy="13" r="4"/>
+                  </svg>
+                )}
+              </button>
+            </div>
           )}
         </div>
       </footer>
 
       {/* Video Recording Live Preview Overlay */}
       {isRecording && recordMode === 'video' && (
-        <div className="video-record-preview-overlay">
+        <div className={`video-record-preview-overlay ${isRecordingPaused ? 'paused' : ''}`}>
           <div className="video-record-circle">
             <video ref={videoPreviewRef} muted playsInline autoPlay />
+            {isRecordingPaused && (
+              <div className="video-paused-overlay">
+                <Pause size={32} />
+              </div>
+            )}
           </div>
           <div className="video-record-timer">
             {formatDuration(recordDuration)}
           </div>
           <div className="video-record-hint">
-            Запись круглого видеосообщения<br />
-            Отпустите кнопку для отправки, проведите влево для отмены
+            {isRecordingPaused ? (
+              <>Запись приостановлена<br />Нажмите кнопку воспроизведения внизу для продолжения</>
+            ) : isRecordingLocked ? (
+              <>Запись заблокирована<br />Используйте кнопки управления внизу для паузы или отправки</>
+            ) : (
+              <>Запись круглого видеосообщения<br />Отпустите кнопку для отправки, проведите влево для отмены, проведите вверх для блокировки</>
+            )}
           </div>
         </div>
       )}
