@@ -7,6 +7,7 @@ export default function CallOverlay() {
   const [pulseScale, setPulseScale] = useState(1);
   const ringRef = useRef(null);
   const timerRef = useRef(null);
+  const connectSoundPlayedRef = useRef(false);
 
   // If outgoing call, target is callState.chatId. If incoming, display caller info.
   const activeChat = chats.find(c => c.id === callState.chatId);
@@ -132,72 +133,62 @@ export default function CallOverlay() {
 
   // Manage Call States
   useEffect(() => {
-    if (callState.status === 'calling') {
-      // Start Outgoing Ringing Sound
-      ringRef.current = startRingingSound();
+    // Reset connect sound flag if not connected
+    if (callState.status !== 'connected') {
+      connectSoundPlayedRef.current = false;
+    }
 
-      // IF Mock mode (supabase not configured), trigger automatic answer after 3.5 seconds
-      const isSupabase = !!import.meta.env.VITE_SUPABASE_URL && import.meta.env.VITE_SUPABASE_ANON_KEY;
-      if (!isSupabase) {
-        const answerTimeout = setTimeout(() => {
-          if (ringRef.current) {
-            ringRef.current.stop();
-            ringRef.current = null;
-          }
-          playConnectSound();
-          setCallState(prev => ({
-            ...prev,
-            status: 'connected'
-          }));
-        }, 3500);
-
-        return () => {
-          clearTimeout(answerTimeout);
-          if (ringRef.current) {
-            ringRef.current.stop();
-            ringRef.current = null;
-          }
-        };
-      }
-    } else if (callState.status === 'incoming') {
-      // Start Incoming Ringing Sound
-      ringRef.current = startIncomingRingingSound();
-
-      return () => {
-        if (ringRef.current) {
-          ringRef.current.stop();
-          ringRef.current = null;
-        }
-      };
-    } else if (callState.status === 'connected') {
-      // Play connect tone
-      playConnectSound();
-
-      // Active call timer
-      timerRef.current = setInterval(() => {
-        setCallState(prev => ({
-          ...prev,
-          duration: prev.duration + 1
-        }));
-      }, 1000);
-
-      // Simulated voice activity scale updates for wave animation
-      const pulseInterval = setInterval(() => {
-        setPulseScale(1 + Math.random() * 0.28);
-      }, 150);
-
-      return () => {
-        clearInterval(timerRef.current);
-        clearInterval(pulseInterval);
-      };
-    } else if (callState.status === 'ended') {
+    // Stop ringing if status is no longer calling or incoming
+    if (callState.status !== 'calling' && callState.status !== 'incoming') {
       if (ringRef.current) {
         ringRef.current.stop();
         ringRef.current = null;
       }
+    }
+
+    if (callState.status === 'calling') {
+      if (!ringRef.current) {
+        ringRef.current = startRingingSound();
+      }
+    } else if (callState.status === 'incoming') {
+      if (!ringRef.current) {
+        ringRef.current = startIncomingRingingSound();
+      }
+    } else if (callState.status === 'connected') {
+      if (callState.webrtcState === 'connected') {
+        if (!connectSoundPlayedRef.current) {
+          playConnectSound();
+          connectSoundPlayedRef.current = true;
+        }
+
+        // Active call timer
+        timerRef.current = setInterval(() => {
+          setCallState(prev => ({
+            ...prev,
+            duration: prev.duration + 1
+          }));
+        }, 1000);
+
+        // Simulated voice activity scale updates for wave animation
+        const pulseInterval = setInterval(() => {
+          setPulseScale(1 + Math.random() * 0.28);
+        }, 150);
+
+        return () => {
+          clearInterval(timerRef.current);
+          clearInterval(pulseInterval);
+        };
+      } else {
+        setPulseScale(1.0);
+      }
+    } else if (callState.status === 'ended') {
       playDisconnectSound();
     }
-  }, [callState.status]);
+
+    return () => {
+      // General cleanup
+    };
+  }, [callState.status, callState.webrtcState]);
 
   if (callState.status === 'idle') return null;
 
@@ -232,7 +223,13 @@ export default function CallOverlay() {
   } else if (callState.status === 'incoming') {
     statusText = 'Входящий звонок...';
   } else if (callState.status === 'connected') {
-    statusText = formatTime(callState.duration);
+    if (callState.webrtcState === 'connected') {
+      statusText = formatTime(callState.duration);
+    } else if (callState.webrtcState === 'failed') {
+      statusText = 'Ошибка подключения';
+    } else {
+      statusText = 'Соединение...';
+    }
   } else if (callState.status === 'ended') {
     statusText = 'Звонок завершен';
   }
@@ -242,7 +239,7 @@ export default function CallOverlay() {
       <div className="call-card">
         {/* Background Visual Wave Glow Circles */}
         <div className="call-avatar-section">
-          {callState.status === 'connected' && !callState.muted && (
+          {callState.status === 'connected' && callState.webrtcState === 'connected' && !callState.muted && (
             <>
               <div className="wave-pulse wave-1" style={{ transform: `scale(${pulseScale * 1.15})`, opacity: 0.15 }} />
               <div className="wave-pulse wave-2" style={{ transform: `scale(${pulseScale * 1.35})`, opacity: 0.1 }} />

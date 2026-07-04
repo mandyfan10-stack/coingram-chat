@@ -182,7 +182,8 @@ export const ChatProvider = ({ children }) => {
     muted: false,
     isOutgoing: false,
     callerInfo: null,
-    otherUserId: null
+    otherUserId: null,
+    webrtcState: 'disconnected'
   });
 
   const localStreamRef = useRef(null);
@@ -979,7 +980,8 @@ export const ChatProvider = ({ children }) => {
           muted: false,
           isOutgoing: false,
           callerInfo: { name: callerName, avatar: callerAvatar, avatarColor: callerAvatarColor },
-          otherUserId: callerId
+          otherUserId: callerId,
+          webrtcState: 'disconnected'
         });
       })
       .on('broadcast', { event: 'call-accepted' }, () => {
@@ -998,7 +1000,7 @@ export const ChatProvider = ({ children }) => {
           return prev;
         });
         setTimeout(() => {
-          setCallState({ status: 'idle', chatId: null, duration: 0, muted: false, isOutgoing: false, callerInfo: null, otherUserId: null });
+          setCallState({ status: 'idle', chatId: null, duration: 0, muted: false, isOutgoing: false, callerInfo: null, otherUserId: null, webrtcState: 'disconnected' });
         }, 1500);
       })
       .subscribe();
@@ -1016,6 +1018,7 @@ export const ChatProvider = ({ children }) => {
     let activeCallChannel = null;
     let localStream = null;
     let pc = null;
+    const candidateQueue = [];
 
     const endCallLocally = () => {
       setCallState(prev => ({
@@ -1030,18 +1033,36 @@ export const ChatProvider = ({ children }) => {
           muted: false,
           isOutgoing: false,
           callerInfo: null,
-          otherUserId: null
+          otherUserId: null,
+          webrtcState: 'disconnected'
         });
       }, 1500);
+    };
+
+    const processCandidateQueue = async () => {
+      if (!pc) return;
+      console.log(`Processing ICE candidate queue (${candidateQueue.length} items)...`);
+      while (candidateQueue.length > 0) {
+        const candidate = candidateQueue.shift();
+        try {
+          await pc.addIceCandidate(candidate);
+          console.log("Successfully added queued ICE candidate:", candidate.candidate);
+        } catch (e) {
+          console.error("Error adding queued ICE candidate:", e);
+        }
+      }
     };
 
     const initWebRTC = async () => {
       if (callState.status !== 'connected') return;
 
+      console.log("Initializing WebRTC call...");
+
       // 1. Capture local audio stream
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         localStreamRef.current = localStream;
+        console.log("Local audio stream captured successfully.");
       } catch (err) {
         console.error("Failed to capture local audio:", err);
         alert("Не удалось получить доступ к микрофону!");
@@ -1058,85 +1079,167 @@ export const ChatProvider = ({ children }) => {
       });
       pcRef.current = pc;
 
+      // Track ICE connection state change to update webrtcState
+      pc.oniceconnectionstatechange = () => {
+        console.log("WebRTC ICE Connection State Changed:", pc.iceConnectionState);
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          setCallState(prev => ({ ...prev, webrtcState: 'connected' }));
+        } else if (pc.iceConnectionState === 'failed') {
+          setCallState(prev => ({ ...prev, webrtcState: 'failed' }));
+          console.error("WebRTC ICE connection failed.");
+        } else if (pc.iceConnectionState === 'checking') {
+          setCallState(prev => ({ ...prev, webrtcState: 'connecting' }));
+        } else if (pc.iceConnectionState === 'disconnected') {
+          setCallState(prev => ({ ...prev, webrtcState: 'connecting' }));
+        }
+      };
+
+      pc.onconnectionstatechange = () => {
+        console.log("WebRTC Connection State Changed:", pc.connectionState);
+      };
+
       // 3. ICE candidate generation
       pc.onicecandidate = (event) => {
-        if (event.candidate && activeCallChannel) {
-          activeCallChannel.send({
-            type: 'broadcast',
-            event: 'signal',
-            payload: { type: 'candidate', candidate: event.candidate }
-          });
+        if (event.candidate) {
+          console.log("Generated local ICE candidate:", event.candidate.candidate);
+          if (activeCallChannel) {
+            activeCallChannel.send({
+              type: 'broadcast',
+              event: 'signal',
+              payload: { type: 'candidate', candidate: event.candidate }
+            });
+          }
         }
       };
 
       // 4. Remote track rendering
       pc.ontrack = (event) => {
-        const remoteStream = event.streams[0];
+        console.log("Remote WebRTC track received:", event.track.kind);
+        const remoteStream = event.streams[0] || new MediaStream([event.track]);
         let audioEl = document.getElementById('webrtc-call-audio');
         if (!audioEl) {
           audioEl = document.createElement('audio');
           audioEl.id = 'webrtc-call-audio';
           audioEl.autoplay = true;
+          audioEl.playsInline = true;
           document.body.appendChild(audioEl);
         }
         audioEl.srcObject = remoteStream;
+        audioEl.play().catch(e => {
+          console.warn("Audio element autoplay failed, manual triggering:", e);
+        });
       };
 
       // 5. Add local tracks
       localStream.getTracks().forEach(track => {
+        console.log("Adding local track to peer connection:", track.kind);
         pc.addTrack(track, localStream);
       });
 
       // 6. Join WebRTC signaling channel (Supabase only)
       if (isSupabaseConfigured) {
+        console.log(`Subscribing to WebRTC signaling channel: call-signals-webrtc-${callState.chatId}`);
         activeCallChannel = supabase.channel(`call-signals-webrtc-${callState.chatId}`);
         activeCallChannelRef.current = activeCallChannel;
+
+        const sendOffer = async () => {
+          if (pc.signalingState !== 'stable') {
+            console.log(`Signaling state is not stable (${pc.signalingState}), skipping offer creation.`);
+            return;
+          }
+          if (pc.localDescription) {
+            console.log("Offer already set locally, skipping creation.");
+            return;
+          }
+          try {
+            console.log("Creating SDP Offer...");
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            console.log("Local description set (offer). Broadcasting offer...");
+            activeCallChannel.send({
+              type: 'broadcast',
+              event: 'signal',
+              payload: { type: 'offer', sdp: offer.sdp }
+            });
+          } catch (err) {
+            console.error("Error generating offer:", err);
+          }
+        };
 
         activeCallChannel
           .on('broadcast', { event: 'signal' }, async (payload) => {
             const signal = payload.payload;
-            if (signal.type === 'offer' && !callState.isOutgoing) {
+            console.log("Received WebRTC signal event:", signal.type);
+
+            if (signal.type === 'ready' && callState.isOutgoing) {
+              console.log("Peer is ready. Starting handshake offer...");
+              await sendOffer();
+            } else if (signal.type === 'offer' && !callState.isOutgoing) {
               try {
+                if (pc.signalingState !== 'stable') {
+                  console.log(`Receiver signaling state is not stable (${pc.signalingState}), skipping offer.`);
+                  return;
+                }
+                console.log("Received SDP Offer. Setting remote description...");
                 await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
+                console.log("Remote description set (offer). Creating answer...");
                 const answer = await pc.createAnswer();
                 await pc.setLocalDescription(answer);
+                console.log("Local description set (answer). Broadcasting answer...");
                 activeCallChannel.send({
                   type: 'broadcast',
                   event: 'signal',
                   payload: { type: 'answer', sdp: answer.sdp }
                 });
+                await processCandidateQueue();
               } catch (e) {
                 console.error("Error setting offer or creating answer:", e);
               }
             } else if (signal.type === 'answer' && callState.isOutgoing) {
               try {
+                if (pc.signalingState !== 'have-local-offer') {
+                  console.log(`Caller signaling state is not have-local-offer (${pc.signalingState}), skipping answer.`);
+                  return;
+                }
+                console.log("Received SDP Answer. Setting remote description...");
                 await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
+                await processCandidateQueue();
               } catch (e) {
                 console.error("Error setting remote answer:", e);
               }
             } else if (signal.type === 'candidate') {
               try {
-                await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+                const iceCandidate = new RTCIceCandidate(signal.candidate);
+                if (pc.remoteDescription && pc.remoteDescription.type) {
+                  await pc.addIceCandidate(iceCandidate);
+                  console.log("Directly added remote ICE candidate:", iceCandidate.candidate);
+                } else {
+                  candidateQueue.push(iceCandidate);
+                  console.log("Queued remote ICE candidate (remote description not set yet).");
+                }
               } catch (e) {
                 console.error("Error adding ice candidate:", e);
               }
             }
           })
           .on('broadcast', { event: 'hangup' }, () => {
+            console.log("Received hangup broadcast signal.");
             endCallLocally();
           })
           .subscribe(async (status) => {
-            if (status === 'SUBSCRIBED' && callState.isOutgoing) {
-              try {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
+            console.log("WebRTC signaling subscription status:", status);
+            if (status === 'SUBSCRIBED') {
+              if (callState.isOutgoing) {
+                // If caller is subscribed, also try sending an offer (covers case where receiver subscribed first)
+                await sendOffer();
+              } else {
+                // If receiver is subscribed, broadcast 'ready' to caller
+                console.log("Receiver is subscribed. Broadcasting 'ready' signal...");
                 activeCallChannel.send({
                   type: 'broadcast',
                   event: 'signal',
-                  payload: { type: 'offer', sdp: offer.sdp }
+                  payload: { type: 'ready' }
                 });
-              } catch (err) {
-                console.error("Error generating offer:", err);
               }
             }
           });
@@ -1146,6 +1249,7 @@ export const ChatProvider = ({ children }) => {
     initWebRTC();
 
     return () => {
+      console.log("Cleaning up WebRTC peer connection...");
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(track => track.stop());
         localStreamRef.current = null;
@@ -1329,7 +1433,8 @@ export const ChatProvider = ({ children }) => {
         muted: false,
         isOutgoing: false,
         callerInfo: null,
-        otherUserId: null
+        otherUserId: null,
+        webrtcState: 'disconnected'
       });
     }, 1500);
   }, []);
@@ -1350,7 +1455,8 @@ export const ChatProvider = ({ children }) => {
       muted: false,
       isOutgoing: true,
       otherUserId,
-      callerInfo: null
+      callerInfo: null,
+      webrtcState: 'disconnected'
     });
 
     if (isSupabaseConfigured && otherUserId) {
@@ -1370,6 +1476,20 @@ export const ChatProvider = ({ children }) => {
           });
         }
       });
+    } else if (!isSupabaseConfigured) {
+      // Simulate answer after 3 seconds in mock mode
+      setTimeout(() => {
+        setCallState(prev => {
+          if (prev.status === 'calling') {
+            return {
+              ...prev,
+              status: 'connected',
+              webrtcState: 'connected'
+            };
+          }
+          return prev;
+        });
+      }, 3000);
     }
   }, [currentUser, chats]);
 
@@ -1388,8 +1508,21 @@ export const ChatProvider = ({ children }) => {
     }
     setCallState(prev => ({
       ...prev,
-      status: 'connected'
+      status: 'connected',
+      webrtcState: isSupabaseConfigured ? 'connecting' : 'connected'
     }));
+
+    if (!isSupabaseConfigured) {
+      // Simulate connection in mock mode
+      setTimeout(() => {
+        setCallState(prev => {
+          if (prev.status === 'connected') {
+            return { ...prev, webrtcState: 'connected' };
+          }
+          return prev;
+        });
+      }, 1500);
+    }
   }, [callState.otherUserId]);
 
   const rejectCall = useCallback(() => {
