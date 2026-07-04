@@ -2383,9 +2383,36 @@ body {
   .folder-tab {
     padding: 10px 16px !important;
   }
+  
+  /* Safe Area Notch / Gesture Bar Adaptation */
   .sidebar-header {
     padding: 10px 12px !important;
+    padding-top: calc(10px + env(safe-area-inset-top, 0px)) !important;
     gap: 8px !important;
+  }
+  .chat-header {
+    padding-top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+  }
+  .chat-footer-input {
+    padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  .drawer-header {
+    padding-top: calc(24px + env(safe-area-inset-top, 0px)) !important;
+  }
+  .drawer-container {
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  }
+
+  /* Full Screen Stories Viewer for Mobile/Aspect Ratios (like 21:9) */
+  .story-viewer-overlay {
+    background-color: #000 !important;
+  }
+  .story-container {
+    width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    border-radius: 0 !important;
+    aspect-ratio: auto !important;
   }
 
   /* Active press scaling effects for touch feedback */
