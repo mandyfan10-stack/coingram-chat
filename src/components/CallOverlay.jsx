@@ -163,7 +163,7 @@ export default function CallOverlay() {
               className={`call-avatar-wrapper ${callState.status === 'calling' ? 'pulsing' : ''}`}
               style={{ background: callState.peerAvatarColor }}
             >
-              {renderAvatar(callState.peerAvatar, '👤')}
+              {renderAvatar(callState.peerAvatar, '👤', callState.peerAvatarColor)}
             </div>
           </div>
           <h3 className="call-peer-name">{callState.peerName}</h3>

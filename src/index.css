@@ -2251,6 +2251,24 @@ body {
 }
 
 /* --- Responsiveness & Collapsing Layouts --- */
+.mobile-back-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 6px;
+  margin-right: 8px;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+}
+.mobile-back-btn:hover {
+  background-color: var(--bg-active);
+  color: var(--text-primary);
+}
+
 @media (max-width: 900px) {
   .chat-info {
     position: fixed;
@@ -2262,12 +2280,24 @@ body {
   }
 }
 @media (max-width: 768px) {
+  .mobile-back-btn {
+    display: flex;
+  }
   .sidebar {
     width: 100%;
     min-width: 100%;
+    display: flex;
   }
   .chat-area {
-    display: none; /* In a full layout you'd toggle view, but we are fine for web clone demo */
+    width: 100%;
+    min-width: 100%;
+    display: flex;
+  }
+  .app-container:not(.has-active-chat) .chat-area {
+    display: none !important;
+  }
+  .app-container.has-active-chat .sidebar {
+    display: none !important;
   }
   .chat-info {
     display: none !important;
@@ -4191,7 +4221,6 @@ input:checked + .switch-slider:before {
   border-radius: 50%;
   overflow: hidden;
   position: relative;
-  border: 2px solid var(--border-color);
   background-color: black;
   box-shadow: var(--shadow-md);
   cursor: pointer;
@@ -4201,15 +4230,17 @@ input:checked + .switch-slider:before {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 50%;
 }
 
 .video-progress-ring {
   position: absolute;
-  top: -2px;
-  left: -2px;
-  width: 184px;
-  height: 184px;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
+  z-index: 2;
 }
 
 .video-progress-ring-circle {

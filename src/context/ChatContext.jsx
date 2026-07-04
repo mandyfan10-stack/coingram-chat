@@ -411,7 +411,7 @@ export const ChatProvider = ({ children }) => {
     };
   }, [currentUser]);
 
-  const renderAvatar = useCallback((avatar, fallback = '👤') => {
+  const renderAvatar = useCallback((avatar, fallback = '👤', customColor = null) => {
     const isUrl = avatar && (avatar.startsWith('http') || avatar.startsWith('data:image'));
     if (isUrl) {
       return (
@@ -451,7 +451,7 @@ export const ChatProvider = ({ children }) => {
 
     if (icon) {
       return (
-        <div className="premium-avatar-container" style={{ background: bg }}>
+        <div className="premium-avatar-container" style={{ background: customColor || bg }}>
           {icon}
         </div>
       );
@@ -459,7 +459,7 @@ export const ChatProvider = ({ children }) => {
 
     // Default: letters or emoji
     return (
-      <div className="premium-avatar-container letter-avatar" style={{ background: 'linear-gradient(135deg, #a1c4fd, #c2e9fb)' }}>
+      <div className="premium-avatar-container letter-avatar" style={{ background: customColor || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)' }}>
         <span className="avatar-text">{val}</span>
       </div>
     );
@@ -701,6 +701,7 @@ export const ChatProvider = ({ children }) => {
         userId: s.user_id,
         userName: s.profiles?.display_name || s.profiles?.username || 'Пользователь',
         userAvatar: s.profiles?.avatar || '🪙',
+        userAvatarColor: s.profiles?.avatar_color || s.profiles?.avatarColor,
         media: s.media,
         caption: s.caption,
         viewed: false,
@@ -741,6 +742,7 @@ export const ChatProvider = ({ children }) => {
         userId: currentUser.id,
         userName: currentUser.name,
         userAvatar: currentUser.avatar || '🪙',
+        userAvatarColor: currentUser.avatarColor || currentUser.avatar_color,
         media,
         caption,
         viewed: false,

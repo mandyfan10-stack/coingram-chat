@@ -151,7 +151,7 @@ export default function ChatInfo() {
             title="Сменить аватарку группы/канала"
           >
             <div className="chat-avatar info-avatar" style={{ background: activeChat.avatarColor }}>
-              {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥')}
+              {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥', activeChat.avatarColor)}
             </div>
             <div className="avatar-edit-overlay">
               <Camera size={18} />
@@ -172,7 +172,7 @@ export default function ChatInfo() {
           </div>
         ) : (
           <div className="chat-avatar info-avatar" style={{ background: activeChat.avatarColor }}>
-            {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥')}
+            {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥', activeChat.avatarColor)}
           </div>
         )}
         <h3 className="info-name">{activeChat.name}</h3>
@@ -180,7 +180,7 @@ export default function ChatInfo() {
 
         {/* Action icons */}
         <div className="info-actions">
-          {(activeChat.type === 'personal' || activeChat.type === 'bot') ? (
+          {(activeChat.type === 'personal' && activeChat.name !== 'Избранное' && activeChat.avatar !== '🔖') ? (
             <>
               <button 
                 className="info-action-btn" 
@@ -343,7 +343,7 @@ export default function ChatInfo() {
                   style={{ cursor: member.id !== 'current' && member.id !== currentUser?.id ? 'pointer' : 'default' }}
                 >
                   <div className="member-avatar">
-                    {renderAvatar(member.avatar, '👤')}
+                    {renderAvatar(member.avatar, '👤', member.avatarColor || member.avatar_color)}
                   </div>
                   <div className="member-info">
                     <span className="member-name">{member.name}</span>

@@ -191,7 +191,7 @@ export default function MainMenuDrawer() {
               onClick={() => avatarInputRef.current?.click()}
               title="Загрузить фото профиля"
             >
-              {renderAvatar(currentUser.avatar, '🪙')}
+              {renderAvatar(currentUser.avatar, '🪙', currentUser.avatarColor || currentUser.avatar_color)}
               {isUploading && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '10px' }}>
                   ...
