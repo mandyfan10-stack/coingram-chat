@@ -46,6 +46,7 @@ export default function MainMenuDrawer() {
   }, [isDrawerOpen, setIsDrawerOpen]);
 
   const [isUploading, setIsUploading] = useState(false);
+  const [isOpeningSaved, setIsOpeningSaved] = useState(false);
   const avatarInputRef = useRef(null);
 
   const handleAvatarUpload = async (e) => {
@@ -86,41 +87,61 @@ export default function MainMenuDrawer() {
   if (!isDrawerOpen || !currentUser) return null;
 
   const handleOpenSavedMessages = async () => {
-    // Find if we already have a chat with name "Избранное"
-    const existing = chats.find(c => c.name === 'Избранное' && c.type === 'personal' && c.members.length === 1);
-    if (existing) {
-      setActiveChatId(existing.id);
-      setIsDrawerOpen(false);
-    } else {
-      // Create a personal chat named "Избранное" with ourselves
+    if (isOpeningSaved) return;
+    setIsOpeningSaved(true);
+
+    try {
+      // Find if we already have a chat with name "Избранное"
+      const existing = chats.find(c => c.name === 'Избранное' && c.type === 'personal' && c.members.length === 1);
+      if (existing) {
+        setActiveChatId(existing.id);
+        setIsDrawerOpen(false);
+        setIsOpeningSaved(false);
+        return;
+      }
+
       if (isSupabaseConfigured) {
-        try {
-          const { data: newChat, error: chatErr } = await supabase
-            .from('chats')
-            .insert({
-              name: 'Избранное',
-              type: 'personal',
-              avatar: '🔖',
-              avatar_color: 'linear-gradient(135deg, #3a7bd5 0%, #3a6073 100%)',
-              created_by: currentUser.id
-            })
-            .select()
-            .single();
+        // Double check database to prevent race conditions / duplicates
+        const { data: dbExisting, error: checkErr } = await supabase
+          .from('chats')
+          .select('id')
+          .eq('name', 'Избранное')
+          .eq('type', 'personal')
+          .eq('created_by', currentUser.id)
+          .limit(1);
 
-          if (chatErr) throw chatErr;
-
-          const { error: membersErr } = await supabase
-            .from('chat_members')
-            .insert({ chat_id: newChat.id, profile_id: currentUser.id });
-
-          if (membersErr) throw membersErr;
-
+        if (dbExisting && dbExisting.length > 0) {
           if (fetchChats) await fetchChats();
-          setActiveChatId(newChat.id);
+          setActiveChatId(dbExisting[0].id);
           setIsDrawerOpen(false);
-        } catch (e) {
-          console.error("Failed to create Saved Messages chat", e);
+          setIsOpeningSaved(false);
+          return;
         }
+
+        // Create a personal chat named "Избранное" with ourselves
+        const { data: newChat, error: chatErr } = await supabase
+          .from('chats')
+          .insert({
+            name: 'Избранное',
+            type: 'personal',
+            avatar: '🔖',
+            avatar_color: 'linear-gradient(135deg, #3a7bd5 0%, #3a6073 100%)',
+            created_by: currentUser.id
+          })
+          .select()
+          .single();
+
+        if (chatErr) throw chatErr;
+
+        const { error: membersErr } = await supabase
+          .from('chat_members')
+          .insert({ chat_id: newChat.id, profile_id: currentUser.id });
+
+        if (membersErr) throw membersErr;
+
+        if (fetchChats) await fetchChats();
+        setActiveChatId(newChat.id);
+        setIsDrawerOpen(false);
       } else {
         // Mock mode
         const newChat = {
@@ -140,6 +161,10 @@ export default function MainMenuDrawer() {
         setActiveChatId(newChat.id);
         setIsDrawerOpen(false);
       }
+    } catch (e) {
+      console.error("Failed to open/create Saved Messages chat", e);
+    } finally {
+      setIsOpeningSaved(false);
     }
   };
 

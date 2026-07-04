@@ -10,7 +10,8 @@ export default function ChatInfo() {
     setActiveChatId,
     renderAvatar,
     currentUser,
-    deleteChat
+    deleteChat,
+    clearChatMessages
   } = useChat();
 
   const [activeTab, setActiveTab] = useState('media');
@@ -277,11 +278,15 @@ export default function ChatInfo() {
       {(() => {
         const isPersonal = activeChat.type === 'personal';
         const isCreator = activeChat.createdBy === currentUser?.id;
+        const isSavedMessages = activeChat.name === 'Избранное';
         
         let btnText = '';
         let confirmPrompt = '';
 
-        if (isPersonal) {
+        if (isSavedMessages) {
+          btnText = '🧹 Очистить историю';
+          confirmPrompt = 'Вы уверены, что хотите полностью очистить всю историю сообщений в Избранном? Сама папка Избранного сохранится.';
+        } else if (isPersonal) {
           btnText = '🗑️ Удалить чат';
           confirmPrompt = 'Вы уверены, что хотите полностью удалить этот чат и всю историю сообщений? Это действие необратимо.';
         } else if (isCreator) {
@@ -303,7 +308,12 @@ export default function ChatInfo() {
               className="info-delete-btn"
               onClick={async () => {
                 if (window.confirm(confirmPrompt)) {
-                  const success = await deleteChat(activeChat.id);
+                  let success = false;
+                  if (isSavedMessages) {
+                    success = await clearChatMessages(activeChat.id);
+                  } else {
+                    success = await deleteChat(activeChat.id);
+                  }
                   if (success) {
                     setIsInfoOpen(false);
                   }

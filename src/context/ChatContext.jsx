@@ -1500,6 +1500,36 @@ export const ChatProvider = ({ children }) => {
     }
   }, [currentUser, chats, activeChatId, setActiveChatId]);
 
+  const clearChatMessages = useCallback(async (chatId) => {
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('messages')
+          .delete()
+          .eq('chat_id', chatId);
+
+        if (error) throw error;
+      } catch (e) {
+        console.error("Failed to clear chat messages in Supabase:", e);
+        alert("Не удалось очистить историю: " + e.message);
+        return false;
+      }
+    }
+
+    setChats(prevChats => {
+      return prevChats.map(c => {
+        if (c.id === chatId) {
+          return {
+            ...c,
+            messages: []
+          };
+        }
+        return c;
+      });
+    });
+    return true;
+  }, []);
+
   return (
     <ChatContext.Provider value={{
       currentUser,
@@ -1550,7 +1580,8 @@ export const ChatProvider = ({ children }) => {
       typingStatuses,
       sendTypingStatus,
       markMessagesAsRead,
-      deleteChat
+      deleteChat,
+      clearChatMessages
     }}>
       {children}
     </ChatContext.Provider>
