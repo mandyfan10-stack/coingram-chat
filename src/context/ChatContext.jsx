@@ -368,6 +368,7 @@ export const ChatProvider = ({ children }) => {
           avatarColor: chat.avatar_color,
           bio: chat.bio,
           username: chat.username,
+          createdBy: chat.created_by,
           pinned: membership?.pinned || false,
           notifications: membership?.notifications ?? true,
           members: formattedMembers,
@@ -1128,6 +1129,7 @@ export const ChatProvider = ({ children }) => {
           pinned: false,
           notifications: true,
           bio: type === 'channel' ? 'Новый канал' : 'Новая группа',
+          createdBy: currentUser.id,
           members: [
             { id: 'current', name: currentUser.name, avatar: '🪙' }
           ],
