@@ -27,6 +27,17 @@ export default function Sidebar() {
 
   const [globalResults, setGlobalResults] = useState([]);
   const [globalLoading, setGlobalLoading] = useState(false);
+  const [showMyStoriesMenu, setShowMyStoriesMenu] = useState(false);
+
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setShowMyStoriesMenu(false);
+    };
+    window.addEventListener('click', handleOutsideClick);
+    return () => {
+      window.removeEventListener('click', handleOutsideClick);
+    };
+  }, []);
 
   // Debounced global username search
   useEffect(() => {
@@ -184,39 +195,95 @@ export default function Sidebar() {
 
       {/* Stories Tray */}
       <div className="stories-tray">
-        <div 
-          className="story-item current-user-story" 
-          onClick={() => {
-            const myStory = stories.find(s => s.userId === currentUser?.id);
-            if (myStory) {
-              viewStory(myStory.id);
-            } else {
-              setIsCreateStoryOpen(true);
-            }
-          }}
-        >
-          <div className="story-avatar-wrapper plus-icon">
-            <span className="story-avatar-initials" style={{ padding: 0 }}>
-              {renderAvatar(currentUser?.avatar, '🪙')}
-            </span>
-          </div>
-          <span className="story-username">Моя история</span>
-        </div>
-        
-        {stories.map(story => (
-          <div
-            key={story.id}
-            className={`story-item ${story.viewed ? 'viewed' : 'unviewed'}`}
-            onClick={() => viewStory(story.id)}
-          >
-            <div className="story-avatar-wrapper">
-              <span className="story-avatar-initials" style={{ padding: 0 }}>
-                {renderAvatar(story.userAvatar, '🪙')}
-              </span>
+        {(() => {
+          const myStoriesList = stories.filter(s => s.userId === currentUser?.id);
+          const hasMyStories = myStoriesList.length > 0;
+          const hasUnviewedMyStories = myStoriesList.some(s => !s.viewed);
+          
+          return (
+            <div 
+              className="story-item current-user-story" 
+              style={{ position: 'relative' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (hasMyStories) {
+                  setShowMyStoriesMenu(prev => !prev);
+                } else {
+                  setIsCreateStoryOpen(true);
+                }
+              }}
+            >
+              <div className={`story-avatar-wrapper ${hasMyStories ? (hasUnviewedMyStories ? 'unviewed' : 'viewed') : 'plus-icon'}`}>
+                <span className="story-avatar-initials" style={{ padding: 0 }}>
+                  {renderAvatar(currentUser?.avatar, '🪙')}
+                </span>
+              </div>
+              <span className="story-username">Моя история</span>
+
+              {showMyStoriesMenu && (
+                <div className="my-stories-dropdown" onClick={(e) => e.stopPropagation()}>
+                  <button 
+                    type="button"
+                    className="my-stories-dropdown-btn" 
+                    onClick={() => {
+                      setShowMyStoriesMenu(false);
+                      const storyToOpen = myStoriesList.find(s => !s.viewed) || myStoriesList[0];
+                      if (storyToOpen) viewStory(storyToOpen.id);
+                    }}
+                  >
+                    👁️ Посмотреть
+                  </button>
+                  <button 
+                    type="button"
+                    className="my-stories-dropdown-btn" 
+                    onClick={() => {
+                      setShowMyStoriesMenu(false);
+                      setIsCreateStoryOpen(true);
+                    }}
+                  >
+                    ➕ Добавить
+                  </button>
+                </div>
+              )}
             </div>
-            <span className="story-username">{story.userName}</span>
-          </div>
-        ))}
+          );
+        })()}
+        
+        {(() => {
+          const otherStories = stories.filter(s => s.userId !== currentUser?.id);
+          const groupedStories = [];
+          const seenUsers = new Set();
+
+          for (const story of otherStories) {
+            if (!seenUsers.has(story.userId)) {
+              seenUsers.add(story.userId);
+              const userStories = otherStories.filter(s => s.userId === story.userId);
+              const hasUnviewed = userStories.some(s => !s.viewed);
+              const storyToOpen = userStories.find(s => !s.viewed) || userStories[0];
+              
+              groupedStories.push({
+                ...story,
+                hasUnviewed,
+                storyToOpenId: storyToOpen.id
+              });
+            }
+          }
+
+          return groupedStories.map(story => (
+            <div
+              key={story.userId}
+              className={`story-item ${story.hasUnviewed ? 'unviewed' : 'viewed'}`}
+              onClick={() => viewStory(story.storyToOpenId)}
+            >
+              <div className="story-avatar-wrapper">
+                <span className="story-avatar-initials" style={{ padding: 0 }}>
+                  {renderAvatar(story.userAvatar, '🪙')}
+                </span>
+              </div>
+              <span className="story-username">{story.userName}</span>
+            </div>
+          ));
+        })()}
       </div>
 
       {/* Chat List */}

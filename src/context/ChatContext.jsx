@@ -400,7 +400,7 @@ export const ChatProvider = ({ children }) => {
       const { data, error } = await supabase
         .from('stories')
         .select('*, profiles(display_name, username, avatar, avatar_color)')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: true });
 
       if (error) throw error;
 
@@ -454,7 +454,7 @@ export const ChatProvider = ({ children }) => {
         viewed: false,
         timestamp: 'Только что'
       };
-      setStories(prev => [mockStory, ...prev]);
+      setStories(prev => [...prev, mockStory]);
       return mockStory;
     }
   }, [currentUser, fetchStories]);

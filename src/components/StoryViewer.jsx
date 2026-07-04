@@ -7,7 +7,8 @@ export default function StoryViewer() {
     stories,
     activeStoryId,
     setActiveStoryId,
-    renderAvatar
+    renderAvatar,
+    viewStory
   } = useChat();
 
   const [progress, setProgress] = useState(0);
@@ -16,8 +17,9 @@ export default function StoryViewer() {
   const startTimeRef = useRef(Date.now());
   const elapsedBeforePauseRef = useRef(0);
 
-  const activeIndex = stories.findIndex(s => s.id === activeStoryId);
-  const activeStory = stories[activeIndex];
+  const activeStory = stories.find(s => s.id === activeStoryId);
+  const userStories = activeStory ? stories.filter(s => s.userId === activeStory.userId) : [];
+  const activeIndexInUserStories = userStories.findIndex(s => s.id === activeStoryId);
 
   const DURATION = 5000; // 5 seconds per story
 
@@ -26,22 +28,22 @@ export default function StoryViewer() {
   };
 
   const handleNext = () => {
-    if (activeIndex < stories.length - 1) {
+    if (activeIndexInUserStories < userStories.length - 1) {
       setProgress(0);
       elapsedBeforePauseRef.current = 0;
       startTimeRef.current = Date.now();
-      setActiveStoryId(stories[activeIndex + 1].id);
+      setActiveStoryId(userStories[activeIndexInUserStories + 1].id);
     } else {
       handleClose();
     }
   };
 
   const handlePrev = () => {
-    if (activeIndex > 0) {
+    if (activeIndexInUserStories > 0) {
       setProgress(0);
       elapsedBeforePauseRef.current = 0;
       startTimeRef.current = Date.now();
-      setActiveStoryId(stories[activeIndex - 1].id);
+      setActiveStoryId(userStories[activeIndexInUserStories - 1].id);
     }
   };
 
@@ -79,6 +81,13 @@ export default function StoryViewer() {
     };
   }, [activeStoryId, isPaused]);
 
+  // Automatically mark the current story as viewed when activeStoryId changes
+  useEffect(() => {
+    if (activeStoryId) {
+      viewStory(activeStoryId);
+    }
+  }, [activeStoryId, viewStory]);
+
   // Pause when clicking and holding the mouse / tapping and holding on touch screen
   const handleMouseDown = () => {
     setIsPaused(true);
@@ -104,10 +113,10 @@ export default function StoryViewer() {
       >
         {/* Top Progress Bars */}
         <div className="story-progress-container">
-          {stories.map((s, idx) => {
+          {userStories.map((s, idx) => {
             let fillWidth = '0%';
-            if (idx < activeIndex) fillWidth = '100%';
-            if (idx === activeIndex) fillWidth = `${progress}%`;
+            if (idx < activeIndexInUserStories) fillWidth = '100%';
+            if (idx === activeIndexInUserStories) fillWidth = `${progress}%`;
 
             return (
               <div key={s.id} className="story-progress-track">
@@ -140,7 +149,7 @@ export default function StoryViewer() {
 
         {/* Next/Prev Navigation overlay triggers */}
         <div className="story-nav-triggers" onMouseDown={(e) => e.stopPropagation()}>
-          <button className="story-nav-btn prev" onClick={handlePrev} disabled={activeIndex === 0}>
+          <button className="story-nav-btn prev" onClick={handlePrev} disabled={activeIndexInUserStories === 0}>
             <ChevronLeft size={28} />
           </button>
           <div className="story-nav-touch-half" onClick={handlePrev} />
