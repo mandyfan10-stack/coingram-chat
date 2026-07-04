@@ -181,7 +181,7 @@ export default function ChatInfo() {
 
         {/* Action icons */}
         <div className="info-actions">
-          {activeChat.type !== 'channel' && (
+          {activeChat.type === 'personal' && activeChat.name !== 'Избранное' && (
             <button 
               className="info-action-btn" 
               title="Звонок" 
