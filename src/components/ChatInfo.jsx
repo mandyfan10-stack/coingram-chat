@@ -180,8 +180,8 @@ export default function ChatInfo() {
         <span className="info-status">{activeChat.lastSeen}</span>
 
         {/* Action icons */}
-        <div className="info-actions">
-          {activeChat.type === 'personal' && activeChat.name !== 'Избранное' && (
+        {activeChat.type === 'personal' && activeChat.name !== 'Избранное' && (
+          <div className="info-actions">
             <button 
               className="info-action-btn" 
               title="Звонок" 
@@ -189,11 +189,8 @@ export default function ChatInfo() {
             >
               <Phone size={18} />
             </button>
-          )}
-          <button className="info-action-btn" title="О контакте">
-            <AlertCircle size={18} />
-          </button>
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Bio / Meta Information */}
