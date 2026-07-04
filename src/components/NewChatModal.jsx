@@ -79,7 +79,7 @@ export default function NewChatModal() {
     }
   }, [isNewChatOpen]);
 
-  if (!isNewChatOpen || !currentUser) return null;
+  if (!currentUser) return null;
 
   const handleSelectUser = async (user) => {
     setIsNewChatOpen(false);
@@ -109,7 +109,7 @@ export default function NewChatModal() {
   };
 
   return (
-    <div className="settings-modal-overlay">
+    <div className={`settings-modal-overlay ${isNewChatOpen ? 'open' : ''}`}>
       <div className="new-chat-container">
         {/* Header */}
         <div className="settings-header">

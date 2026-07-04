@@ -127,7 +127,7 @@ export default function SettingsModal() {
     }
   }, [currentUser, isSettingsOpen]);
 
-  if (!isSettingsOpen || !currentUser) return null;
+  if (!currentUser) return null;
 
   const handleSave = () => {
     updateProfile({
@@ -197,7 +197,7 @@ export default function SettingsModal() {
   ];
 
   return (
-    <div className="settings-modal-overlay">
+    <div className={`settings-modal-overlay ${isSettingsOpen ? 'open' : ''}`}>
       <div className="settings-container">
         {/* Header */}
         <div className="settings-header">

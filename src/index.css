@@ -981,10 +981,11 @@ body {
   box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
-  animation: messageSlideIn 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  animation: messageSlideIn 0.22s cubic-bezier(0.2, 0.9, 0.2, 1.08);
+  will-change: transform, opacity;
 }
 @keyframes messageSlideIn {
-  0% { transform: translateY(10px); opacity: 0; }
+  0% { transform: translateY(15px); opacity: 0; }
   100% { transform: translateY(0); opacity: 1; }
 }
 
@@ -1428,19 +1429,23 @@ body {
 
 /* --- Right Details panel (ChatInfo) --- */
 .chat-info {
-  width: 320px;
+  width: 0;
+  min-width: 0;
+  max-width: 320px;
   background-color: var(--bg-secondary);
-  border-left: 1px solid var(--border-color);
+  border-left: 0 solid var(--border-color);
   display: flex;
   flex-direction: column;
   height: 100%;
-  animation: slideLeft 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow-y: auto;
+  overflow: hidden;
   z-index: 10;
+  transition: width 0.3s cubic-bezier(0.2, 0.9, 0.2, 1), border-left-width 0.3s ease;
+  will-change: width;
 }
-@keyframes slideLeft {
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(0); }
+
+.chat-info.open {
+  width: 320px;
+  border-left-width: 1px;
 }
 
 .info-header {
@@ -1744,12 +1749,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
-  animation: fadeIn var(--transition-fast);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease-out, visibility 0.25s;
 }
-@keyframes fadeIn {
-  0% { opacity: 0; }
-  100% { opacity: 1; }
+
+.settings-modal-overlay.open {
+  opacity: 1;
+  visibility: visible;
 }
 
 .settings-container {
@@ -1761,11 +1769,15 @@ body {
   display: flex;
   flex-direction: column;
   max-height: 85vh;
-  animation: scaleIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transform: scale(0.95);
+  opacity: 0;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease-out;
+  will-change: transform, opacity;
 }
-@keyframes scaleIn {
-  0% { transform: scale(0.9); opacity: 0; }
-  100% { transform: scale(1); opacity: 1; }
+
+.settings-modal-overlay.open .settings-container {
+  transform: scale(1);
+  opacity: 1;
 }
 
 .settings-header {
@@ -2008,7 +2020,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: fadeIn var(--transition-fast);
+  
+  /* Persistent DOM Transitions */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease-out, visibility 0.25s;
+}
+
+.story-viewer-overlay.open {
+  opacity: 1;
+  visibility: visible;
 }
 
 .story-viewer-blur-bg {
@@ -2034,6 +2055,17 @@ body {
   display: flex;
   flex-direction: column;
   user-select: none;
+  
+  /* Elastic bounce */
+  transform: scale(0.95);
+  opacity: 0;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease-out;
+  will-change: transform, opacity;
+}
+
+.story-viewer-overlay.open .story-container {
+  transform: scale(1);
+  opacity: 1;
 }
 
 .story-progress-container {
@@ -2188,6 +2220,13 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  animation: storyImageFadeIn 0.2s cubic-bezier(0.2, 0.9, 0.2, 1);
+  will-change: transform, opacity;
+}
+
+@keyframes storyImageFadeIn {
+  from { opacity: 0.7; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .story-footer {
@@ -2573,12 +2612,17 @@ body {
   flex-direction: column;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
-  animation: modalScaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  
+  /* Animatable transitions */
+  transform: scale(0.95);
+  opacity: 0;
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease-out;
+  will-change: transform, opacity;
 }
 
-@keyframes modalScaleUp {
-  from { transform: scale(0.9); opacity: 0; }
-  to { transform: scale(1); opacity: 1; }
+.settings-modal-overlay.open .new-chat-container {
+  transform: scale(1);
+  opacity: 1;
 }
 
 .new-chat-tabs {
@@ -3402,7 +3446,14 @@ html.theme-light .empty-state p {
   background-color: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(2px);
   z-index: 1000;
-  animation: fadeIn 0.2s ease-out;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.25s ease-out, visibility 0.25s;
+}
+
+.drawer-overlay.open {
+  opacity: 1;
+  visibility: visible;
 }
 
 .drawer-container {
@@ -3413,18 +3464,14 @@ html.theme-light .empty-state p {
   display: flex;
   flex-direction: column;
   box-shadow: 8px 0 32px rgba(0, 0, 0, 0.35);
-  animation: slideInLeft 0.25s cubic-bezier(0.1, 0.9, 0.2, 1);
+  transform: translateX(-100%);
+  transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.2, 1);
   position: relative;
+  will-change: transform;
 }
 
-@keyframes slideInLeft {
-  from { transform: translateX(-100%); }
-  to { transform: translateX(0); }
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.drawer-overlay.open .drawer-container {
+  transform: translateX(0);
 }
 
 .drawer-header {

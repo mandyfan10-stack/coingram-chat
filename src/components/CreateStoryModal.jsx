@@ -18,7 +18,7 @@ export default function CreateStoryModal() {
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef(null);
 
-  if (!isCreateStoryOpen) return null;
+  if (!currentUser) return null;
 
   const handleDrag = (e) => {
     e.preventDefault();
@@ -120,7 +120,7 @@ export default function CreateStoryModal() {
   };
 
   return (
-    <div className="settings-modal-overlay">
+    <div className={`settings-modal-overlay ${isCreateStoryOpen ? 'open' : ''}`}>
       <div className="new-chat-container story-create-modal">
         {/* Header */}
         <div className="settings-header">

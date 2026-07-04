@@ -24,7 +24,7 @@ export default function ChatInfo() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (!isInfoOpen || !activeChat) return null;
+  if (!activeChat) return null;
 
   // Extract files, media, and links dynamically from messages
   const mediaFiles = [];
@@ -104,7 +104,8 @@ export default function ChatInfo() {
   };
 
   return (
-    <aside className="chat-info">
+    <aside className={`chat-info ${isInfoOpen ? 'open' : ''}`}>
+      <div className="chat-info-inner" style={{ width: '320px', height: '100%', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
       {/* Top Header */}
       <div className="info-header">
         <h3>Информация</h3>
@@ -325,6 +326,7 @@ export default function ChatInfo() {
           </div>
         );
       })()}
+      </div>
     </aside>
   );
 }

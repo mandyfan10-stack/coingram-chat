@@ -12,10 +12,19 @@ export default function StoryViewer() {
   } = useChat();
 
   const [isPaused, setIsPaused] = useState(false);
+  const [lastActiveStoryId, setLastActiveStoryId] = useState(null);
+
+  useEffect(() => {
+    if (activeStoryId) {
+      setLastActiveStoryId(activeStoryId);
+    }
+  }, [activeStoryId]);
 
   const activeStory = stories.find(s => s.id === activeStoryId);
-  const userStories = activeStory ? stories.filter(s => s.userId === activeStory.userId) : [];
-  const activeIndexInUserStories = userStories.findIndex(s => s.id === activeStoryId);
+  const displayStoryId = activeStoryId || lastActiveStoryId;
+  const displayStory = stories.find(s => s.id === displayStoryId);
+  const userStories = displayStory ? stories.filter(s => s.userId === displayStory.userId) : [];
+  const activeIndexInUserStories = userStories.findIndex(s => s.id === displayStoryId);
 
   const DURATION = 5000; // 5 seconds per story
   const timeoutRef = useRef(null);
@@ -96,12 +105,12 @@ export default function StoryViewer() {
     setIsPaused(false);
   };
 
-  if (!activeStory) return null;
+  if (!displayStory) return null;
 
   return (
-    <div className="story-viewer-overlay" onMouseUp={handleMouseUp} onTouchEnd={handleMouseUp}>
+    <div className={`story-viewer-overlay ${activeStoryId ? 'open' : ''}`} onMouseUp={handleMouseUp} onTouchEnd={handleMouseUp}>
       {/* Background glass blur */}
-      <div className="story-viewer-blur-bg" style={{ backgroundImage: `url(${activeStory.media})` }} />
+      <div className="story-viewer-blur-bg" style={{ backgroundImage: `url(${displayStory.media})` }} />
 
       {/* Story Window */}
       <div
@@ -128,11 +137,11 @@ export default function StoryViewer() {
         <div className="story-header">
           <div className="story-user-info">
             <span className="story-user-avatar" style={{ padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {renderAvatar(activeStory.userAvatar, '🪙')}
+              {renderAvatar(displayStory.userAvatar, '🪙')}
             </span>
             <div className="story-user-meta">
-              <span className="story-user-name">{activeStory.userName}</span>
-              <span className="story-user-time">{activeStory.timestamp}</span>
+              <span className="story-user-name">{displayStory.userName}</span>
+              <span className="story-user-time">{displayStory.timestamp}</span>
             </div>
           </div>
           <div className="story-header-actions">
@@ -159,12 +168,12 @@ export default function StoryViewer() {
 
         {/* Story Image Content */}
         <div className="story-media-wrapper">
-          <img src={activeStory.media} alt={activeStory.caption} className="story-img" />
+          <img key={displayStoryId} src={displayStory.media} alt={displayStory.caption} className="story-img" />
         </div>
 
         {/* Story Caption */}
         <div className="story-footer">
-          <p className="story-caption">{activeStory.caption}</p>
+          <p className="story-caption">{displayStory.caption}</p>
         </div>
       </div>
     </div>

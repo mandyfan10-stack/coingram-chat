@@ -84,7 +84,7 @@ export default function MainMenuDrawer() {
     }
   };
 
-  if (!isDrawerOpen || !currentUser) return null;
+  if (!currentUser) return null;
 
   const handleOpenSavedMessages = async () => {
     if (isOpeningSaved) return;
@@ -176,9 +176,9 @@ export default function MainMenuDrawer() {
   };
 
   return (
-    <div className="drawer-overlay" onClick={() => setIsDrawerOpen(false)}>
+    <div className={`drawer-overlay ${isDrawerOpen ? 'open' : ''}`} onClick={() => setIsDrawerOpen(false)}>
       <div 
-        className="drawer-container" 
+        className={`drawer-container ${isDrawerOpen ? 'open' : ''}`} 
         onClick={(e) => e.stopPropagation()}
         ref={drawerRef}
       >
