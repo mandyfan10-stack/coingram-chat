@@ -343,7 +343,7 @@ export default function ChatArea() {
   const isLockActiveRef = useRef(false);
   const videoPreviewRef = useRef(null);
 
-  const emojis = ['😀', '😂', '😍', '👍', '🔥', '🎉', '👏', '❤️', '🤔', '👀', '✨', '🚀', '💯', '😎', '🎉'];
+  const emojis = ['😀', '😂', '😍', '👍', '🔥', '🎉', '👏', '❤️', '🤔', '👀', '✨', '🚀', '💯', '😎'];
 
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
@@ -1197,9 +1197,9 @@ export default function ChatArea() {
 
                       {pickerTab === 'emoji' ? (
                         <div className="emoji-picker-grid">
-                          {emojis.map(emo => (
+                          {emojis.map((emo, index) => (
                             <span
-                              key={emo}
+                              key={`${emo}-${index}`}
                               className="emoji-item"
                               onClick={() => handleEmojiClick(emo)}
                             >
