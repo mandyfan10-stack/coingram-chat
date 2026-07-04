@@ -553,44 +553,70 @@ export default function ChatArea() {
       recordingTimerRef.current = null;
     }
 
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      mediaRecorderRef.current.stop();
-    } else if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      } else {
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        }
+        cleanupRecordingState();
+      }
+    } catch (e) {
+      console.error("Error stopping media recorder:", e);
+      if (streamRef.current) {
+        try {
+          streamRef.current.getTracks().forEach(track => track.stop());
+        } catch (e2) {}
+      }
       cleanupRecordingState();
     }
   };
 
   const pauseRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.pause();
-      setIsRecordingPaused(true);
-      isPausedRef.current = true;
-
-      if (recordingTimerRef.current) {
-        clearInterval(recordingTimerRef.current);
-        recordingTimerRef.current = null;
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.pause();
       }
+    } catch (e) {
+      console.error("Failed to pause media recorder:", e);
+    }
 
-      if (recordMode === 'video' && videoPreviewRef.current) {
+    setIsRecordingPaused(true);
+    isPausedRef.current = true;
+
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+
+    if (recordMode === 'video' && videoPreviewRef.current) {
+      try {
         videoPreviewRef.current.pause();
-      }
+      } catch (e) {}
     }
   };
 
   const resumeRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
-      mediaRecorderRef.current.resume();
-      setIsRecordingPaused(false);
-      isPausedRef.current = false;
+    try {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'paused') {
+        mediaRecorderRef.current.resume();
+      }
+    } catch (e) {
+      console.error("Failed to resume media recorder:", e);
+    }
 
+    setIsRecordingPaused(false);
+    isPausedRef.current = false;
+
+    if (!recordingTimerRef.current) {
       recordingTimerRef.current = setInterval(() => {
         setRecordDuration(prev => prev + 1);
       }, 1000);
+    }
 
-      if (recordMode === 'video' && videoPreviewRef.current) {
-        videoPreviewRef.current.play().catch(e => console.error("Preview resume play failed", e));
-      }
+    if (recordMode === 'video' && videoPreviewRef.current) {
+      videoPreviewRef.current.play().catch(e => console.error("Preview resume play failed", e));
     }
   };
 
@@ -604,7 +630,9 @@ export default function ChatArea() {
     isLockActiveRef.current = false;
     setRecordDuration(0);
     if (videoPreviewRef.current) {
-      videoPreviewRef.current.srcObject = null;
+      try {
+        videoPreviewRef.current.srcObject = null;
+      } catch (e) {}
     }
   };
 

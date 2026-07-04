@@ -1227,7 +1227,7 @@ body {
   display: flex;
   flex-direction: column;
   position: relative;
-  z-index: 9;
+  z-index: 310; /* Put input panel above the video preview overlay (z-index 300) to keep buttons responsive */
 }
 
 /* Replying to indicator header */
@@ -4066,6 +4066,10 @@ input:checked + .switch-slider:before {
   justify-content: center;
   color: white;
   animation: fadeIn 0.2s ease-in-out;
+}
+
+.video-record-preview-overlay.paused {
+  pointer-events: none !important;
 }
 
 .video-record-preview-overlay.paused .video-record-circle {
