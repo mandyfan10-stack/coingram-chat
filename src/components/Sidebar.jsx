@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useChat } from '../context/ChatContext';
+import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, Bot, MessageSquarePlus } from 'lucide-react';
 
 export default function Sidebar() {
@@ -20,8 +21,77 @@ export default function Sidebar() {
     setIsCreateStoryOpen,
     setIsDrawerOpen,
     setNewChatModalTab,
-    renderAvatar
+    renderAvatar,
+    createChat
   } = useChat();
+
+  const [globalResults, setGlobalResults] = useState([]);
+  const [globalLoading, setGlobalLoading] = useState(false);
+
+  // Debounced global username search
+  useEffect(() => {
+    if (!currentUser || !searchQuery.trim()) {
+      setGlobalResults([]);
+      setGlobalLoading(false);
+      return;
+    }
+
+    const cleanQuery = searchQuery.trim().toLowerCase().replace('@', '');
+    if (cleanQuery.length < 3) {
+      setGlobalResults([]);
+      setGlobalLoading(false);
+      return;
+    }
+
+    setGlobalLoading(true);
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        if (isSupabaseConfigured) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('id, username, display_name, avatar, avatar_color, bio')
+            .neq('id', currentUser.id) // Exclude myself
+            .or(`username.ilike.%${cleanQuery}%,display_name.ilike.%${cleanQuery}%`)
+            .limit(5);
+
+          if (error) throw error;
+          
+          // Filter out users we already have a personal chat with
+          const existingUserIds = chats
+            .filter(c => c.type === 'personal')
+            .flatMap(c => c.members.map(m => m.id));
+          
+          const filtered = (data || []).filter(u => !existingUserIds.includes(u.id));
+          setGlobalResults(filtered);
+        } else {
+          const mockUsers = JSON.parse(localStorage.getItem('tg-mock-users') || '[]');
+          const filtered = mockUsers.filter(u => 
+            u.id !== currentUser.id && 
+            (u.username.toLowerCase().includes(cleanQuery) || (u.name && u.name.toLowerCase().includes(cleanQuery)))
+          );
+          
+          const existingUserIds = chats
+            .filter(c => c.type === 'personal')
+            .flatMap(c => c.members.map(m => m.id));
+          
+          const finalFiltered = filtered.filter(u => !existingUserIds.includes(u.id));
+          setGlobalResults(finalFiltered.slice(0, 5));
+        }
+      } catch (err) {
+        console.error("Global search failed:", err);
+      } finally {
+        setGlobalLoading(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery, currentUser, chats]);
+
+  const handleSelectGlobalUser = async (user) => {
+    setSearchQuery('');
+    setGlobalResults([]);
+    await createChat(user.username, 'personal');
+  };
 
   // Filter chats by folder and query
   const filteredChats = chats.filter(chat => {
@@ -33,10 +103,11 @@ export default function Sidebar() {
 
     // 2. Filter by Search Query
     if (searchQuery.trim() === '') return true;
-    const query = searchQuery.toLowerCase();
+    const query = searchQuery.toLowerCase().replace('@', '');
     const nameMatch = chat.name.toLowerCase().includes(query);
+    const usernameMatch = chat.username && chat.username.toLowerCase().includes(query);
     const msgMatch = chat.messages.some(m => m.text.toLowerCase().includes(query));
-    return nameMatch || msgMatch;
+    return nameMatch || usernameMatch || msgMatch;
   });
 
   // Sort chats: pinned first, then by last message timestamp
@@ -150,8 +221,14 @@ export default function Sidebar() {
 
       {/* Chat List */}
       <div className="chat-list">
+        {searchQuery.trim() !== '' && (
+          <div className="search-section-header" style={{ padding: '8px 16px 4px 16px', fontSize: '11px', fontWeight: '600', color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            Чаты и контакты
+          </div>
+        )}
+
         {sortedChats.length === 0 ? (
-          <div className="no-chats">Чат не найден</div>
+          <div className="no-chats" style={{ padding: '20px 16px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '13px' }}>Ничего не найдено</div>
         ) : (
           sortedChats.map(chat => {
             const lastMsg = chat.messages[chat.messages.length - 1];
@@ -212,6 +289,48 @@ export default function Sidebar() {
               </div>
             );
           })
+        )}
+
+        {searchQuery.trim() !== '' && (
+          <>
+            <div className="search-section-header" style={{ padding: '16px 16px 4px 16px', borderTop: '1px solid var(--border-color)', marginTop: '8px', fontSize: '11px', fontWeight: '600', color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              Глобальный поиск
+            </div>
+            
+            {globalLoading ? (
+              <div className="search-status" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '12px 16px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                <div className="spinner" style={{ width: '16px', height: '16px', border: '2px solid var(--border-color)', borderTopColor: 'var(--accent-color)', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                <span>Ищем в сети...</span>
+              </div>
+            ) : globalResults.length === 0 ? (
+              <div className="no-chats" style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontSize: '13px' }}>
+                {searchQuery.trim().replace('@', '').length < 3 ? 'Введите не менее 3 символов' : 'Пользователи не найдены'}
+              </div>
+            ) : (
+              globalResults.map(user => (
+                <div
+                  key={user.id}
+                  className="chat-item"
+                  onClick={() => handleSelectGlobalUser(user)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className="chat-avatar" style={{ background: user.avatar_color || 'var(--accent-gradient)' }}>
+                    {renderAvatar(user.avatar, '👤')}
+                  </div>
+                  <div className="chat-info-block">
+                    <div className="chat-info-header">
+                      <span className="chat-name">{user.display_name || user.username}</span>
+                    </div>
+                    <div className="chat-info-body">
+                      <p className="chat-last-message" style={{ color: 'var(--accent-color)' }}>
+                        @{user.username}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </>
         )}
       </div>
     </aside>
