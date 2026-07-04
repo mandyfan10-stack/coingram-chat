@@ -188,6 +188,7 @@ export default function CreateStoryModal() {
                     className="file-upload-input-hidden"
                     accept="image/*"
                     onChange={handleFileChange}
+                    onClick={(e) => e.stopPropagation()}
                     style={{ display: 'none' }}
                   />
                   

@@ -362,7 +362,7 @@ export const ChatProvider = ({ children }) => {
         }));
 
         const otherMember = chat.type === 'personal'
-          ? formattedMembers.find(m => m.id !== currentUser.id) || formattedMembers[0]
+          ? formattedMembers.find(m => m.id !== currentUser.id)
           : null;
 
         return {

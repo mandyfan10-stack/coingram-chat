@@ -131,6 +131,7 @@ body {
 
 /* --- Sidebar Styling --- */
 .sidebar {
+  position: relative;
   width: 380px;
   min-width: 320px;
   background-color: var(--bg-secondary);
