@@ -30,24 +30,23 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
   const [currentTime, setCurrentTime] = useState(0);
   const [maxDuration, setMaxDuration] = useState(duration || 0);
   const audioRef = useRef(null);
+  const isCalculatingRef = useRef(false);
 
   useEffect(() => {
     const audio = audioRef.current;
     if (!audio) return;
 
-    let isCalculating = false;
-
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
     const handleTimeUpdate = () => {
-      if (!isCalculating) {
+      if (!isCalculatingRef.current) {
         setCurrentTime(audio.currentTime);
       }
     };
 
     const handleDurationCompute = () => {
       if (audio.duration === Infinity) {
-        isCalculating = true;
+        isCalculatingRef.current = true;
         audio.currentTime = 1e101;
         
         const onSeeked = () => {
@@ -55,7 +54,7 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
           setMaxDuration(audio.duration);
           audio.currentTime = 0;
           setTimeout(() => {
-            isCalculating = false;
+            isCalculatingRef.current = false;
           }, 150);
         };
         audio.addEventListener('seeked', onSeeked);
@@ -146,15 +145,14 @@ function VideoMessagePlayer({ videoUrl }) {
   const [isMuted, setIsMuted] = useState(true);
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const isCalculatingRef = useRef(false);
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
 
-    let isCalculating = false;
-
     const handleTimeUpdate = () => {
-      if (!isCalculating && video.duration && video.duration !== Infinity) {
+      if (!isCalculatingRef.current && video.duration && video.duration !== Infinity) {
         setProgress((video.currentTime / video.duration) * 100);
       }
     };
@@ -168,14 +166,14 @@ function VideoMessagePlayer({ videoUrl }) {
 
     const handleDurationCompute = () => {
       if (video.duration === Infinity) {
-        isCalculating = true;
+        isCalculatingRef.current = true;
         video.currentTime = 1e101;
         
         const onSeeked = () => {
           video.removeEventListener('seeked', onSeeked);
           video.currentTime = 0;
           setTimeout(() => {
-            isCalculating = false;
+            isCalculatingRef.current = false;
           }, 150);
         };
         video.addEventListener('seeked', onSeeked);
