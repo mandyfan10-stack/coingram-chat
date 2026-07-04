@@ -152,148 +152,8 @@ const quizQuestions = [
   { q: "Что означает аббревиатура HTML?", a: "hypertext markup language" }
 ];
 
-const synthSound = {
-  outgoingRing: null,
-  incomingRing: null,
-
-  startOutgoing: () => {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      let isPlaying = true;
-
-      const playTone = () => {
-        if (!isPlaying) return;
-        const osc = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(400, audioCtx.currentTime);
-
-        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.04, audioCtx.currentTime + 0.05);
-        gainNode.gain.setValueAtTime(0.04, audioCtx.currentTime + 1.2);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1.3);
-
-        osc.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-
-        osc.start();
-        osc.stop(audioCtx.currentTime + 1.3);
-      };
-
-      playTone();
-      const interval = setInterval(playTone, 3000);
-
-      synthSound.outgoingRing = {
-        stop: () => {
-          isPlaying = false;
-          clearInterval(interval);
-          audioCtx.close();
-        }
-      };
-    } catch (e) {
-      console.warn("AudioContext outgoing failed", e);
-    }
-  },
-
-  startIncoming: () => {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      let isPlaying = true;
-
-      const playTone = () => {
-        if (!isPlaying) return;
-        const osc1 = audioCtx.createOscillator();
-        const osc2 = audioCtx.createOscillator();
-        const gainNode = audioCtx.createGain();
-
-        osc1.type = 'sine';
-        osc2.type = 'sine';
-        osc1.frequency.setValueAtTime(440, audioCtx.currentTime);
-        osc2.frequency.setValueAtTime(480, audioCtx.currentTime);
-
-        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
-        gainNode.gain.linearRampToValueAtTime(0.06, audioCtx.currentTime + 0.1);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1.8);
-
-        osc1.connect(gainNode);
-        osc2.connect(gainNode);
-        gainNode.connect(audioCtx.destination);
-
-        osc1.start();
-        osc2.start();
-        osc1.stop(audioCtx.currentTime + 1.8);
-        osc2.stop(audioCtx.currentTime + 1.8);
-      };
-
-      playTone();
-      const interval = setInterval(playTone, 2500);
-
-      synthSound.incomingRing = {
-        stop: () => {
-          isPlaying = false;
-          clearInterval(interval);
-          audioCtx.close();
-        }
-      };
-    } catch (e) {
-      console.warn("AudioContext incoming failed", e);
-    }
-  },
-
-  stopAll: () => {
-    if (synthSound.outgoingRing) {
-      synthSound.outgoingRing.stop();
-      synthSound.outgoingRing = null;
-    }
-    if (synthSound.incomingRing) {
-      synthSound.incomingRing.stop();
-      synthSound.incomingRing = null;
-    }
-  },
-
-  playEndBeep: () => {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(250, audioCtx.currentTime);
-      osc.frequency.setValueAtTime(200, audioCtx.currentTime + 0.1);
-
-      gainNode.gain.setValueAtTime(0.04, audioCtx.currentTime);
-      gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.35);
-
-      osc.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      osc.start();
-      osc.stop(audioCtx.currentTime + 0.35);
-
-      setTimeout(() => audioCtx.close(), 400);
-    } catch (e) {
-      // ignore
-    }
-  }
-};
-
 export const ChatProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
-  const [callState, setCallState] = useState({
-    status: 'idle',
-    type: 'voice',
-    chatId: null,
-    peerId: null,
-    peerName: '',
-    peerAvatar: '',
-    peerAvatarColor: '',
-    isMuted: false,
-    isVideoOff: false,
-    isSpeakerOn: true
-  });
-  
-  const localStreamRef = useRef(null);
-  const ringtoneInstanceRef = useRef(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [chats, setChats] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
@@ -315,103 +175,22 @@ export const ChatProvider = ({ children }) => {
   const [settingsTab, setSettingsTab] = useState('profile');
   const [newChatModalTab, setNewChatModalTab] = useState('personal');
 
-  useEffect(() => {
-    if (!currentUser || !isSupabaseConfigured) return;
+  const [callState, setCallState] = useState({
+    status: 'idle',
+    chatId: null,
+    duration: 0,
+    muted: false,
+    isOutgoing: false,
+    callerInfo: null,
+    otherUserId: null
+  });
 
-    const signalChannel = supabase.channel(`calls-signal-${currentUser.id}`);
+  const localStreamRef = useRef(null);
+  const pcRef = useRef(null);
+  const globalSignalingChannelRef = useRef(null);
+  const activeCallChannelRef = useRef(null);
 
-    signalChannel
-      .on('broadcast', { event: 'incoming-call' }, (payload) => {
-        const { callerId, callerName, callerAvatar, callerAvatarColor, chatId, type } = payload.payload;
-        
-        synthSound.stopAll();
-        synthSound.startIncoming();
-
-        setCallState({
-          status: 'incoming',
-          type,
-          chatId,
-          peerId: callerId,
-          peerName: callerName,
-          peerAvatar: callerAvatar,
-          peerAvatarColor: callerAvatarColor || 'linear-gradient(135deg, #74b9ff, #0984e3)',
-          isMuted: false,
-          isVideoOff: false,
-          isSpeakerOn: true
-        });
-      })
-      .on('broadcast', { event: 'call-accepted' }, () => {
-        synthSound.stopAll();
-        setCallState(prev => {
-          if (prev.status === 'calling') {
-            return { ...prev, status: 'connected' };
-          }
-          return prev;
-        });
-      })
-      .on('broadcast', { event: 'call-rejected' }, () => {
-        synthSound.stopAll();
-        synthSound.playEndBeep();
-        setCallState(prev => {
-          if (prev.status === 'calling') {
-            return { ...prev, status: 'ended' };
-          }
-          return prev;
-        });
-        setTimeout(() => {
-          setCallState({
-            status: 'idle',
-            type: 'voice',
-            chatId: null,
-            peerId: null,
-            peerName: '',
-            peerAvatar: '',
-            peerAvatarColor: '',
-            isMuted: false,
-            isVideoOff: false,
-            isSpeakerOn: true
-          });
-        }, 1500);
-      })
-      .on('broadcast', { event: 'call-ended' }, () => {
-        synthSound.stopAll();
-        synthSound.playEndBeep();
-        
-        if (localStreamRef.current) {
-          localStreamRef.current.getTracks().forEach(track => track.stop());
-          localStreamRef.current = null;
-        }
-
-        setCallState(prev => {
-          if (prev.status !== 'idle') {
-            return { ...prev, status: 'ended' };
-          }
-          return prev;
-        });
-
-        setTimeout(() => {
-          setCallState({
-            status: 'idle',
-            type: 'voice',
-            chatId: null,
-            peerId: null,
-            peerName: '',
-            peerAvatar: '',
-            peerAvatarColor: '',
-            isMuted: false,
-            isVideoOff: false,
-            isSpeakerOn: true
-          });
-        }, 1500);
-      })
-      .subscribe();
-
-    return () => {
-      signalChannel.unsubscribe();
-    };
-  }, [currentUser]);
-
-  const renderAvatar = useCallback((avatar, fallback = '👤', customColor = null) => {
+  const renderAvatar = useCallback((avatar, fallback = '👤') => {
     const isUrl = avatar && (avatar.startsWith('http') || avatar.startsWith('data:image'));
     if (isUrl) {
       return (
@@ -451,7 +230,7 @@ export const ChatProvider = ({ children }) => {
 
     if (icon) {
       return (
-        <div className="premium-avatar-container" style={{ background: customColor || bg }}>
+        <div className="premium-avatar-container" style={{ background: bg }}>
           {icon}
         </div>
       );
@@ -459,7 +238,7 @@ export const ChatProvider = ({ children }) => {
 
     // Default: letters or emoji
     return (
-      <div className="premium-avatar-container letter-avatar" style={{ background: customColor || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)' }}>
+      <div className="premium-avatar-container letter-avatar" style={{ background: 'linear-gradient(135deg, #a1c4fd, #c2e9fb)' }}>
         <span className="avatar-text">{val}</span>
       </div>
     );
@@ -701,7 +480,6 @@ export const ChatProvider = ({ children }) => {
         userId: s.user_id,
         userName: s.profiles?.display_name || s.profiles?.username || 'Пользователь',
         userAvatar: s.profiles?.avatar || '🪙',
-        userAvatarColor: s.profiles?.avatar_color || s.profiles?.avatarColor,
         media: s.media,
         caption: s.caption,
         viewed: false,
@@ -742,7 +520,6 @@ export const ChatProvider = ({ children }) => {
         userId: currentUser.id,
         userName: currentUser.name,
         userAvatar: currentUser.avatar || '🪙',
-        userAvatarColor: currentUser.avatarColor || currentUser.avatar_color,
         media,
         caption,
         viewed: false,
@@ -850,36 +627,15 @@ export const ChatProvider = ({ children }) => {
       let botResponse = '';
       
       if (botId === 'chat-3' || botId === 'echo_bot') {
-        const cleanMsg = userMsg.trim().toLowerCase();
-        if (cleanMsg === '/call') {
-          botResponse = '📞 Хорошо, давай созвонимся! Набираю тебя через пару секунд...';
-          setTimeout(() => {
-            synthSound.stopAll();
-            synthSound.startIncoming();
-            setCallState({
-              status: 'incoming',
-              type: 'video',
-              chatId: 'chat-3',
-              peerId: 'chat-3',
-              peerName: 'Echo Bot',
-              peerAvatar: '🤖',
-              peerAvatarColor: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
-              isMuted: false,
-              isVideoOff: false,
-              isSpeakerOn: true
-            });
-          }, 2000);
-        } else {
-          const funnyEndings = [
-            '🗣️... И вообще, отлично сказано!',
-            '📢 (повторено трижды в моей голове)',
-            '— мудрость дня, не так ли? 🤔',
-            '🔥 Абсолютно согласен с этим!',
-            '⚡ Бум! Слово не воробей, поймали!'
-          ];
-          const randomEnding = funnyEndings[Math.floor(Math.random() * funnyEndings.length)];
-          botResponse = `Ты сказал: "${userMsg}". \n\n${randomEnding}`;
-        }
+        const funnyEndings = [
+          '🗣️... И вообще, отлично сказано!',
+          '📢 (повторено трижды в моей голове)',
+          '— мудрость дня, не так ли? 🤔',
+          '🔥 Абсолютно согласен с этим!',
+          '⚡ Бум! Слово не воробей, поймали!'
+        ];
+        const randomEnding = funnyEndings[Math.floor(Math.random() * funnyEndings.length)];
+        botResponse = `Ты сказал: "${userMsg}". \n\n${randomEnding}`;
       } 
       else if (botId === 'chat-4' || botId === 'quiz_bot') {
         const normalized = userMsg.toLowerCase();
@@ -1200,6 +956,216 @@ export const ChatProvider = ({ children }) => {
     }
   }, [chats, currentUser]);
 
+  // Global Call Signaling Listener
+  useEffect(() => {
+    if (!isSupabaseConfigured || !currentUser) {
+      if (globalSignalingChannelRef.current) {
+        globalSignalingChannelRef.current.unsubscribe();
+        globalSignalingChannelRef.current = null;
+      }
+      return;
+    }
+
+    const signalingChannel = supabase.channel(`call-signals-${currentUser.id}`);
+    globalSignalingChannelRef.current = signalingChannel;
+
+    signalingChannel
+      .on('broadcast', { event: 'incoming-call' }, (payload) => {
+        const { callerId, callerName, callerAvatar, callerAvatarColor, chatId } = payload.payload;
+        setCallState({
+          status: 'incoming',
+          chatId,
+          duration: 0,
+          muted: false,
+          isOutgoing: false,
+          callerInfo: { name: callerName, avatar: callerAvatar, avatarColor: callerAvatarColor },
+          otherUserId: callerId
+        });
+      })
+      .on('broadcast', { event: 'call-accepted' }, () => {
+        setCallState(prev => {
+          if (prev.status === 'calling') {
+            return { ...prev, status: 'connected' };
+          }
+          return prev;
+        });
+      })
+      .on('broadcast', { event: 'call-rejected' }, () => {
+        setCallState(prev => {
+          if (prev.status === 'calling' || prev.status === 'connected') {
+            return { ...prev, status: 'ended' };
+          }
+          return prev;
+        });
+        setTimeout(() => {
+          setCallState({ status: 'idle', chatId: null, duration: 0, muted: false, isOutgoing: false, callerInfo: null, otherUserId: null });
+        }, 1500);
+      })
+      .subscribe();
+
+    return () => {
+      if (globalSignalingChannelRef.current) {
+        globalSignalingChannelRef.current.unsubscribe();
+        globalSignalingChannelRef.current = null;
+      }
+    };
+  }, [currentUser]);
+
+  // WebRTC Connection and Streaming Effect
+  useEffect(() => {
+    let activeCallChannel = null;
+    let localStream = null;
+    let pc = null;
+
+    const endCallLocally = () => {
+      setCallState(prev => ({
+        ...prev,
+        status: 'ended'
+      }));
+      setTimeout(() => {
+        setCallState({
+          status: 'idle',
+          chatId: null,
+          duration: 0,
+          muted: false,
+          isOutgoing: false,
+          callerInfo: null,
+          otherUserId: null
+        });
+      }, 1500);
+    };
+
+    const initWebRTC = async () => {
+      if (callState.status !== 'connected') return;
+
+      // 1. Capture local audio stream
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        localStreamRef.current = localStream;
+      } catch (err) {
+        console.error("Failed to capture local audio:", err);
+        alert("Не удалось получить доступ к микрофону!");
+        endCallLocally();
+        return;
+      }
+
+      // 2. Initialize RTCPeerConnection
+      pc = new RTCPeerConnection({
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      });
+      pcRef.current = pc;
+
+      // 3. ICE candidate generation
+      pc.onicecandidate = (event) => {
+        if (event.candidate && activeCallChannel) {
+          activeCallChannel.send({
+            type: 'broadcast',
+            event: 'signal',
+            payload: { type: 'candidate', candidate: event.candidate }
+          });
+        }
+      };
+
+      // 4. Remote track rendering
+      pc.ontrack = (event) => {
+        const remoteStream = event.streams[0];
+        let audioEl = document.getElementById('webrtc-call-audio');
+        if (!audioEl) {
+          audioEl = document.createElement('audio');
+          audioEl.id = 'webrtc-call-audio';
+          audioEl.autoplay = true;
+          document.body.appendChild(audioEl);
+        }
+        audioEl.srcObject = remoteStream;
+      };
+
+      // 5. Add local tracks
+      localStream.getTracks().forEach(track => {
+        pc.addTrack(track, localStream);
+      });
+
+      // 6. Join WebRTC signaling channel (Supabase only)
+      if (isSupabaseConfigured) {
+        activeCallChannel = supabase.channel(`call-signals-webrtc-${callState.chatId}`);
+        activeCallChannelRef.current = activeCallChannel;
+
+        activeCallChannel
+          .on('broadcast', { event: 'signal' }, async (payload) => {
+            const signal = payload.payload;
+            if (signal.type === 'offer' && !callState.isOutgoing) {
+              try {
+                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
+                const answer = await pc.createAnswer();
+                await pc.setLocalDescription(answer);
+                activeCallChannel.send({
+                  type: 'broadcast',
+                  event: 'signal',
+                  payload: { type: 'answer', sdp: answer.sdp }
+                });
+              } catch (e) {
+                console.error("Error setting offer or creating answer:", e);
+              }
+            } else if (signal.type === 'answer' && callState.isOutgoing) {
+              try {
+                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
+              } catch (e) {
+                console.error("Error setting remote answer:", e);
+              }
+            } else if (signal.type === 'candidate') {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(signal.candidate));
+              } catch (e) {
+                console.error("Error adding ice candidate:", e);
+              }
+            }
+          })
+          .on('broadcast', { event: 'hangup' }, () => {
+            endCallLocally();
+          })
+          .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED' && callState.isOutgoing) {
+              try {
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                activeCallChannel.send({
+                  type: 'broadcast',
+                  event: 'signal',
+                  payload: { type: 'offer', sdp: offer.sdp }
+                });
+              } catch (err) {
+                console.error("Error generating offer:", err);
+              }
+            }
+          });
+      }
+    };
+
+    initWebRTC();
+
+    return () => {
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+        localStreamRef.current = null;
+      }
+      if (pcRef.current) {
+        pcRef.current.close();
+        pcRef.current = null;
+      }
+      if (activeCallChannelRef.current) {
+        activeCallChannelRef.current.unsubscribe();
+        activeCallChannelRef.current = null;
+      }
+      const audioEl = document.getElementById('webrtc-call-audio');
+      if (audioEl) {
+        audioEl.srcObject = null;
+        audioEl.remove();
+      }
+    };
+  }, [callState.status]);
+
   const activeChat = chats.find(c => c.id === activeChatId);
 
   // Authentication Logic: Sign Up
@@ -1350,233 +1316,134 @@ export const ChatProvider = ({ children }) => {
     }));
   }, [currentUser]);
 
-  const initiateCall = useCallback(async (type = 'voice') => {
-    if (!activeChat || !currentUser) return;
-    
-    let peer = null;
-    if (activeChat.type === 'personal') {
-      peer = activeChat.members.find(m => m.id !== currentUser.id);
-    }
-    
-    if (!peer) {
-      peer = activeChat.members.find(m => m.id !== currentUser.id) || { 
-        id: 'group', 
-        name: activeChat.name, 
-        avatar: activeChat.avatar, 
-        avatarColor: activeChat.avatarColor 
-      };
-    }
+  const endCallLocally = useCallback(() => {
+    setCallState(prev => ({
+      ...prev,
+      status: 'ended'
+    }));
+    setTimeout(() => {
+      setCallState({
+        status: 'idle',
+        chatId: null,
+        duration: 0,
+        muted: false,
+        isOutgoing: false,
+        callerInfo: null,
+        otherUserId: null
+      });
+    }, 1500);
+  }, []);
+
+  const startCall = useCallback((chatId) => {
+    if (!currentUser) return;
+    const chat = chats.find(c => c.id === chatId);
+    if (!chat) return;
+
+    // Call only personal/group chats
+    const otherMember = chat.members.find(m => m.id !== currentUser.id && m.id !== 'current');
+    const otherUserId = otherMember ? otherMember.id : null;
 
     setCallState({
       status: 'calling',
-      type,
-      chatId: activeChat.id,
-      peerId: peer.id,
-      peerName: peer.name,
-      peerAvatar: peer.avatar,
-      peerAvatarColor: peer.avatarColor || peer.avatar_color || '#3a7bd5',
-      isMuted: false,
-      isVideoOff: false,
-      isSpeakerOn: true
+      chatId,
+      duration: 0,
+      muted: false,
+      isOutgoing: true,
+      otherUserId,
+      callerInfo: null
     });
 
-    synthSound.stopAll();
-    synthSound.startOutgoing();
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: type === 'video'
+    if (isSupabaseConfigured && otherUserId) {
+      const inviteChannel = supabase.channel(`call-signals-${otherUserId}`);
+      inviteChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          inviteChannel.send({
+            type: 'broadcast',
+            event: 'incoming-call',
+            payload: {
+              callerId: currentUser.id,
+              callerName: currentUser.name || currentUser.username || 'Пользователь',
+              callerAvatar: currentUser.avatar,
+              callerAvatarColor: currentUser.avatarColor,
+              chatId
+            }
+          });
+        }
       });
-      localStreamRef.current = stream;
-    } catch (err) {
-      console.warn("Failed to get media devices on calling:", err);
     }
+  }, [currentUser, chats]);
 
-    if (isSupabaseConfigured) {
-      try {
-        const receiverChannel = supabase.channel(`calls-signal-${peer.id}`);
-        receiverChannel.subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            receiverChannel.send({
-              type: 'broadcast',
-              event: 'incoming-call',
-              payload: {
-                chatId: activeChat.id,
-                callerId: currentUser.id,
-                callerName: currentUser.name,
-                callerAvatar: currentUser.avatar,
-                callerAvatarColor: currentUser.avatarColor,
-                type
-              }
-            });
-          }
-        });
-      } catch (e) {
-        console.error("Failed to broadcast call initiation:", e);
-      }
-    } else {
-      const timer = setTimeout(() => {
-        setCallState(prev => {
-          if (prev.status === 'calling') {
-            synthSound.stopAll();
-            return { ...prev, status: 'connected' };
-          }
-          return prev;
-        });
-      }, 3500);
-
-      ringtoneInstanceRef.current = timer;
-    }
-  }, [activeChat, currentUser]);
-
-  const acceptCall = useCallback(async () => {
-    synthSound.stopAll();
-
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: true,
-        video: callState.type === 'video'
+  const acceptCall = useCallback(() => {
+    if (isSupabaseConfigured && callState.otherUserId) {
+      const acceptChannel = supabase.channel(`call-signals-${callState.otherUserId}`);
+      acceptChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          acceptChannel.send({
+            type: 'broadcast',
+            event: 'call-accepted',
+            payload: {}
+          });
+        }
       });
-      localStreamRef.current = stream;
-    } catch (err) {
-      console.warn("Failed to get media devices on accept:", err);
     }
-
-    setCallState(prev => ({ ...prev, status: 'connected' }));
-
-    if (isSupabaseConfigured && callState.peerId) {
-      try {
-        const peerChannel = supabase.channel(`calls-signal-${callState.peerId}`);
-        peerChannel.subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            peerChannel.send({
-              type: 'broadcast',
-              event: 'call-accepted',
-              payload: { senderId: currentUser.id }
-            });
-          }
-        });
-      } catch (e) {
-        console.error(e);
-      }
-    }
-  }, [callState, currentUser]);
+    setCallState(prev => ({
+      ...prev,
+      status: 'connected'
+    }));
+  }, [callState.otherUserId]);
 
   const rejectCall = useCallback(() => {
-    synthSound.stopAll();
-    synthSound.playEndBeep();
-
-    if (isSupabaseConfigured && callState.peerId) {
-      try {
-        const peerChannel = supabase.channel(`calls-signal-${callState.peerId}`);
-        peerChannel.subscribe((status) => {
-          if (status === 'SUBSCRIBED') {
-            peerChannel.send({
-              type: 'broadcast',
-              event: 'call-rejected',
-              payload: { senderId: currentUser.id }
-            });
-          }
-        });
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    setCallState(prev => ({ ...prev, status: 'ended' }));
-
-    setTimeout(() => {
-      setCallState({
-        status: 'idle',
-        type: 'voice',
-        chatId: null,
-        peerId: null,
-        peerName: '',
-        peerAvatar: '',
-        peerAvatarColor: '',
-        isMuted: false,
-        isVideoOff: false,
-        isSpeakerOn: true
+    if (isSupabaseConfigured && callState.otherUserId) {
+      const rejectChannel = supabase.channel(`call-signals-${callState.otherUserId}`);
+      rejectChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          rejectChannel.send({
+            type: 'broadcast',
+            event: 'call-rejected',
+            payload: {}
+          });
+        }
       });
-    }, 1200);
-  }, [callState, currentUser]);
+    }
+    endCallLocally();
+  }, [callState.otherUserId, endCallLocally]);
 
   const endCall = useCallback(() => {
-    synthSound.stopAll();
-    synthSound.playEndBeep();
-
-    if (ringtoneInstanceRef.current) {
-      clearTimeout(ringtoneInstanceRef.current);
-      ringtoneInstanceRef.current = null;
-    }
-
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach(track => track.stop());
-      localStreamRef.current = null;
-    }
-
-    if (isSupabaseConfigured && callState.peerId) {
-      try {
-        const peerChannel = supabase.channel(`calls-signal-${callState.peerId}`);
-        peerChannel.subscribe((status) => {
+    if (isSupabaseConfigured && callState.otherUserId) {
+      if (activeCallChannelRef.current) {
+        activeCallChannelRef.current.send({
+          type: 'broadcast',
+          event: 'hangup',
+          payload: {}
+        });
+      } else {
+        const rejectChannel = supabase.channel(`call-signals-${callState.otherUserId}`);
+        rejectChannel.subscribe((status) => {
           if (status === 'SUBSCRIBED') {
-            peerChannel.send({
+            rejectChannel.send({
               type: 'broadcast',
-              event: 'call-ended',
-              payload: { senderId: currentUser.id }
+              event: 'call-rejected',
+              payload: {}
             });
           }
         });
-      } catch (e) {
-        console.error(e);
       }
     }
+    endCallLocally();
+  }, [callState.otherUserId, endCallLocally]);
 
-    setCallState(prev => {
-      if (prev.status === 'idle') return prev;
-      return { ...prev, status: 'ended' };
-    });
-
-    setTimeout(() => {
-      setCallState({
-        status: 'idle',
-        type: 'voice',
-        chatId: null,
-        peerId: null,
-        peerName: '',
-        peerAvatar: '',
-        peerAvatarColor: '',
-        isMuted: false,
-        isVideoOff: false,
-        isSpeakerOn: true
+  const toggleCallMute = useCallback(() => {
+    const nextMuted = !callState.muted;
+    setCallState(prev => ({
+      ...prev,
+      muted: nextMuted
+    }));
+    if (localStreamRef.current) {
+      localStreamRef.current.getAudioTracks().forEach(track => {
+        track.enabled = !nextMuted;
       });
-    }, 1200);
-  }, [callState, currentUser]);
-
-  const toggleMute = useCallback(() => {
-    setCallState(prev => {
-      const nextMuted = !prev.isMuted;
-      if (localStreamRef.current) {
-        localStreamRef.current.getAudioTracks().forEach(track => {
-          track.enabled = !nextMuted;
-        });
-      }
-      return { ...prev, isMuted: nextMuted };
-    });
-  }, []);
-
-  const toggleVideo = useCallback(() => {
-    setCallState(prev => {
-      const nextVideoOff = !prev.isVideoOff;
-      if (localStreamRef.current) {
-        localStreamRef.current.getVideoTracks().forEach(track => {
-          track.enabled = !nextVideoOff;
-        });
-      }
-      return { ...prev, isVideoOff: nextVideoOff };
-    });
-  }, []);
+    }
+  }, [callState.muted]);
 
   // Create Chat/Start dialog
   const createChat = useCallback(async (target, typeOrIsGroup = 'personal') => {
@@ -2198,13 +2065,12 @@ export const ChatProvider = ({ children }) => {
       deleteChat,
       clearChatMessages,
       callState,
-      initiateCall,
-      acceptCall,
-      rejectCall,
+      setCallState,
+      startCall,
       endCall,
-      toggleMute,
-      toggleVideo,
-      localStreamRef
+      toggleCallMute,
+      acceptCall,
+      rejectCall
     }}>
       {children}
     </ChatContext.Provider>

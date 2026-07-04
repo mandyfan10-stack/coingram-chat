@@ -215,7 +215,7 @@ export default function Sidebar() {
             >
               <div className={`story-avatar-wrapper ${hasMyStories ? (hasUnviewedMyStories ? 'unviewed' : 'viewed') : 'plus-icon'}`}>
                 <span className="story-avatar-initials" style={{ padding: 0 }}>
-                  {renderAvatar(currentUser?.avatar, '🪙', currentUser?.avatarColor || currentUser?.avatar_color)}
+                  {renderAvatar(currentUser?.avatar, '🪙')}
                 </span>
               </div>
               <span className="story-username">Моя история</span>
@@ -251,7 +251,7 @@ export default function Sidebar() {
             >
               <div className="story-avatar-wrapper">
                 <span className="story-avatar-initials" style={{ padding: 0 }}>
-                  {renderAvatar(story.userAvatar, '🪙', story.userAvatarColor)}
+                  {renderAvatar(story.userAvatar, '🪙')}
                 </span>
               </div>
               <span className="story-username">{story.userName}</span>
@@ -291,7 +291,7 @@ export default function Sidebar() {
               >
                 {/* Avatar */}
                 <div className="chat-avatar" style={{ background: chat.avatarColor }}>
-                  {renderAvatar(chat.avatar, '👤', chat.avatarColor)}
+                  {renderAvatar(chat.avatar, '👤')}
                   {chat.isOnline && chat.type !== 'bot' && <span className="online-badge" />}
                 </div>
 
@@ -356,7 +356,7 @@ export default function Sidebar() {
                   style={{ cursor: 'pointer' }}
                 >
                   <div className="chat-avatar" style={{ background: user.avatar_color || 'var(--accent-gradient)' }}>
-                    {renderAvatar(user.avatar, '👤', user.avatar_color || user.avatarColor)}
+                    {renderAvatar(user.avatar, '👤')}
                   </div>
                   <div className="chat-info-block">
                     <div className="chat-info-header">

@@ -12,7 +12,7 @@ import MainMenuDrawer from './components/MainMenuDrawer';
 import CallOverlay from './components/CallOverlay';
 
 function MainLayout() {
-  const { currentUser, authLoading, activeChatId } = useChat();
+  const { currentUser, authLoading } = useChat();
 
   if (authLoading) {
     return (
@@ -28,7 +28,7 @@ function MainLayout() {
   }
 
   return (
-    <div className={`app-container ${activeChatId ? 'has-active-chat' : ''}`}>
+    <div className="app-container">
       <h1 className="sr-only" style={{ display: 'none' }}>CoinGram — Премиальный Веб-Клиент</h1>
       <Sidebar />
       <ChatArea />

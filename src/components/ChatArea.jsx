@@ -13,9 +13,7 @@ import {
   ArrowDown,
   Play,
   Pause,
-  Lock,
-  Phone,
-  Video
+  Lock
 } from 'lucide-react';
 
 const SingleCheck = ({ className }) => (
@@ -288,9 +286,7 @@ export default function ChatArea() {
     typingStatuses,
     sendTypingStatus,
     wallpaper,
-    renderAvatar,
-    initiateCall,
-    setActiveChatId
+    renderAvatar
   } = useChat();
 
   const isCustomWallpaper = wallpaper && !['classic', 'sunset', 'space', 'mint', 'cyber'].includes(wallpaper);
@@ -812,18 +808,8 @@ export default function ChatArea() {
       {/* Header */}
       <header className="chat-header" onClick={() => setIsInfoOpen(!isInfoOpen)}>
         <div className="chat-header-info">
-          <button 
-            className="mobile-back-btn" 
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveChatId(null);
-            }}
-            title="Назад"
-          >
-            <ArrowLeft size={20} />
-          </button>
           <div className="chat-avatar header-avatar" style={{ background: activeChat.avatarColor }}>
-            {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥', activeChat.avatarColor)}
+            {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥')}
           </div>
           <div className="chat-header-meta">
             <h4 className="chat-header-name">{activeChat.name}</h4>
@@ -833,24 +819,6 @@ export default function ChatArea() {
           </div>
         </div>
         <div className="chat-header-actions" onClick={(e) => e.stopPropagation()}>
-          {activeChat.type === 'personal' && activeChat.name !== 'Избранное' && activeChat.avatar !== '🔖' && (
-            <>
-              <button 
-                className="chat-header-btn" 
-                onClick={() => initiateCall('voice')} 
-                title="Аудиозвонок"
-              >
-                <Phone size={18} />
-              </button>
-              <button 
-                className="chat-header-btn" 
-                onClick={() => initiateCall('video')} 
-                title="Видеозвонок"
-              >
-                <Video size={18} />
-              </button>
-            </>
-          )}
           <button className="chat-header-btn" onClick={() => setIsInfoOpen(!isInfoOpen)} title="Информация">
             <MoreVertical size={20} />
           </button>

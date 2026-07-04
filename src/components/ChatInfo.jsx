@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
-import { X, Phone, Video, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut, Camera } from 'lucide-react';
+import { X, Phone, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut, Camera } from 'lucide-react';
 
 export default function ChatInfo() {
   const {
@@ -12,7 +12,8 @@ export default function ChatInfo() {
     currentUser,
     deleteChat,
     clearChatMessages,
-    updateChatAvatar
+    updateChatAvatar,
+    startCall
   } = useChat();
 
   const [activeTab, setActiveTab] = useState('media');
@@ -151,7 +152,7 @@ export default function ChatInfo() {
             title="Сменить аватарку группы/канала"
           >
             <div className="chat-avatar info-avatar" style={{ background: activeChat.avatarColor }}>
-              {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥', activeChat.avatarColor)}
+              {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥')}
             </div>
             <div className="avatar-edit-overlay">
               <Camera size={18} />
@@ -172,7 +173,7 @@ export default function ChatInfo() {
           </div>
         ) : (
           <div className="chat-avatar info-avatar" style={{ background: activeChat.avatarColor }}>
-            {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥', activeChat.avatarColor)}
+            {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥')}
           </div>
         )}
         <h3 className="info-name">{activeChat.name}</h3>
@@ -180,24 +181,15 @@ export default function ChatInfo() {
 
         {/* Action icons */}
         <div className="info-actions">
-          {(activeChat.type === 'personal' && activeChat.name !== 'Избранное' && activeChat.avatar !== '🔖') ? (
-            <>
-              <button 
-                className="info-action-btn" 
-                onClick={() => initiateCall('voice')} 
-                title="Звонок"
-              >
-                <Phone size={18} />
-              </button>
-              <button 
-                className="info-action-btn" 
-                onClick={() => initiateCall('video')} 
-                title="Видеозвонок"
-              >
-                <Video size={18} />
-              </button>
-            </>
-          ) : null}
+          {activeChat.type !== 'channel' && (
+            <button 
+              className="info-action-btn" 
+              title="Звонок" 
+              onClick={() => startCall(activeChat.id)}
+            >
+              <Phone size={18} />
+            </button>
+          )}
           <button className="info-action-btn" title="О контакте">
             <AlertCircle size={18} />
           </button>
@@ -343,7 +335,7 @@ export default function ChatInfo() {
                   style={{ cursor: member.id !== 'current' && member.id !== currentUser?.id ? 'pointer' : 'default' }}
                 >
                   <div className="member-avatar">
-                    {renderAvatar(member.avatar, '👤', member.avatarColor || member.avatar_color)}
+                    {renderAvatar(member.avatar, '👤')}
                   </div>
                   <div className="member-info">
                     <span className="member-name">{member.name}</span>

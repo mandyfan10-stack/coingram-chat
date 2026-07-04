@@ -237,7 +237,7 @@ export default function SettingsModal() {
                   onClick={() => avatarInputRef.current?.click()}
                   title="Загрузить новое фото"
                 >
-                  {renderAvatar(currentUser.avatar, '🪙', currentUser.avatarColor || currentUser.avatar_color)}
+                  {renderAvatar(currentUser.avatar, '🪙')}
                   <div className="avatar-upload-overlay" style={{ display: 'flex' }}>
                     <Upload size={18} />
                   </div>
