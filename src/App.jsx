@@ -9,6 +9,7 @@ import AuthScreen from './components/AuthScreen';
 import NewChatModal from './components/NewChatModal';
 import CreateStoryModal from './components/CreateStoryModal';
 import MainMenuDrawer from './components/MainMenuDrawer';
+import CallOverlay from './components/CallOverlay';
 
 function MainLayout() {
   const { currentUser, authLoading } = useChat();
@@ -37,6 +38,7 @@ function MainLayout() {
       <NewChatModal />
       <CreateStoryModal />
       <MainMenuDrawer />
+      <CallOverlay />
     </div>
   );
 }

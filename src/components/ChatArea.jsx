@@ -13,7 +13,9 @@ import {
   ArrowDown,
   Play,
   Pause,
-  Lock
+  Lock,
+  Phone,
+  Video
 } from 'lucide-react';
 
 const SingleCheck = ({ className }) => (
@@ -286,7 +288,8 @@ export default function ChatArea() {
     typingStatuses,
     sendTypingStatus,
     wallpaper,
-    renderAvatar
+    renderAvatar,
+    initiateCall
   } = useChat();
 
   const isCustomWallpaper = wallpaper && !['classic', 'sunset', 'space', 'mint', 'cyber'].includes(wallpaper);
@@ -819,6 +822,24 @@ export default function ChatArea() {
           </div>
         </div>
         <div className="chat-header-actions" onClick={(e) => e.stopPropagation()}>
+          {(activeChat.type === 'personal' || activeChat.type === 'bot') && (
+            <>
+              <button 
+                className="chat-header-btn" 
+                onClick={() => initiateCall('voice')} 
+                title="Аудиозвонок"
+              >
+                <Phone size={18} />
+              </button>
+              <button 
+                className="chat-header-btn" 
+                onClick={() => initiateCall('video')} 
+                title="Видеозвонок"
+              >
+                <Video size={18} />
+              </button>
+            </>
+          )}
           <button className="chat-header-btn" onClick={() => setIsInfoOpen(!isInfoOpen)} title="Информация">
             <MoreVertical size={20} />
           </button>

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
-import { X, Phone, Video, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut } from 'lucide-react';
+import { X, Phone, Video, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut, Camera } from 'lucide-react';
 
 export default function ChatInfo() {
   const {
@@ -11,11 +11,39 @@ export default function ChatInfo() {
     renderAvatar,
     currentUser,
     deleteChat,
-    clearChatMessages
+    clearChatMessages,
+    updateChatAvatar
   } = useChat();
 
   const [activeTab, setActiveTab] = useState('media');
   const [copied, setCopied] = useState(false);
+  const fileInputRef = useRef(null);
+  const [isUploading, setIsUploading] = useState(false);
+
+  const isOwner = activeChat && currentUser && (
+    activeChat.createdBy === currentUser.id ||
+    (activeChat.createdBy === 'current' && currentUser) ||
+    (activeChat.createdBy && activeChat.createdBy === currentUser.id)
+  );
+
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64data = reader.result;
+        await updateChatAvatar(activeChat.id, base64data);
+        setIsUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error(err);
+      setIsUploading(false);
+    }
+  };
 
   const handleCopyShareLink = () => {
     const inviteLink = `${window.location.origin}/?invite=${activeChat.username}`;
@@ -116,20 +144,60 @@ export default function ChatInfo() {
 
       {/* Main Profile Info */}
       <div className="info-profile-section">
-        <div className="chat-avatar info-avatar" style={{ background: activeChat.avatarColor }}>
-          {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥')}
-        </div>
+        {isOwner && (activeChat.type === 'group' || activeChat.type === 'channel') ? (
+          <div 
+            className="info-avatar-wrapper"
+            onClick={() => fileInputRef.current?.click()}
+            title="Сменить аватарку группы/канала"
+          >
+            <div className="chat-avatar info-avatar" style={{ background: activeChat.avatarColor }}>
+              {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥')}
+            </div>
+            <div className="avatar-edit-overlay">
+              <Camera size={18} />
+              <span>Сменить фото</span>
+            </div>
+            {isUploading && (
+              <div className="avatar-upload-loading">
+                <span>...</span>
+              </div>
+            )}
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              accept="image/*" 
+              style={{ display: 'none' }} 
+              onChange={handleAvatarChange}
+            />
+          </div>
+        ) : (
+          <div className="chat-avatar info-avatar" style={{ background: activeChat.avatarColor }}>
+            {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥')}
+          </div>
+        )}
         <h3 className="info-name">{activeChat.name}</h3>
         <span className="info-status">{activeChat.lastSeen}</span>
 
         {/* Action icons */}
         <div className="info-actions">
-          <button className="info-action-btn" title="Звонок">
-            <Phone size={18} />
-          </button>
-          <button className="info-action-btn" title="Видеозвонок">
-            <Video size={18} />
-          </button>
+          {(activeChat.type === 'personal' || activeChat.type === 'bot') ? (
+            <>
+              <button 
+                className="info-action-btn" 
+                onClick={() => initiateCall('voice')} 
+                title="Звонок"
+              >
+                <Phone size={18} />
+              </button>
+              <button 
+                className="info-action-btn" 
+                onClick={() => initiateCall('video')} 
+                title="Видеозвонок"
+              >
+                <Video size={18} />
+              </button>
+            </>
+          ) : null}
           <button className="info-action-btn" title="О контакте">
             <AlertCircle size={18} />
           </button>
@@ -193,12 +261,12 @@ export default function ChatInfo() {
         >
           Ссылки
         </button>
-        {activeChat.type === 'group' && (
+        {(activeChat.type === 'group' || (activeChat.type === 'channel' && activeChat.createdBy === currentUser?.id)) && (
           <button
             className={`info-tab ${activeTab === 'members' ? 'active' : ''}`}
             onClick={() => setActiveTab('members')}
           >
-            Люди
+            {activeChat.type === 'channel' ? 'Подписчики' : 'Люди'}
           </button>
         )}
       </div>
@@ -251,26 +319,39 @@ export default function ChatInfo() {
           </div>
         )}
 
-        {activeTab === 'members' && activeChat.type === 'group' && (
+        {activeTab === 'members' && (activeChat.type === 'group' || (activeChat.type === 'channel' && activeChat.createdBy === currentUser?.id)) && (
           <div className="members-list">
-            {activeChat.members.map(member => (
-              <div
-                key={member.id}
-                className="member-row-item"
-                onClick={() => handleMemberClick(member.id)}
-                style={{ cursor: member.id !== 'current' ? 'pointer' : 'default' }}
-              >
-                <div className="member-avatar">
-                  {renderAvatar(member.avatar, '👤')}
+            {activeChat.members && activeChat.members.map(member => {
+              const isMemberOwner = member.id === activeChat.createdBy || 
+                                    (member.id === 'current' && activeChat.createdBy === currentUser?.id) ||
+                                    (member.id === currentUser?.id && activeChat.createdBy === 'current');
+              
+              const isMe = member.id === 'current' || member.id === currentUser?.id;
+              
+              let roleLabel = activeChat.type === 'channel' ? 'Подписчик' : 'Участник';
+              if (isMemberOwner) {
+                roleLabel = isMe ? 'Владелец (Вы)' : 'Владелец';
+              } else if (isMe) {
+                roleLabel = 'Вы';
+              }
+
+              return (
+                <div
+                  key={member.id}
+                  className="member-row-item"
+                  onClick={() => handleMemberClick(member.id)}
+                  style={{ cursor: member.id !== 'current' && member.id !== currentUser?.id ? 'pointer' : 'default' }}
+                >
+                  <div className="member-avatar">
+                    {renderAvatar(member.avatar, '👤')}
+                  </div>
+                  <div className="member-info">
+                    <span className="member-name">{member.name}</span>
+                    <span className="member-role">{roleLabel}</span>
+                  </div>
                 </div>
-                <div className="member-info">
-                  <span className="member-name">{member.name}</span>
-                  <span className="member-role">
-                    {member.id === 'bob' ? 'Владелец' : member.id === 'current' ? 'Вы' : 'Участник'}
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
