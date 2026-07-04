@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useChat } from '../context/ChatContext';
-import { X, Phone, Video, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy } from 'lucide-react';
+import { X, Phone, Video, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut } from 'lucide-react';
 
 export default function ChatInfo() {
   const {
@@ -281,22 +281,27 @@ export default function ChatInfo() {
         const isCreator = activeChat.createdBy === currentUser?.id;
         const isSavedMessages = activeChat.name === 'Избранное';
         
-        let btnText = '';
+        let buttonIcon = null;
+        let buttonLabel = '';
         let confirmPrompt = '';
 
         if (isSavedMessages) {
-          btnText = '🧹 Очистить историю';
+          buttonLabel = 'Очистить историю';
+          buttonIcon = <Trash2 size={18} />;
           confirmPrompt = 'Вы уверены, что хотите полностью очистить всю историю сообщений в Избранном? Сама папка Избранного сохранится.';
         } else if (isPersonal) {
-          btnText = '🗑️ Удалить чат';
+          buttonLabel = 'Удалить чат';
+          buttonIcon = <Trash2 size={18} />;
           confirmPrompt = 'Вы уверены, что хотите полностью удалить этот чат и всю историю сообщений? Это действие необратимо.';
         } else if (isCreator) {
-          btnText = activeChat.type === 'channel' ? '🗑️ Удалить канал' : '🗑️ Удалить группу';
+          buttonLabel = activeChat.type === 'channel' ? 'Удалить канал' : 'Удалить группу';
+          buttonIcon = <Trash2 size={18} />;
           confirmPrompt = activeChat.type === 'channel' 
             ? 'Вы уверены, что хотите удалить этот канал для всех участников? Вся история будет очищена.'
             : 'Вы уверены, что хотите удалить эту группу для всех участников? Вся история будет очищена.';
         } else {
-          btnText = activeChat.type === 'channel' ? '🚪 Покинуть канал' : '🚪 Выйти из группы';
+          buttonLabel = activeChat.type === 'channel' ? 'Покинуть канал' : 'Выйти из группы';
+          buttonIcon = <LogOut size={18} />;
           confirmPrompt = activeChat.type === 'channel'
             ? 'Вы уверены, что хотите покинуть этот канал?'
             : 'Вы уверены, что хотите выйти из этой группы?';
@@ -306,7 +311,7 @@ export default function ChatInfo() {
           <div className="info-delete-section">
             <button 
               type="button"
-              className="info-delete-btn"
+              className="info-delete-row"
               onClick={async () => {
                 if (window.confirm(confirmPrompt)) {
                   let success = false;
@@ -321,7 +326,8 @@ export default function ChatInfo() {
                 }
               }}
             >
-              {btnText}
+              <span className="delete-row-icon">{buttonIcon}</span>
+              <span className="delete-row-text">{buttonLabel}</span>
             </button>
           </div>
         );
