@@ -90,6 +90,20 @@ function UpdateModal({ show, releaseInfo, onClose }) {
   );
 }
 
+const isNewerVersion = (latest, current) => {
+  const parse = (v) => v.split('.').map(Number);
+  const latestParts = parse(latest);
+  const currentParts = parse(current);
+  
+  for (let i = 0; i < Math.max(latestParts.length, currentParts.length); i++) {
+    const l = latestParts[i] || 0;
+    const c = currentParts[i] || 0;
+    if (l > c) return true;
+    if (l < c) return false;
+  }
+  return false;
+};
+
 function MainLayout() {
   const { currentUser, authLoading, activeChatId } = useChat();
   const [showUpdate, setShowUpdate] = useState(false);
@@ -106,7 +120,7 @@ function MainLayout() {
         const tagName = data.tag_name;
         const cleanTagName = tagName.replace(/^v/, '');
 
-        if (cleanTagName !== CURRENT_VERSION) {
+        if (isNewerVersion(cleanTagName, CURRENT_VERSION)) {
           let downloadUrl = data.html_url;
           if (data.assets && data.assets.length > 0) {
             const isAndroid = /Android/i.test(navigator.userAgent) || window.Capacitor;
