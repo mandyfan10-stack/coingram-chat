@@ -2454,17 +2454,17 @@ body {
   /* Safe Area Notch / Gesture Bar Adaptation */
   .sidebar-header {
     padding: 10px 12px !important;
-    padding-top: calc(10px + env(safe-area-inset-top, 0px)) !important;
+    padding-top: calc(10px + env(safe-area-inset-top, 24px)) !important;
     gap: 8px !important;
   }
   .chat-header {
-    padding-top: calc(12px + env(safe-area-inset-top, 0px)) !important;
+    padding-top: calc(12px + env(safe-area-inset-top, 24px)) !important;
   }
   .chat-footer-input {
     padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px)) !important;
   }
   .drawer-header {
-    padding-top: calc(24px + env(safe-area-inset-top, 0px)) !important;
+    padding-top: calc(24px + env(safe-area-inset-top, 24px)) !important;
   }
   .drawer-container {
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
@@ -2483,6 +2483,29 @@ body {
     max-height: 100% !important;
     border-radius: 0 !important;
     aspect-ratio: auto !important;
+  }
+  .story-progress-container {
+    top: calc(10px + env(safe-area-inset-top, 24px)) !important;
+  }
+  .story-header {
+    top: calc(18px + env(safe-area-inset-top, 24px)) !important;
+  }
+  .story-media-wrapper {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    min-height: 0 !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: black;
+  }
+  .story-img {
+    max-width: 100% !important;
+    max-height: 100% !important;
+    width: auto !important;
+    height: auto !important;
+    object-fit: contain !important;
   }
 
   /* Active press scaling effects for touch feedback */
@@ -4369,6 +4392,8 @@ input:checked + .switch-slider:before {
   padding: 6px 4px;
   background-color: transparent;
   width: 230px;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .voice-play-btn {
@@ -4394,6 +4419,7 @@ input:checked + .switch-slider:before {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .voice-seek-bar {
