@@ -15,13 +15,15 @@ export default function ChatInfo() {
     updateChatAvatar,
     updateChatSettings,
     startCall,
-    addMemberToChat
+    addMemberToChat,
+    toggleMemberRole
   } = useChat();
 
   const [activeTab, setActiveTab] = useState('media');
   const [copied, setCopied] = useState(false);
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [activeActionMemberId, setActiveActionMemberId] = useState(null);
 
   const [newMemberUsername, setNewMemberUsername] = useState('');
   const [addingMember, setAddingMember] = useState(false);
@@ -151,12 +153,15 @@ export default function ChatInfo() {
     );
   }
 
-  const handleMemberClick = (memberId) => {
-    if (memberId === 'current') return;
-    // Toggle active chat if a corresponding personal chat exists
-    // For simplicity, we can look up Alice in our chat list:
-    if (memberId === 'alice') {
-      setActiveChatId('chat-1'); // Alice's personal chat
+  const handleMemberClick = (member) => {
+    const isMemberMe = member.id === 'current' || member.id === currentUser?.id;
+    if (isOwner && !isMemberMe) {
+      setActiveActionMemberId(prev => prev === member.id ? null : member.id);
+    } else {
+      if (member.id === 'current') return;
+      if (member.id === 'alice') {
+        setActiveChatId('chat-1'); // Alice's personal chat
+      }
     }
   };
 
@@ -370,19 +375,25 @@ export default function ChatInfo() {
               
               const isMe = member.id === 'current' || member.id === currentUser?.id;
               
-              let roleLabel = activeChat.type === 'channel' ? 'Подписчик' : 'Участник';
+              let roleLabel = '';
               if (isMemberOwner) {
                 roleLabel = isMe ? 'Владелец (Вы)' : 'Владелец';
+              } else if (member.role === 'admin') {
+                roleLabel = isMe ? 'Администратор (Вы)' : 'Администратор';
               } else if (isMe) {
                 roleLabel = 'Вы';
+              } else {
+                roleLabel = activeChat.type === 'channel' ? 'Подписчик' : 'Участник';
               }
+
+              const showMenu = activeActionMemberId === member.id;
 
               return (
                 <div
                   key={member.id}
                   className="member-row-item"
-                  onClick={() => handleMemberClick(member.id)}
-                  style={{ cursor: member.id !== 'current' && member.id !== currentUser?.id ? 'pointer' : 'default' }}
+                  onClick={(e) => handleMemberClick(member)}
+                  style={{ cursor: isOwner && !isMe ? 'pointer' : (member.id !== 'current' && member.id !== currentUser?.id ? 'pointer' : 'default') }}
                 >
                   <div className="member-avatar">
                     {renderAvatar(member.avatar, '👤')}
@@ -391,6 +402,22 @@ export default function ChatInfo() {
                     <span className="member-name">{member.name}</span>
                     <span className="member-role">{roleLabel}</span>
                   </div>
+
+                  {showMenu && (
+                    <div className="member-role-dropdown" onClick={(e) => e.stopPropagation()}>
+                      <button 
+                        type="button" 
+                        className="member-dropdown-item"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          setActiveActionMemberId(null);
+                          await toggleMemberRole(activeChat.id, member.id, member.role);
+                        }}
+                      >
+                        {member.role === 'admin' ? 'Снять права' : 'Сделать админом'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })}

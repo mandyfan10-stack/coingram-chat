@@ -17,7 +17,8 @@ export default function CallOverlay() {
     remoteVideoStream,
     toggleCallVideo,
     isScreenSharing,
-    toggleCallScreenShare
+    toggleCallScreenShare,
+    groupCallParticipants
   } = useChat();
 
   const [pulseScale, setPulseScale] = useState(1);
@@ -32,6 +33,7 @@ export default function CallOverlay() {
   const [cardPos, setCardPos] = useState(null);
   const [isMinimized, setIsMinimized] = useState(false);
   const [bubblePos, setBubblePos] = useState({ x: window.innerWidth - 80, y: window.innerHeight - 120 });
+  const [cardSize, setCardSize] = useState({ width: 320, height: 440 });
 
   // Drag position offset for floating preview window
   const [dragPos, setDragPos] = useState({ x: 318, y: 12 });
@@ -46,8 +48,65 @@ export default function CallOverlay() {
   const cardDragStart = useRef({ x: 0, y: 0 });
   const cardElementStart = useRef({ x: 0, y: 0 });
 
+  // Resizing logic for the main call card
+  const isResizing = useRef(false);
+  const resizeStart = useRef({ x: 0, y: 0 });
+  const sizeStart = useRef({ width: 0, height: 0 });
+
+  const handleResizeMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isResizing.current = true;
+    resizeStart.current = { x: e.clientX, y: e.clientY };
+    sizeStart.current = { ...cardSize };
+    document.addEventListener('mousemove', handleResizeMouseMove);
+    document.addEventListener('mouseup', handleResizeMouseUp);
+  };
+
+  const handleResizeMouseMove = (e) => {
+    if (!isResizing.current) return;
+    const dx = e.clientX - resizeStart.current.x;
+    const dy = e.clientY - resizeStart.current.y;
+    const newWidth = Math.max(320, Math.min(window.innerWidth - (cardPos?.x || 0) - 12, sizeStart.current.width + dx));
+    const newHeight = Math.max(400, Math.min(window.innerHeight - (cardPos?.y || 0) - 12, sizeStart.current.height + dy));
+    setCardSize({ width: newWidth, height: newHeight });
+  };
+
+  const handleResizeMouseUp = () => {
+    isResizing.current = false;
+    document.removeEventListener('mousemove', handleResizeMouseMove);
+    document.removeEventListener('mouseup', handleResizeMouseUp);
+  };
+
+  const handleResizeTouchStart = (e) => {
+    e.stopPropagation();
+    isResizing.current = true;
+    const touch = e.touches[0];
+    resizeStart.current = { x: touch.clientX, y: touch.clientY };
+    sizeStart.current = { ...cardSize };
+    document.addEventListener('touchmove', handleResizeTouchMove, { passive: false });
+    document.addEventListener('touchend', handleResizeTouchEnd);
+  };
+
+  const handleResizeTouchMove = (e) => {
+    if (!isResizing.current) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const dx = touch.clientX - resizeStart.current.x;
+    const dy = touch.clientY - resizeStart.current.y;
+    const newWidth = Math.max(320, Math.min(window.innerWidth - (cardPos?.x || 0) - 12, sizeStart.current.width + dx));
+    const newHeight = Math.max(400, Math.min(window.innerHeight - (cardPos?.y || 0) - 12, sizeStart.current.height + dy));
+    setCardSize({ width: newWidth, height: newHeight });
+  };
+
+  const handleResizeTouchEnd = () => {
+    isResizing.current = false;
+    document.removeEventListener('touchmove', handleResizeTouchMove);
+    document.removeEventListener('touchend', handleResizeTouchEnd);
+  };
+
   const handleCardMouseDown = (e) => {
-    if (e.target.closest('button') || e.target.closest('video') || e.target.closest('.local-video-preview')) return;
+    if (e.target.closest('button') || e.target.closest('.local-video-preview') || e.target.closest('.call-resize-handle')) return;
     e.preventDefault();
     isDraggingCard.current = true;
     cardDragStart.current = { x: e.clientX, y: e.clientY };
@@ -62,8 +121,8 @@ export default function CallOverlay() {
     const dy = e.clientY - cardDragStart.current.y;
     let newX = cardElementStart.current.x + dx;
     let newY = cardElementStart.current.y + dy;
-    const maxX = window.innerWidth - 320 - 12;
-    const maxY = window.innerHeight - 440 - 12;
+    const maxX = window.innerWidth - cardSize.width - 12;
+    const maxY = window.innerHeight - cardSize.height - 12;
     newX = Math.max(12, Math.min(newX, maxX));
     newY = Math.max(12, Math.min(newY, maxY));
     setCardPos({ x: newX, y: newY });
@@ -76,7 +135,7 @@ export default function CallOverlay() {
   };
 
   const handleCardTouchStart = (e) => {
-    if (e.target.closest('button') || e.target.closest('video') || e.target.closest('.local-video-preview')) return;
+    if (e.target.closest('button') || e.target.closest('.local-video-preview') || e.target.closest('.call-resize-handle')) return;
     isDraggingCard.current = true;
     const touch = e.touches[0];
     cardDragStart.current = { x: touch.clientX, y: touch.clientY };
@@ -93,8 +152,8 @@ export default function CallOverlay() {
     const dy = touch.clientY - cardDragStart.current.y;
     let newX = cardElementStart.current.x + dx;
     let newY = cardElementStart.current.y + dy;
-    const maxX = window.innerWidth - 320 - 12;
-    const maxY = window.innerHeight - 440 - 12;
+    const maxX = window.innerWidth - cardSize.width - 12;
+    const maxY = window.innerHeight - cardSize.height - 12;
     newX = Math.max(12, Math.min(newX, maxX));
     newY = Math.max(12, Math.min(newY, maxY));
     setCardPos({ x: newX, y: newY });
@@ -216,8 +275,8 @@ export default function CallOverlay() {
       });
       if (cardPos) {
         setCardPos(prev => {
-          const maxX = window.innerWidth - 320 - 12;
-          const maxY = window.innerHeight - 440 - 12;
+          const maxX = window.innerWidth - cardSize.width - 12;
+          const maxY = window.innerHeight - cardSize.height - 12;
           return {
             x: Math.max(12, Math.min(prev.x, maxX)),
             y: Math.max(12, Math.min(prev.y, maxY))
@@ -227,7 +286,7 @@ export default function CallOverlay() {
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [cardPos]);
+  }, [cardPos, cardSize]);
 
   // If outgoing call, target is callState.chatId. If incoming, display caller info.
   const activeChat = chats.find(c => c.id === callState.chatId);
@@ -575,12 +634,17 @@ export default function CallOverlay() {
   }
 
   const isIncoming = callState.status === 'incoming';
-  const cardStyle = cardPos ? {
-    position: 'absolute',
-    left: `${cardPos.x}px`,
-    top: `${cardPos.y}px`,
-    margin: 0
-  } : {};
+  const cardStyle = {
+    ...(cardPos ? {
+      position: 'absolute',
+      left: `${cardPos.x}px`,
+      top: `${cardPos.y}px`,
+      margin: 0
+    } : {}),
+    width: `${cardSize.width}px`,
+    height: `${cardSize.height}px`,
+    transition: (isDraggingCard.current || isResizing.current) ? 'none' : 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.3s ease, height 0.3s ease'
+  };
 
   return (
     <div className={`call-overlay-wrapper ${callState.status !== 'idle' ? 'active' : ''} ${!isIncoming ? 'non-blocking' : ''}`}>
@@ -634,23 +698,51 @@ export default function CallOverlay() {
           </div>
         )}
 
-        {/* Background Visual Wave Glow Circles */}
-        <div className={`call-avatar-section ${!showBackgroundAvatar ? 'fade-out' : ''}`}>
-          {callState.status === 'connected' && callState.webrtcState === 'connected' && !callState.muted && (
-            <>
-              <div className="wave-pulse wave-1" style={{ transform: `scale(${pulseScale * 1.15})`, opacity: 0.15 }} />
-              <div className="wave-pulse wave-2" style={{ transform: `scale(${pulseScale * 1.35})`, opacity: 0.1 }} />
-              <div className="wave-pulse wave-3" style={{ transform: `scale(${pulseScale * 1.55})`, opacity: 0.05 }} />
-            </>
-          )}
-          <div className="call-avatar-circle" style={{ background: avatarColor }}>
-            {renderAvatar(avatarContent, '👤')}
+        {activeChat && activeChat.type === 'group' ? (
+          <div className="group-call-container">
+            <h2 className="call-user-name" style={{ marginBottom: '8px' }}>Голосовой чат: {displayName}</h2>
+            <p className="call-status-subtitle" style={{ marginBottom: '16px' }}>{statusText}</p>
+            
+            <div className="group-call-grid">
+              {(groupCallParticipants || []).map(p => (
+                <div key={p.id} className="group-call-member">
+                  <div 
+                    className={`group-call-avatar-wrapper ${p.speaking ? 'speaking' : ''}`}
+                    style={{ background: p.avatarColor || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)' }}
+                  >
+                    {renderAvatar(p.avatar, '👤')}
+                    {p.muted && (
+                      <div className="group-call-mute-badge" title="Микрофон выключен">
+                        <MicOff size={10} style={{ color: 'white' }} />
+                      </div>
+                    )}
+                  </div>
+                  <span className="group-call-member-name">{p.name}</span>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        ) : (
+          <>
+            {/* Background Visual Wave Glow Circles */}
+            <div className={`call-avatar-section ${!showBackgroundAvatar ? 'fade-out' : ''}`}>
+              {callState.status === 'connected' && callState.webrtcState === 'connected' && !callState.muted && (
+                <>
+                  <div className="wave-pulse wave-1" style={{ transform: `scale(${pulseScale * 1.15})`, opacity: 0.15 }} />
+                  <div className="wave-pulse wave-2" style={{ transform: `scale(${pulseScale * 1.35})`, opacity: 0.1 }} />
+                  <div className="wave-pulse wave-3" style={{ transform: `scale(${pulseScale * 1.55})`, opacity: 0.05 }} />
+                </>
+              )}
+              <div className="call-avatar-circle" style={{ background: avatarColor }}>
+                {renderAvatar(avatarContent, '👤')}
+              </div>
+            </div>
 
-        {/* User Info Header */}
-        <h2 className="call-user-name">{displayName}</h2>
-        <p className="call-status-subtitle">{statusText}</p>
+            {/* User Info Header */}
+            <h2 className="call-user-name">{displayName}</h2>
+            <p className="call-status-subtitle">{statusText}</p>
+          </>
+        )}
 
         {/* Call Controls Panel */}
         <div className="call-controls">
@@ -719,6 +811,16 @@ export default function CallOverlay() {
             </>
           )}
         </div>
+
+        {/* Resize Handle */}
+        {!isIncoming && (
+          <div 
+            className="call-resize-handle"
+            onMouseDown={handleResizeMouseDown}
+            onTouchStart={handleResizeTouchStart}
+            title="Растянуть окно"
+          />
+        )}
       </div>
     </div>
   );

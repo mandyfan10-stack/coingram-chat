@@ -30,6 +30,9 @@ export default function StoryViewer() {
   const timeoutRef = useRef(null);
   const startTimeRef = useRef(null);
   const remainingTimeRef = useRef(DURATION);
+  const touchStartXRef = useRef(0);
+  const touchStartYRef = useRef(0);
+  const touchStartTimeRef = useRef(0);
 
   const resetTimer = () => {
     if (timeoutRef.current) {
@@ -97,18 +100,49 @@ export default function StoryViewer() {
   }, [activeStoryId, viewStory]);
 
   // Pause when clicking and holding the mouse / tapping and holding on touch screen
-  const handleMouseDown = () => {
+  const handleMouseDown = (e) => {
     setIsPaused(true);
+    const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] && e.touches[0].clientX);
+    const clientY = e.clientY !== undefined ? e.clientY : (e.touches && e.touches[0] && e.touches[0].clientY);
+    touchStartXRef.current = clientX || 0;
+    touchStartYRef.current = clientY || 0;
+    touchStartTimeRef.current = Date.now();
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e) => {
     setIsPaused(false);
+    if (touchStartXRef.current === 0) return;
+    
+    const clientX = e.clientX !== undefined ? e.clientX : (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientX);
+    const clientY = e.clientY !== undefined ? e.clientY : (e.changedTouches && e.changedTouches[0] && e.changedTouches[0].clientY);
+    
+    if (clientX !== undefined && clientY !== undefined) {
+      const dx = clientX - touchStartXRef.current;
+      const dy = clientY - touchStartYRef.current;
+      
+      touchStartXRef.current = 0; // reset
+      
+      if (Math.abs(dx) > 50 && Math.abs(dy) < 80) {
+        // Swipe detected!
+        if (dx > 0) {
+          handlePrev();
+        } else {
+          handleNext();
+        }
+      }
+    }
   };
 
   if (!displayStory) return null;
 
   return (
-    <div className={`story-viewer-overlay ${activeStoryId ? 'open' : ''}`} onMouseUp={handleMouseUp} onTouchEnd={handleMouseUp}>
+    <div 
+      className={`story-viewer-overlay ${activeStoryId ? 'open' : ''}`} 
+      onMouseUp={handleMouseUp} 
+      onTouchEnd={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onTouchCancel={handleMouseUp}
+    >
       {/* Background glass blur */}
       <div className="story-viewer-blur-bg" style={{ backgroundImage: `url(${displayStory.media})` }} />
 
@@ -168,7 +202,14 @@ export default function StoryViewer() {
 
         {/* Story Image Content */}
         <div className="story-media-wrapper">
-          <img key={displayStoryId} src={displayStory.media} alt={displayStory.caption} className="story-img" />
+          <img 
+            key={displayStoryId} 
+            src={displayStory.media} 
+            alt={displayStory.caption} 
+            className="story-img" 
+            draggable="false" 
+            onDragStart={(e) => e.preventDefault()} 
+          />
         </div>
 
         {/* Story Caption */}

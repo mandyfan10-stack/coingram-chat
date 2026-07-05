@@ -237,6 +237,9 @@ export const ChatProvider = ({ children }) => {
     webrtcState: 'disconnected'
   });
 
+  const [groupCallParticipants, setGroupCallParticipants] = useState([]);
+  const groupCallTimersRef = useRef([]);
+
   const [localVideoStream, setLocalVideoStream] = useState(null);
   const [remoteVideoStream, setRemoteVideoStream] = useState(null);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
@@ -476,7 +479,7 @@ export const ChatProvider = ({ children }) => {
         // Fetch chat members profile details
         const { data: membersRaw } = await supabase
           .from('chat_members')
-          .select('profile_id, profiles(display_name, username, avatar, avatar_color, bio)')
+          .select('profile_id, role, profiles(display_name, username, avatar, avatar_color, bio)')
           .eq('chat_id', chat.id);
 
         // Fetch messages for this chat
@@ -494,7 +497,8 @@ export const ChatProvider = ({ children }) => {
           username: m.profiles?.username || '',
           avatar: m.profiles?.avatar || '👤',
           avatarColor: m.profiles?.avatar_color || '#ccc',
-          bio: m.profiles?.bio || ''
+          bio: m.profiles?.bio || '',
+          role: m.role || 'member'
         }));
 
         const otherMember = chat.type === 'personal'
@@ -1758,11 +1762,52 @@ export const ChatProvider = ({ children }) => {
     return true;
   }, [currentUser]);
 
+  const toggleMemberRole = useCallback(async (chatId, profileId, currentRole) => {
+    if (!currentUser || !chatId || !profileId) return false;
+    const targetRole = currentRole === 'admin' ? 'member' : 'admin';
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('chat_members')
+          .update({ role: targetRole })
+          .eq('chat_id', chatId)
+          .eq('profile_id', profileId);
+
+        if (error) throw error;
+      } catch (e) {
+        console.error("Failed to update member role in Supabase:", e);
+        alert("Не удалось изменить роль: " + e.message);
+        return false;
+      }
+    }
+
+    setChats(prev => prev.map(c => {
+      if (c.id === chatId) {
+        return {
+          ...c,
+          members: c.members.map(m => m.id === profileId ? { ...m, role: targetRole } : m)
+        };
+      }
+      return c;
+    }));
+    return true;
+  }, [currentUser]);
+
   const endCallLocally = useCallback(() => {
     setCallState(prev => ({
       ...prev,
       status: 'ended'
     }));
+    if (groupCallTimersRef.current) {
+      groupCallTimersRef.current.forEach(t => {
+        clearTimeout(t);
+        clearInterval(t);
+      });
+      groupCallTimersRef.current = [];
+    }
+    setGroupCallParticipants([]);
+
     setTimeout(() => {
       setCallState({
         status: 'idle',
@@ -1812,16 +1857,70 @@ export const ChatProvider = ({ children }) => {
     const otherMember = chat.members.find(m => m.id !== currentUser.id && m.id !== 'current');
     const otherUserId = chat.type === 'personal' ? (otherMember ? otherMember.id : null) : null;
 
+    const isGroup = chat.type === 'group';
+
     setCallState({
-      status: 'calling',
+      status: isGroup ? 'connected' : 'calling',
       chatId,
       duration: 0,
       muted: false,
       isOutgoing: true,
       otherUserId,
       callerInfo: null,
-      webrtcState: 'disconnected'
+      webrtcState: isGroup ? 'connected' : 'disconnected'
     });
+
+    if (isGroup) {
+      setGroupCallParticipants([
+        {
+          id: currentUser.id || 'current',
+          name: currentUser.name || 'Вы',
+          avatar: currentUser.avatar || '🪙',
+          avatarColor: currentUser.avatarColor,
+          muted: false,
+          videoStream: null,
+          speaking: false
+        }
+      ]);
+
+      // Start simulation of group members joining
+      const timers = [];
+      const mockMembers = chat.members.filter(m => m.id !== 'current' && m.id !== currentUser.id);
+
+      mockMembers.forEach((member, index) => {
+        const joinTimer = setTimeout(() => {
+          setGroupCallParticipants(prev => {
+            if (prev.some(p => p.id === member.id)) return prev;
+            return [...prev, {
+              id: member.id,
+              name: member.name,
+              avatar: member.avatar,
+              avatarColor: member.avatarColor || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)',
+              muted: Math.random() > 0.7,
+              videoStream: null,
+              speaking: false
+            }];
+          });
+        }, (index + 1) * 1500);
+        timers.push(joinTimer);
+      });
+
+      const speakInterval = setInterval(() => {
+        setGroupCallParticipants(prev => {
+          if (prev.length <= 1) return prev;
+          const randomIndex = Math.floor(Math.random() * prev.length);
+          return prev.map((p, idx) => {
+            if (idx === randomIndex && !p.muted) {
+              return { ...p, speaking: true };
+            }
+            return { ...p, speaking: false };
+          });
+        });
+      }, 2000);
+      timers.push(speakInterval);
+
+      groupCallTimersRef.current = timers;
+    }
 
     if (isSupabaseConfigured) {
       if (chat.type === 'personal') {
@@ -1849,7 +1948,7 @@ export const ChatProvider = ({ children }) => {
           }
         });
       }
-    } else if (!isSupabaseConfigured) {
+    } else if (!isSupabaseConfigured && !isGroup) {
       // Simulate answer after 3 seconds in mock mode
       setTimeout(() => {
         setCallState(prev => {
@@ -3026,7 +3125,10 @@ export const ChatProvider = ({ children }) => {
       toggleCallScreenShare,
       installedStickers,
       importStickerPack,
-      addMemberToChat
+      addMemberToChat,
+      toggleMemberRole,
+      groupCallParticipants,
+      setGroupCallParticipants
     }}>
       {children}
     </ChatContext.Provider>
