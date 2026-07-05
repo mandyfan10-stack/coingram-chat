@@ -167,7 +167,7 @@ export default function ChatInfo() {
 
   return (
     <aside className={`chat-info ${isInfoOpen ? 'open' : ''}`}>
-      <div className="chat-info-inner" style={{ width: '320px', height: '100%', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
+      <div className="chat-info-inner">
       {/* Top Header */}
       <div className="info-header">
         <h3>Информация</h3>

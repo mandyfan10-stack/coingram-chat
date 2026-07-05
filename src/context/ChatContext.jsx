@@ -202,6 +202,53 @@ const quizQuestions = [
   { q: "Что означает аббревиатура HTML?", a: "hypertext markup language" }
 ];
 
+const startAudioAnalyzer = (stream, onVolume) => {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+    const audioCtx = new AudioContextClass();
+    const source = audioCtx.createMediaStreamSource(stream);
+    const analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    source.connect(analyser);
+    
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+    
+    let isStopped = false;
+    const checkVolume = () => {
+      if (isStopped) return;
+      analyser.getByteFrequencyData(dataArray);
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        sum += dataArray[i];
+      }
+      const average = sum / bufferLength;
+      const isSpeaking = average > 5;
+      onVolume(isSpeaking);
+      
+      setTimeout(() => {
+        if (!isStopped) requestAnimationFrame(checkVolume);
+      }, 50);
+    };
+    checkVolume();
+    
+    return {
+      stop: () => {
+        isStopped = true;
+        try {
+          source.disconnect();
+          analyser.disconnect();
+          audioCtx.close();
+        } catch (e) {}
+      }
+    };
+  } catch (e) {
+    console.warn("Failed to create audio analyzer:", e);
+    return null;
+  }
+};
+
 export const ChatProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -235,13 +282,16 @@ export const ChatProvider = ({ children }) => {
     callerInfo: null,
     otherUserId: null,
     webrtcState: 'disconnected',
-    isRemoteScreenSharing: false
+    isRemoteScreenSharing: false,
+    isLocalSpeaking: false,
+    isRemoteSpeaking: false
   });
 
   const [groupCallParticipants, setGroupCallParticipants] = useState([]);
   const groupCallTimersRef = useRef([]);
   const pcsRef = useRef({});
   const candidateQueuesRef = useRef({});
+  const audioAnalyzersRef = useRef({});
 
   const [localVideoStream, setLocalVideoStream] = useState(null);
   const [remoteVideoStream, setRemoteVideoStream] = useState(null);
@@ -1282,7 +1332,9 @@ export const ChatProvider = ({ children }) => {
           callerInfo: null,
           otherUserId: null,
           webrtcState: 'disconnected',
-          isRemoteScreenSharing: false
+          isRemoteScreenSharing: false,
+          isLocalSpeaking: false,
+          isRemoteSpeaking: false
         });
       }, 1500);
     };
@@ -1311,6 +1363,27 @@ export const ChatProvider = ({ children }) => {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         localStreamRef.current = localStream;
         console.log("Local audio stream captured successfully.");
+
+        // Start local audio analyser
+        if (audioAnalyzersRef.current['local']) {
+          audioAnalyzersRef.current['local'].stop();
+        }
+        const localAnalyzer = startAudioAnalyzer(localStream, (isSpeaking) => {
+          setCallState(prev => {
+            if (prev.isLocalSpeaking !== isSpeaking) {
+              return { ...prev, isLocalSpeaking: isSpeaking };
+            }
+            return prev;
+          });
+          setGroupCallParticipants(prev => prev.map(p => {
+            const isMe = p.id === (currentUser?.id || 'current');
+            if (isMe) {
+              return { ...p, speaking: isSpeaking };
+            }
+            return p;
+          }));
+        });
+        audioAnalyzersRef.current['local'] = localAnalyzer;
       } catch (err) {
         console.error("Failed to capture local audio:", err);
         alert("Не удалось получить доступ к микрофону!");
@@ -1380,6 +1453,20 @@ export const ChatProvider = ({ children }) => {
           audioEl.play().catch(e => {
             console.warn("Audio element autoplay failed, manual triggering:", e);
           });
+
+          // Start remote audio analyser for 1-on-1
+          if (audioAnalyzersRef.current['remote']) {
+            audioAnalyzersRef.current['remote'].stop();
+          }
+          const remoteAnalyzer = startAudioAnalyzer(remoteStream, (isSpeaking) => {
+            setCallState(prev => {
+              if (prev.isRemoteSpeaking !== isSpeaking) {
+                return { ...prev, isRemoteSpeaking: isSpeaking };
+              }
+              return prev;
+            });
+          });
+          audioAnalyzersRef.current['remote'] = remoteAnalyzer;
         } else if (event.track.kind === 'video') {
           console.log("Setting remote video stream state.");
           setRemoteVideoStream(remoteStream);
@@ -1472,6 +1559,20 @@ export const ChatProvider = ({ children }) => {
                 audioEl.play().catch(e => {
                   console.warn("Audio element autoplay failed:", e);
                 });
+
+                // Start remote audio analyser for group call member row
+                if (audioAnalyzersRef.current[peerId]) {
+                  audioAnalyzersRef.current[peerId].stop();
+                }
+                const analyzer = startAudioAnalyzer(remoteStream, (isSpeaking) => {
+                  setGroupCallParticipants(prev => prev.map(p => {
+                    if (p.id === peerId) {
+                      return { ...p, speaking: isSpeaking };
+                    }
+                    return p;
+                  }));
+                });
+                audioAnalyzersRef.current[peerId] = analyzer;
               } else if (event.track.kind === 'video') {
                 console.log(`Setting remote video stream state from peer ${peerId}.`);
                 setRemoteVideoStream(remoteStream);
@@ -1495,6 +1596,24 @@ export const ChatProvider = ({ children }) => {
             .on('broadcast', { event: 'join-group-call' }, async (payload) => {
               const { senderId } = payload.payload;
               if (senderId === currentUser.id) return;
+
+              // Add/update real user row in participants
+              const memberInfo = activeChat?.members?.find(m => m.id === senderId);
+              setGroupCallParticipants(prev => {
+                if (prev.some(p => p.id === senderId)) {
+                  return prev.map(p => p.id === senderId ? { ...p, isReal: true } : p);
+                }
+                return [...prev, {
+                  id: senderId,
+                  name: memberInfo ? memberInfo.name : `Пользователь ${senderId.slice(0, 4)}`,
+                  avatar: memberInfo ? memberInfo.avatar : '👤',
+                  avatarColor: (memberInfo && (memberInfo.avatarColor || memberInfo.avatar_color)) || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)',
+                  muted: false,
+                  videoStream: null,
+                  speaking: false,
+                  isReal: true
+                }];
+              });
               
               // Prevent duplicates if already connected
               if (pcsRef.current[senderId]) {
@@ -1647,7 +1766,7 @@ export const ChatProvider = ({ children }) => {
               console.log("Received WebRTC signal event:", signal.type);
 
               const isInitialSignal = ['ready', 'offer', 'answer'].includes(signal.type);
-              if (isInitialSignal && (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected')) {
+              if (isInitialSignal && pc && (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected')) {
                 console.log("WebRTC already connected, ignoring initial signal:", signal.type);
                 return;
               }
@@ -1657,11 +1776,11 @@ export const ChatProvider = ({ children }) => {
                 await sendOffer();
               } else if (signal.type === 'offer' && !callState.isOutgoing) {
                 try {
-                  if (pc.remoteDescription) {
+                  if (pc && pc.remoteDescription) {
                     console.log("Receiver remote description already set, ignoring duplicate offer.");
                     return;
                   }
-                  if (pc.signalingState !== 'stable') {
+                  if (pc && pc.signalingState !== 'stable') {
                     console.log(`Receiver signaling state is not stable (${pc.signalingState}), skipping offer.`);
                     return;
                   }
@@ -1682,11 +1801,11 @@ export const ChatProvider = ({ children }) => {
                 }
               } else if (signal.type === 'answer' && callState.isOutgoing) {
                 try {
-                  if (pc.remoteDescription) {
+                  if (pc && pc.remoteDescription) {
                     console.log("Caller remote description already set, ignoring duplicate answer.");
                     return;
                   }
-                  if (pc.signalingState !== 'have-local-offer') {
+                  if (pc && pc.signalingState !== 'have-local-offer') {
                     console.log(`Caller signaling state is not have-local-offer (${pc.signalingState}), skipping answer.`);
                     return;
                   }
@@ -1727,7 +1846,7 @@ export const ChatProvider = ({ children }) => {
               } else if (signal.type === 'candidate') {
                 try {
                   const iceCandidate = new RTCIceCandidate(signal.candidate);
-                  if (pc.remoteDescription && pc.remoteDescription.type) {
+                  if (pc && pc.remoteDescription && pc.remoteDescription.type) {
                     await pc.addIceCandidate(iceCandidate);
                     console.log("Directly added remote ICE candidate:", iceCandidate.candidate);
                   } else {
@@ -2034,6 +2153,14 @@ export const ChatProvider = ({ children }) => {
     });
     pcsRef.current = {};
 
+    // Stop and clear all audio analyzers
+    Object.keys(audioAnalyzersRef.current).forEach(key => {
+      if (audioAnalyzersRef.current[key]) {
+        audioAnalyzersRef.current[key].stop();
+      }
+    });
+    audioAnalyzersRef.current = {};
+
     setTimeout(() => {
       setCallState({
         status: 'idle',
@@ -2044,7 +2171,9 @@ export const ChatProvider = ({ children }) => {
         callerInfo: null,
         otherUserId: null,
         webrtcState: 'disconnected',
-        isRemoteScreenSharing: false
+        isRemoteScreenSharing: false,
+        isLocalSpeaking: false,
+        isRemoteSpeaking: false
       });
     }, 1500);
   }, []);
@@ -2134,16 +2263,24 @@ export const ChatProvider = ({ children }) => {
 
       const speakInterval = setInterval(() => {
         setGroupCallParticipants(prev => {
-          if (prev.length <= 1) return prev;
-          const randomIndex = Math.floor(Math.random() * prev.length);
-          return prev.map((p, idx) => {
-            if (idx === randomIndex && !p.muted) {
-              return { ...p, speaking: true };
+          return prev.map(p => {
+            const isMe = p.id === (currentUser?.id || 'current');
+            if (isMe) {
+              if (!isSupabaseConfigured) {
+                return { ...p, speaking: !p.muted && Math.random() > 0.65 };
+              }
+              return p;
+            }
+            if (p.isReal) {
+              return p;
+            }
+            if (!p.muted) {
+              return { ...p, speaking: Math.random() > 0.65 };
             }
             return { ...p, speaking: false };
           });
         });
-      }, 2000);
+      }, 1500);
       timers.push(speakInterval);
 
       groupCallTimersRef.current = timers;
@@ -2260,8 +2397,53 @@ export const ChatProvider = ({ children }) => {
     }
   }, [callState.muted, currentUser, setGroupCallParticipants]);
 
+  const triggerRenegotiation = useCallback(async () => {
+    const isGroup = chats.find(c => c.id === callState.chatId)?.type === 'group';
+    if (isGroup) {
+      Object.keys(pcsRef.current).forEach(async (peerId) => {
+        const pcInstance = pcsRef.current[peerId];
+        if (pcInstance && activeCallChannelRef.current) {
+          try {
+            console.log(`Creating renegotiation offer for peer ${peerId}...`);
+            const offer = await pcInstance.createOffer();
+            await pcInstance.setLocalDescription(offer);
+            activeCallChannelRef.current.send({
+              type: 'broadcast',
+              event: 'signal',
+              payload: {
+                type: 'offer',
+                sdp: offer.sdp,
+                senderId: currentUser.id,
+                targetId: peerId
+              }
+            });
+          } catch (e) {
+            console.error(`Group renegotiation failed for peer ${peerId}:`, e);
+          }
+        }
+      });
+    } else {
+      if (pcRef.current && activeCallChannelRef.current) {
+        try {
+          console.log("Creating renegotiation offer...");
+          const offer = await pcRef.current.createOffer();
+          await pcRef.current.setLocalDescription(offer);
+          activeCallChannelRef.current.send({
+            type: 'broadcast',
+            event: 'signal',
+            payload: { type: 'renegotiate-offer', sdp: offer.sdp }
+          });
+        } catch (e) {
+          console.error("Renegotiation failed:", e);
+        }
+      }
+    }
+  }, [callState.chatId, chats, currentUser]);
+
   const toggleCallVideo = useCallback(async () => {
     if (callState.status !== 'connected') return;
+
+    const isGroup = chats.find(c => c.id === callState.chatId)?.type === 'group';
 
     if (localVideoStream) {
       // Turn off video
@@ -2275,12 +2457,25 @@ export const ChatProvider = ({ children }) => {
       setIsScreenSharing(false);
       wasCameraActiveRef.current = false;
       
-      // Remove video track from pc
-      if (pcRef.current) {
-        const senders = pcRef.current.getSenders();
-        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-        if (videoSender) {
-          pcRef.current.removeTrack(videoSender);
+      // Remove video track from pcs
+      if (isGroup) {
+        Object.keys(pcsRef.current).forEach(peerId => {
+          const pcInstance = pcsRef.current[peerId];
+          if (pcInstance) {
+            const senders = pcInstance.getSenders();
+            const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+            if (videoSender) {
+              pcInstance.removeTrack(videoSender);
+            }
+          }
+        });
+      } else {
+        if (pcRef.current) {
+          const senders = pcRef.current.getSenders();
+          const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+          if (videoSender) {
+            pcRef.current.removeTrack(videoSender);
+          }
         }
       }
       
@@ -2295,18 +2490,7 @@ export const ChatProvider = ({ children }) => {
         });
         
         // Renegotiate track removal
-        try {
-          console.log("Creating renegotiation offer after track removal...");
-          const offer = await pcRef.current.createOffer();
-          await pcRef.current.setLocalDescription(offer);
-          activeCallChannelRef.current.send({
-            type: 'broadcast',
-            event: 'signal',
-            payload: { type: 'renegotiate-offer', sdp: offer.sdp }
-          });
-        } catch (e) {
-          console.error("Renegotiation failed:", e);
-        }
+        await triggerRenegotiation();
       }
     } else {
       // Turn on video
@@ -2318,23 +2502,19 @@ export const ChatProvider = ({ children }) => {
         
         const videoTrack = stream.getVideoTracks()[0];
         
-        // Add video track to pc
-        if (pcRef.current) {
-          pcRef.current.addTrack(videoTrack, stream);
-          
-          if (activeCallChannelRef.current) {
-            try {
-              console.log("Creating renegotiation offer after track addition...");
-              const offer = await pcRef.current.createOffer();
-              await pcRef.current.setLocalDescription(offer);
-              activeCallChannelRef.current.send({
-                type: 'broadcast',
-                event: 'signal',
-                payload: { type: 'renegotiate-offer', sdp: offer.sdp }
-              });
-            } catch (e) {
-              console.error("Renegotiation failed:", e);
+        // Add video track to pcs
+        if (isGroup) {
+          Object.keys(pcsRef.current).forEach(peerId => {
+            const pcInstance = pcsRef.current[peerId];
+            if (pcInstance) {
+              pcInstance.addTrack(videoTrack, stream);
             }
+          });
+          await triggerRenegotiation();
+        } else {
+          if (pcRef.current) {
+            pcRef.current.addTrack(videoTrack, stream);
+            await triggerRenegotiation();
           }
         }
       } catch (err) {
@@ -2342,24 +2522,7 @@ export const ChatProvider = ({ children }) => {
         alert("Не удалось получить доступ к камере!");
       }
     }
-  }, [callState.status, localVideoStream]);
-
-  const triggerRenegotiation = useCallback(async () => {
-    if (pcRef.current && activeCallChannelRef.current) {
-      try {
-        console.log("Creating renegotiation offer...");
-        const offer = await pcRef.current.createOffer();
-        await pcRef.current.setLocalDescription(offer);
-        activeCallChannelRef.current.send({
-          type: 'broadcast',
-          event: 'signal',
-          payload: { type: 'renegotiate-offer', sdp: offer.sdp }
-        });
-      } catch (e) {
-        console.error("Renegotiation failed:", e);
-      }
-    }
-  }, []);
+  }, [callState.status, localVideoStream, callState.chatId, chats, triggerRenegotiation]);
 
   const cleanupVideoTracks = useCallback(async () => {
     if (localVideoStreamRef.current) {
@@ -2367,13 +2530,29 @@ export const ChatProvider = ({ children }) => {
       localVideoStreamRef.current = null;
     }
     setLocalVideoStream(null);
-    if (pcRef.current) {
-      const senders = pcRef.current.getSenders();
-      const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-      if (videoSender) {
-        pcRef.current.removeTrack(videoSender);
+
+    const isGroup = chats.find(c => c.id === callState.chatId)?.type === 'group';
+    if (isGroup) {
+      Object.keys(pcsRef.current).forEach(peerId => {
+        const pcInstance = pcsRef.current[peerId];
+        if (pcInstance) {
+          const senders = pcInstance.getSenders();
+          const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+          if (videoSender) {
+            pcInstance.removeTrack(videoSender);
+          }
+        }
+      });
+    } else {
+      if (pcRef.current) {
+        const senders = pcRef.current.getSenders();
+        const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+        if (videoSender) {
+          pcRef.current.removeTrack(videoSender);
+        }
       }
     }
+
     if (activeCallChannelRef.current) {
       activeCallChannelRef.current.send({
         type: 'broadcast',
@@ -2382,7 +2561,7 @@ export const ChatProvider = ({ children }) => {
       });
       await triggerRenegotiation();
     }
-  }, [triggerRenegotiation]);
+  }, [callState.chatId, chats, triggerRenegotiation]);
 
   const stopScreenSharing = useCallback(async (revertToCamera = false) => {
     if (screenStreamRef.current) {
@@ -2399,14 +2578,31 @@ export const ChatProvider = ({ children }) => {
         localVideoStreamRef.current = stream;
         
         const videoTrack = stream.getVideoTracks()[0];
-        if (pcRef.current) {
-          const senders = pcRef.current.getSenders();
-          const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-          if (videoSender) {
-            await videoSender.replaceTrack(videoTrack);
-          } else {
-            pcRef.current.addTrack(videoTrack, stream);
-            await triggerRenegotiation();
+        const isGroup = chats.find(c => c.id === callState.chatId)?.type === 'group';
+        if (isGroup) {
+          Object.keys(pcsRef.current).forEach(peerId => {
+            const pcInstance = pcsRef.current[peerId];
+            if (pcInstance) {
+              const senders = pcInstance.getSenders();
+              const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+              if (videoSender) {
+                videoSender.replaceTrack(videoTrack);
+              } else {
+                pcInstance.addTrack(videoTrack, stream);
+              }
+            }
+          });
+          await triggerRenegotiation();
+        } else {
+          if (pcRef.current) {
+            const senders = pcRef.current.getSenders();
+            const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+            if (videoSender) {
+              await videoSender.replaceTrack(videoTrack);
+            } else {
+              pcRef.current.addTrack(videoTrack, stream);
+              await triggerRenegotiation();
+            }
           }
         }
       } catch (err) {
@@ -2417,7 +2613,7 @@ export const ChatProvider = ({ children }) => {
       await cleanupVideoTracks();
     }
     wasCameraActiveRef.current = false;
-  }, [cleanupVideoTracks, triggerRenegotiation]);
+  }, [cleanupVideoTracks, triggerRenegotiation, callState.chatId, chats]);
 
   const toggleCallScreenShare = useCallback(async () => {
     if (callState.status !== 'connected') return;
@@ -2451,14 +2647,31 @@ export const ChatProvider = ({ children }) => {
           stopScreenSharing(true);
         };
 
-        if (pcRef.current) {
-          const senders = pcRef.current.getSenders();
-          const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-          if (videoSender) {
-            await videoSender.replaceTrack(screenTrack);
-          } else {
-            pcRef.current.addTrack(screenTrack, screenStream);
-            await triggerRenegotiation();
+        const isGroup = chats.find(c => c.id === callState.chatId)?.type === 'group';
+        if (isGroup) {
+          Object.keys(pcsRef.current).forEach(async (peerId) => {
+            const pcInstance = pcsRef.current[peerId];
+            if (pcInstance) {
+              const senders = pcInstance.getSenders();
+              const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+              if (videoSender) {
+                await videoSender.replaceTrack(screenTrack);
+              } else {
+                pcInstance.addTrack(screenTrack, screenStream);
+              }
+            }
+          });
+          await triggerRenegotiation();
+        } else {
+          if (pcRef.current) {
+            const senders = pcRef.current.getSenders();
+            const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+            if (videoSender) {
+              await videoSender.replaceTrack(screenTrack);
+            } else {
+              pcRef.current.addTrack(screenTrack, screenStream);
+              await triggerRenegotiation();
+            }
           }
         }
       } catch (err) {
@@ -2470,14 +2683,31 @@ export const ChatProvider = ({ children }) => {
             localVideoStreamRef.current = stream;
             
             const videoTrack = stream.getVideoTracks()[0];
-            if (pcRef.current) {
-              const senders = pcRef.current.getSenders();
-              const videoSender = senders.find(s => s.track && s.track.kind === 'video');
-              if (videoSender) {
-                await videoSender.replaceTrack(videoTrack);
-              } else {
-                pcRef.current.addTrack(videoTrack, stream);
-                await triggerRenegotiation();
+            const isGroup = chats.find(c => c.id === callState.chatId)?.type === 'group';
+            if (isGroup) {
+              Object.keys(pcsRef.current).forEach(peerId => {
+                const pcInstance = pcsRef.current[peerId];
+                if (pcInstance) {
+                  const senders = pcInstance.getSenders();
+                  const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+                  if (videoSender) {
+                    videoSender.replaceTrack(videoTrack);
+                  } else {
+                    pcInstance.addTrack(videoTrack, stream);
+                  }
+                }
+              });
+              await triggerRenegotiation();
+            } else {
+              if (pcRef.current) {
+                const senders = pcRef.current.getSenders();
+                const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+                if (videoSender) {
+                  await videoSender.replaceTrack(videoTrack);
+                } else {
+                  pcRef.current.addTrack(videoTrack, stream);
+                  await triggerRenegotiation();
+                }
               }
             }
           } catch (cameraErr) {
@@ -2487,7 +2717,7 @@ export const ChatProvider = ({ children }) => {
         wasCameraActiveRef.current = false;
       }
     }
-  }, [callState.status, isScreenSharing, localVideoStream, stopScreenSharing, triggerRenegotiation]);
+  }, [callState.status, isScreenSharing, localVideoStream, stopScreenSharing, triggerRenegotiation, callState.chatId, chats]);
 
   // Create Chat/Start dialog
   const createChat = useCallback(async (target, typeOrIsGroup = 'personal', initialMembers = []) => {

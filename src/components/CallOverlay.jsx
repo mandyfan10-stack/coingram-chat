@@ -797,7 +797,7 @@ export default function CallOverlay() {
             <h2 className="call-user-name">{displayName}</h2>
             <div className="call-status-container">
               <p className="call-status-subtitle">{statusText}</p>
-              {callState.status === 'connected' && callState.webrtcState === 'connected' && !callState.muted && (
+              {callState.status === 'connected' && callState.webrtcState === 'connected' && (callState.isLocalSpeaking || callState.isRemoteSpeaking) && (
                 <div className="speaking-wave-indicator one-to-one-wave">
                   <span className="wave-bar"></span>
                   <span className="wave-bar"></span>
@@ -843,12 +843,12 @@ export default function CallOverlay() {
 
               <button 
                 type="button"
-                className={`call-ctrl-btn btn-mute-stage ${callState.muted ? 'active-mute' : ''}`}
+                className={`call-ctrl-btn ctrl-secondary ${callState.muted ? 'active-mute' : ''}`}
                 onClick={toggleCallMute}
                 disabled={callState.status === 'ended'}
                 title={callState.muted ? 'Включить микрофон' : 'Отключить микрофон'}
               >
-                {callState.muted ? <MicOff size={28} /> : <Mic size={28} />}
+                {callState.muted ? <MicOff size={20} /> : <Mic size={20} />}
               </button>
               
               {isScreenShareSupported && (

@@ -327,7 +327,7 @@ export default function MainMenuDrawer() {
         {/* Drawer Footer */}
         <div className="drawer-footer">
           <span className="drawer-app-title">CoinGram Desktop</span>
-          <span className="drawer-version">Версия 1.10.8 — О программе</span>
+          <span className="drawer-version">Версия 1.10.9 — О программе</span>
         </div>
       </div>
     </div>
