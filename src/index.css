@@ -5292,6 +5292,7 @@ input:checked + .switch-slider:before {
 }
 
 .group-call-avatar-wrapper.speaking {
+  box-shadow: 0 0 0 3px #2ecc71;
   animation: active-speaker-pulse 1.5s infinite ease-in-out;
 }
 

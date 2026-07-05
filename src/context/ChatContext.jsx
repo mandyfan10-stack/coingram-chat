@@ -1362,12 +1362,14 @@ export const ChatProvider = ({ children }) => {
         const remoteStream = event.streams[0] || new MediaStream([event.track]);
         
         if (event.track.kind === 'audio') {
-          let audioEl = document.getElementById('webrtc-call-audio');
+          const elementId = `webrtc-audio-${remoteStream.id}`;
+          let audioEl = document.getElementById(elementId);
           if (!audioEl) {
             audioEl = document.createElement('audio');
-            audioEl.id = 'webrtc-call-audio';
+            audioEl.id = elementId;
             audioEl.autoplay = true;
             audioEl.playsInline = true;
+            audioEl.className = 'webrtc-remote-audio-feed';
             document.body.appendChild(audioEl);
           }
           audioEl.srcObject = remoteStream;
@@ -1577,6 +1579,10 @@ export const ChatProvider = ({ children }) => {
         activeCallChannelRef.current.unsubscribe();
         activeCallChannelRef.current = null;
       }
+      document.querySelectorAll('.webrtc-remote-audio-feed').forEach(el => {
+        el.srcObject = null;
+        el.remove();
+      });
       const audioEl = document.getElementById('webrtc-call-audio');
       if (audioEl) {
         audioEl.srcObject = null;
@@ -1874,7 +1880,7 @@ export const ChatProvider = ({ children }) => {
       setGroupCallParticipants([
         {
           id: currentUser.id || 'current',
-          name: currentUser.name || 'Вы',
+          name: 'Вы',
           avatar: currentUser.avatar || '🪙',
           avatarColor: currentUser.avatarColor,
           muted: false,
@@ -2016,12 +2022,22 @@ export const ChatProvider = ({ children }) => {
       ...prev,
       muted: nextMuted
     }));
+
+    // Update local participant state in group call list if applicable
+    setGroupCallParticipants(prev => prev.map(p => {
+      const isMe = p.id === (currentUser?.id || 'current');
+      if (isMe) {
+        return { ...p, muted: nextMuted, speaking: nextMuted ? false : p.speaking };
+      }
+      return p;
+    }));
+
     if (localStreamRef.current) {
       localStreamRef.current.getAudioTracks().forEach(track => {
         track.enabled = !nextMuted;
       });
     }
-  }, [callState.muted]);
+  }, [callState.muted, currentUser, setGroupCallParticipants]);
 
   const toggleCallVideo = useCallback(async () => {
     if (callState.status !== 'connected') return;
