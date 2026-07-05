@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, Bot, MessageSquarePlus, Eye, Plus } from 'lucide-react';
@@ -28,6 +28,23 @@ export default function Sidebar() {
   const [globalResults, setGlobalResults] = useState([]);
   const [globalLoading, setGlobalLoading] = useState(false);
   const [showMyStoriesMenu, setShowMyStoriesMenu] = useState(false);
+  const storiesTrayRef = useRef(null);
+
+  // Translate vertical wheel scroll to horizontal scroll on stories tray
+  useEffect(() => {
+    const el = storiesTrayRef.current;
+    if (!el) return;
+    const handleWheel = (e) => {
+      if (e.deltaY !== 0) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+      }
+    };
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => {
+      el.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   useEffect(() => {
     const handleOutsideClick = () => {
@@ -194,7 +211,7 @@ export default function Sidebar() {
       </div>
 
       {/* Stories Tray */}
-      <div className="stories-tray">
+      <div className="stories-tray" ref={storiesTrayRef}>
         {(() => {
           const myStoriesList = stories.filter(s => s.userId === currentUser?.id);
           const hasMyStories = myStoriesList.length > 0;
