@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
-import { Users, Megaphone, Bookmark, User, Bot } from 'lucide-react';
+import { Users, Megaphone, Bookmark, User, Bot, CloudSun, Brain, Zap } from 'lucide-react';
 
 const ChatContext = createContext();
 
@@ -277,6 +277,18 @@ export const ChatProvider = ({ children }) => {
     } else if (val === '🤖' || val === 'bot') {
       bg = 'linear-gradient(135deg, #ff7675, #d63031)';
       icon = <Bot className="premium-avatar-icon" />;
+    } else if (val === '🌤️' || val === 'weather') {
+      bg = 'linear-gradient(135deg, #fdeb82, #f39c12)';
+      icon = <CloudSun className="premium-avatar-icon" />;
+    } else if (val === '🧠' || val === 'quiz') {
+      bg = 'linear-gradient(135deg, #ff9ff3, #f368e0)';
+      icon = <Brain className="premium-avatar-icon" />;
+    } else if (val === '🕵️') {
+      bg = 'linear-gradient(135deg, #57606f, #2f3542)';
+      icon = <User className="premium-avatar-icon" />;
+    } else if (val === '⚡') {
+      bg = 'linear-gradient(135deg, #ffeaa7, #fdcb6e)';
+      icon = <Zap className="premium-avatar-icon" />;
     }
 
     if (icon) {

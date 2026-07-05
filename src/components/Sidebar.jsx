@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useChat } from '../context/ChatContext';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
-import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, Bot, MessageSquarePlus } from 'lucide-react';
+import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, Bot, MessageSquarePlus, Eye, Plus } from 'lucide-react';
 
 export default function Sidebar() {
   const {
@@ -388,7 +388,7 @@ export default function Sidebar() {
                 if (storyToOpen) viewStory(storyToOpen.id);
               }}
             >
-              👁️ Посмотреть
+              <Eye size={16} /> Посмотреть
             </button>
             <button 
               type="button"
@@ -398,7 +398,7 @@ export default function Sidebar() {
                 setIsCreateStoryOpen(true);
               }}
             >
-              ➕ Добавить
+              <Plus size={16} /> Добавить
             </button>
           </div>
         );

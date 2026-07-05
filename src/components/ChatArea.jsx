@@ -17,7 +17,9 @@ import {
   Lock,
   Sparkles,
   Film,
-  ArrowLeft
+  ArrowLeft,
+  VolumeX,
+  Volume2
 } from 'lucide-react';
 
 const SingleCheck = ({ className }) => (
@@ -266,13 +268,13 @@ function VideoMessagePlayer({ videoUrl }) {
       </svg>
 
       {!isPlaying && (
-        <div className="video-mute-icon-overlay" style={{ top: '55%', left: '50%', transform: 'translate(-50%, -50%)', width: '36px', height: '36px', fontSize: '14px', position: 'absolute' }}>
-          ▶️
+        <div className="video-mute-icon-overlay" style={{ top: '55%', left: '50%', transform: 'translate(-50%, -50%)', width: '36px', height: '36px', fontSize: '14px', position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Play size={16} fill="currentColor" style={{ marginLeft: '2px' }} />
         </div>
       )}
 
-      <div className="video-mute-icon-overlay" onClick={handleMuteBtnClick}>
-        {isMuted ? '🔇' : '🔊'}
+      <div className="video-mute-icon-overlay" onClick={handleMuteBtnClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
       </div>
     </div>
   );
@@ -368,17 +370,17 @@ export default function ChatArea() {
           .getPublicUrl(filePath);
 
         if (isAudio) {
-          sendMessage('🎤 Голосовое сообщение', replyingTo?.id, publicUrl);
+          sendMessage('Голосовое сообщение', replyingTo?.id, publicUrl);
         } else {
-          sendMessage('🖼️ [Изображение]', replyingTo?.id, publicUrl);
+          sendMessage('Изображение', replyingTo?.id, publicUrl);
         }
       } else {
         const reader = new FileReader();
         reader.onload = (event) => {
           if (isAudio) {
-            sendMessage('🎤 Голосовое сообщение', replyingTo?.id, event.target.result);
+            sendMessage('Голосовое сообщение', replyingTo?.id, event.target.result);
           } else {
-            sendMessage('🖼️ [Изображение]', replyingTo?.id, event.target.result);
+            sendMessage('Изображение', replyingTo?.id, event.target.result);
           }
         };
         reader.readAsDataURL(file);
@@ -710,12 +712,12 @@ export default function ChatArea() {
           .from('chat-attachments')
           .getPublicUrl(filePath);
 
-        const msgText = isVoice ? '🎤 Голосовое сообщение' : '🎬 Видеосообщение';
+        const msgText = isVoice ? 'Голосовое сообщение' : 'Видеосообщение';
         sendMessage(msgText, replyingTo?.id, publicUrl);
       } else {
         const reader = new FileReader();
         reader.onload = (event) => {
-          const msgText = isVoice ? '🎤 Голосовое сообщение' : '🎬 Видеосообщение';
+          const msgText = isVoice ? 'Голосовое сообщение' : 'Видеосообщение';
           sendMessage(msgText, replyingTo?.id, event.target.result);
         };
         reader.readAsDataURL(blob);
@@ -908,8 +910,8 @@ export default function ChatArea() {
             const isLastInGroup = !nextMsg || nextMsg.senderId !== msg.senderId;
             const isFirstInGroup = !prevMsg || prevMsg.senderId !== msg.senderId;
 
-            const isVoice = msg.text && msg.text.startsWith('🎤 Голосовое сообщение') && msg.media;
-            const isVideo = msg.text && msg.text.startsWith('🎬 Видеосообщение') && msg.media;
+            const isVoice = msg.text && (msg.text.startsWith('🎤 Голосовое сообщение') || msg.text.startsWith('Голосовое сообщение')) && msg.media;
+            const isVideo = msg.text && (msg.text.startsWith('🎬 Видеосообщение') || msg.text.startsWith('Видеосообщение')) && msg.media;
             const isSticker = msg.text && msg.text.startsWith('sticker:') && msg.media;
 
             return (
@@ -1016,7 +1018,9 @@ export default function ChatArea() {
                           <code>{msg.text.replace(/```/g, '')}</code>
                         </pre>
                       ) : (
-                        <p className="message-text">{msg.text}</p>
+                        (msg.text !== '🖼️ [Изображение]' && msg.text !== 'Изображение') && (
+                          <p className="message-text">{msg.text}</p>
+                        )
                       )}
 
                       {/* Metadata & Read Checks */}
