@@ -39,6 +39,12 @@ function createWindow() {
     }
   });
 
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    const { shell } = require('electron');
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
   // Load the built files from Vite's dist directory
   mainWindow.loadFile(path.join(__dirname, 'dist/index.html'));
 

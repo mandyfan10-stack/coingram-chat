@@ -1041,6 +1041,15 @@ body {
   word-wrap: break-word;
   white-space: pre-wrap;
 }
+.message-text a {
+  color: inherit;
+  text-decoration: underline;
+  word-break: break-all;
+  font-weight: 500;
+}
+.message-text a:hover {
+  opacity: 0.8;
+}
 
 .bubble-metadata {
   align-self: flex-end;
