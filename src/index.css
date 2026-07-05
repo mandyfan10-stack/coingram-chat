@@ -2469,6 +2469,9 @@ body {
   .drawer-container {
     padding-bottom: env(safe-area-inset-bottom, 0px) !important;
   }
+  .chat-list {
+    padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+  }
 
   /* Full Screen Stories Viewer for Mobile/Aspect Ratios (like 21:9) */
   .story-viewer-overlay {

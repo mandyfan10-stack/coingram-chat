@@ -127,7 +127,6 @@ export default function Sidebar() {
     if (activeFolder === 'personal' && chat.type !== 'personal') return false;
     if (activeFolder === 'groups' && chat.type !== 'group') return false;
     if (activeFolder === 'channels' && chat.type !== 'channel') return false;
-    if (activeFolder === 'bots' && chat.type !== 'bot') return false;
 
     // 2. Filter by Search Query
     if (searchQuery.trim() === '') return true;
@@ -161,7 +160,6 @@ export default function Sidebar() {
       case 'personal': return <User size={16} />;
       case 'groups': return <Users size={16} />;
       case 'channels': return <Megaphone size={16} />;
-      case 'bots': return <Bot size={16} />;
       default: return null;
     }
   };
@@ -196,8 +194,7 @@ export default function Sidebar() {
           { id: 'all', name: 'Все' },
           { id: 'personal', name: 'Личные' },
           { id: 'groups', name: 'Группы' },
-          { id: 'channels', name: 'Каналы' },
-          { id: 'bots', name: 'Боты' }
+          { id: 'channels', name: 'Каналы' }
         ].map(folder => (
           <button
             key={folder.id}
