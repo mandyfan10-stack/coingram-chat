@@ -657,6 +657,18 @@ export const ChatProvider = ({ children }) => {
 
       if (error) throw error;
 
+      // Load viewed stories from localStorage
+      const viewedKey = `tg-viewed-stories-${currentUser.id}`;
+      let viewedSaved = [];
+      try {
+        const stored = localStorage.getItem(viewedKey);
+        if (stored) {
+          viewedSaved = JSON.parse(stored);
+        }
+      } catch (e) {
+        console.error("Failed to parse viewed stories", e);
+      }
+
       const formatted = (data || []).map(s => ({
         id: s.id,
         userId: s.user_id,
@@ -664,7 +676,7 @@ export const ChatProvider = ({ children }) => {
         userAvatar: s.profiles?.avatar || '🪙',
         media: s.media,
         caption: s.caption,
-        viewed: false,
+        viewed: viewedSaved.includes(s.id),
         timestamp: new Date(s.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }));
       setStories(formatted);
@@ -2697,6 +2709,19 @@ export const ChatProvider = ({ children }) => {
 
   // Watch stories viewing state
   const viewStory = (storyId) => {
+    if (currentUser) {
+      const viewedKey = `tg-viewed-stories-${currentUser.id}`;
+      try {
+        const stored = localStorage.getItem(viewedKey);
+        let viewedSaved = stored ? JSON.parse(stored) : [];
+        if (!viewedSaved.includes(storyId)) {
+          viewedSaved.push(storyId);
+          localStorage.setItem(viewedKey, JSON.stringify(viewedSaved));
+        }
+      } catch (e) {
+        console.error("Failed to save viewed story", e);
+      }
+    }
     setStories(prev => prev.map(s => s.id === storyId ? { ...s, viewed: true } : s));
     setActiveStoryId(storyId);
   };
