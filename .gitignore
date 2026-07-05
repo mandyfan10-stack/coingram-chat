@@ -33,3 +33,6 @@ jdk21/
 # Built APKs
 *.apk
 
+# Electron build artifacts
+dist-electron/
+

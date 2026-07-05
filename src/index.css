@@ -553,7 +553,7 @@ body {
   width: 100%;
   background-color: var(--bg-input);
   border: 1px solid transparent;
-  padding: 8px 12px 8px 38px;
+  padding: 8px 12px 8px 38px !important;
   border-radius: 20px;
   color: var(--text-primary);
   font-size: 14px;
@@ -4501,6 +4501,19 @@ input:checked + .switch-slider:before {
   visibility: visible;
 }
 
+.call-overlay-wrapper.non-blocking {
+  pointer-events: none;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.call-overlay-wrapper.non-blocking .call-card,
+.call-overlay-wrapper.non-blocking .local-video-preview,
+.call-overlay-wrapper.non-blocking .call-minimized-bubble {
+  pointer-events: auto;
+}
+
 .call-card {
   width: 320px;
   background: rgba(30, 41, 59, 0.65);
@@ -5076,5 +5089,125 @@ input:checked + .switch-slider:before {
 .chip-remove-btn:hover {
   opacity: 1;
 }
+
+/* Draggable call overlay & Minimized bubble */
+.call-card {
+  cursor: grab;
+}
+
+.call-card:active {
+  cursor: grabbing;
+}
+
+.call-card button,
+.call-card video {
+  cursor: default;
+}
+
+/* Minimize button */
+.call-header-actions {
+  position: absolute;
+  top: 16px;
+  right: 20px;
+  display: flex;
+  gap: 8px;
+}
+
+.call-action-icon-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  color: white;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s;
+  z-index: 10;
+}
+
+.call-action-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Minimized bubble wrapper */
+.call-minimized-bubble {
+  position: fixed;
+  z-index: 2005;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: rgba(23, 33, 43, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 2px solid var(--accent-color);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  user-select: none;
+}
+
+.call-minimized-bubble:active {
+  cursor: grabbing;
+}
+
+.call-minimized-bubble:hover {
+  transform: scale(1.05);
+}
+
+.call-bubble-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.call-bubble-pulse {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: #2ecc71;
+  border: 2px solid #17212b;
+  animation: bubblePulse 1.8s infinite;
+}
+
+@keyframes bubblePulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(46, 204, 113, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0);
+  }
+}
+
+.call-bubble-timer {
+  position: absolute;
+  bottom: -22px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(23, 33, 43, 0.95);
+  padding: 2px 6px;
+  border-radius: 8px;
+  font-size: 11px;
+  color: white;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
 
 

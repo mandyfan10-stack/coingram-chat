@@ -13,6 +13,7 @@ export default function ChatInfo() {
     deleteChat,
     clearChatMessages,
     updateChatAvatar,
+    updateChatSettings,
     startCall,
     addMemberToChat
   } = useChat();
@@ -50,9 +51,8 @@ export default function ChatInfo() {
 
   const isOwner = activeChat && currentUser && (
     activeChat.createdBy === currentUser.id ||
-    (activeChat.createdBy === 'current' && currentUser) ||
-    (activeChat.createdBy && activeChat.createdBy === currentUser.id) ||
-    activeChat.type === 'group'
+    (activeChat.createdBy === 'current') ||
+    (!activeChat.createdBy && activeChat.type === 'group')
   );
 
   const handleAvatarChange = async (e) => {
@@ -286,6 +286,14 @@ export default function ChatInfo() {
             {activeChat.type === 'channel' ? 'Подписчики' : 'Люди'}
           </button>
         )}
+        {isOwner && (activeChat.type === 'group' || activeChat.type === 'channel') && (
+          <button
+            className={`info-tab ${activeTab === 'settings' ? 'active' : ''}`}
+            onClick={() => setActiveTab('settings')}
+          >
+            Настройки
+          </button>
+        )}
       </div>
 
       {/* Tab Panels */}
@@ -338,7 +346,7 @@ export default function ChatInfo() {
 
         {activeTab === 'members' && (activeChat.type === 'group' || (activeChat.type === 'channel' && activeChat.createdBy === currentUser?.id)) && (
           <div className="members-list">
-            {(activeChat.type === 'group' || (activeChat.type === 'channel' && activeChat.createdBy === currentUser?.id)) && (
+            {(isOwner || activeChat.settings?.allow_add_members !== false) && (activeChat.type === 'group' || (activeChat.type === 'channel' && activeChat.createdBy === currentUser?.id)) && (
               <div className="add-member-section">
                 <form onSubmit={handleAddMemberSubmit} className="add-member-form">
                   <input
@@ -386,6 +394,66 @@ export default function ChatInfo() {
                 </div>
               );
             })}
+          </div>
+        )}
+        {activeTab === 'settings' && isOwner && (activeChat.type === 'group' || activeChat.type === 'channel') && (
+          <div className="chat-settings-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
+            <h4 style={{ margin: '0 0 4px 0', fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Разрешения для участников</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {activeChat.type === 'group' && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', cursor: 'pointer', userSelect: 'none' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!activeChat.settings?.only_admins_can_post}
+                    onChange={(e) => {
+                      const newSettings = { ...activeChat.settings, only_admins_can_post: e.target.checked };
+                      updateChatSettings(activeChat.id, newSettings);
+                    }}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <span>Только администраторы могут писать</span>
+                </label>
+              )}
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={activeChat.settings?.allow_media !== false}
+                  onChange={(e) => {
+                    const newSettings = { ...activeChat.settings, allow_media: e.target.checked };
+                    updateChatSettings(activeChat.id, newSettings);
+                  }}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <span>Разрешить отправку медиа (фото/аудио)</span>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={activeChat.settings?.allow_add_members !== false}
+                  onChange={(e) => {
+                    const newSettings = { ...activeChat.settings, allow_add_members: e.target.checked };
+                    updateChatSettings(activeChat.id, newSettings);
+                  }}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <span>Разрешить добавление других участников</span>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', cursor: 'pointer', userSelect: 'none' }}>
+                <input
+                  type="checkbox"
+                  checked={activeChat.settings?.allow_pin_messages !== false}
+                  onChange={(e) => {
+                    const newSettings = { ...activeChat.settings, allow_pin_messages: e.target.checked };
+                    updateChatSettings(activeChat.id, newSettings);
+                  }}
+                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                />
+                <span>Разрешить закрепление сообщений</span>
+              </label>
+            </div>
           </div>
         )}
       </div>

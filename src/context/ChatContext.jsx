@@ -142,7 +142,15 @@ const initialChatsMock = [
       { id: 'm10', senderId: 'channel', senderName: 'Tech Waves', text: '🧠 Google представил новые экспериментальные модели Gemini 3.5, которые демонстрируют выдающиеся результаты в написании кода и логических рассуждениях. ИИ становится все более автономным.', read: true, timestamp: new Date(Date.now() - 1000 * 60 * 30) }
     ]
   }
-];
+].map(c => ({
+  ...c,
+  settings: c.settings || {
+    only_admins_can_post: c.type === 'channel',
+    allow_media: true,
+    allow_add_members: true,
+    allow_pin_messages: true
+  }
+}));
 
 const defaultMockPacks = [
   {
@@ -493,6 +501,13 @@ export const ChatProvider = ({ children }) => {
           ? formattedMembers.find(m => m.id !== currentUser.id)
           : null;
 
+        const defaultSettings = {
+          only_admins_can_post: chat.type === 'channel',
+          allow_media: true,
+          allow_add_members: true,
+          allow_pin_messages: true
+        };
+
         return {
           id: chat.id,
           name: otherMember ? otherMember.name : chat.name,
@@ -505,6 +520,7 @@ export const ChatProvider = ({ children }) => {
           pinned: membership?.pinned || false,
           notifications: membership?.notifications ?? true,
           members: formattedMembers,
+          settings: chat.settings ? { ...defaultSettings, ...chat.settings } : defaultSettings,
           messages: (messagesRaw || []).map(m => ({
             id: m.id,
             senderId: m.sender_id,
@@ -1715,6 +1731,33 @@ export const ChatProvider = ({ children }) => {
     }));
   }, [currentUser]);
 
+  const updateChatSettings = useCallback(async (chatId, newSettings) => {
+    if (!currentUser || !chatId) return false;
+
+    if (isSupabaseConfigured) {
+      try {
+        const { error } = await supabase
+          .from('chats')
+          .update({ settings: newSettings })
+          .eq('id', chatId);
+
+        if (error) throw error;
+      } catch (e) {
+        console.error("Failed to update chat settings in Supabase:", e);
+        alert("Не удалось сохранить настройки: " + e.message);
+        return false;
+      }
+    }
+
+    setChats(prev => prev.map(c => {
+      if (c.id === chatId) {
+        return { ...c, settings: newSettings };
+      }
+      return c;
+    }));
+    return true;
+  }, [currentUser]);
+
   const endCallLocally = useCallback(() => {
     setCallState(prev => ({
       ...prev,
@@ -2185,7 +2228,13 @@ export const ChatProvider = ({ children }) => {
               type: type,
               avatar: type === 'channel' ? '📢' : '👥',
               avatar_color: type === 'channel' ? 'linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)' : 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
-              created_by: currentUser.id
+              created_by: currentUser.id,
+              settings: {
+                only_admins_can_post: type === 'channel',
+                allow_media: true,
+                allow_add_members: true,
+                allow_pin_messages: true
+              }
             })
             .select()
             .single();
@@ -2236,6 +2285,12 @@ export const ChatProvider = ({ children }) => {
           notifications: true,
           bio: 'Новый контакт в Mock-режиме',
           username: target.toLowerCase(),
+          settings: {
+            only_admins_can_post: false,
+            allow_media: true,
+            allow_add_members: true,
+            allow_pin_messages: true
+          },
           members: [
             { id: 'current', name: currentUser.name || currentUser.display_name || 'Вы', avatar: '🪙' },
             { id: `mock-${Date.now()}`, name, avatar: '👤' }
@@ -2270,6 +2325,12 @@ export const ChatProvider = ({ children }) => {
           notifications: true,
           bio: type === 'channel' ? 'Новый канал' : 'Новая группа',
           createdBy: currentUser.id,
+          settings: {
+            only_admins_can_post: type === 'channel',
+            allow_media: true,
+            allow_add_members: true,
+            allow_pin_messages: true
+          },
           members: memberObjects,
           messages: []
         };
@@ -2945,6 +3006,7 @@ export const ChatProvider = ({ children }) => {
       setWallpaper,
       updateProfile,
       updateChatAvatar,
+      updateChatSettings,
       typingStatuses,
       sendTypingStatus,
       markMessagesAsRead,

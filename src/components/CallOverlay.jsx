@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
-import { Mic, MicOff, PhoneOff, Phone, Video, VideoOff, Monitor } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, Phone, Video, VideoOff, Monitor, Minimize2 } from 'lucide-react';
 
 export default function CallOverlay() {
   const { 
@@ -28,6 +28,11 @@ export default function CallOverlay() {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
 
+  // States for card dragging and minimizing
+  const [cardPos, setCardPos] = useState(null);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [bubblePos, setBubblePos] = useState({ x: window.innerWidth - 80, y: window.innerHeight - 120 });
+
   // Drag position offset for floating preview window
   const [dragPos, setDragPos] = useState({ x: 318, y: 12 });
   const dragRef = useRef(null);
@@ -35,6 +40,194 @@ export default function CallOverlay() {
   const isDragging = useRef(false);
   const dragStart = useRef({ x: 0, y: 0 });
   const elementStart = useRef({ x: 0, y: 0 });
+
+  // Draggable logic for the main call card
+  const isDraggingCard = useRef(false);
+  const cardDragStart = useRef({ x: 0, y: 0 });
+  const cardElementStart = useRef({ x: 0, y: 0 });
+
+  const handleCardMouseDown = (e) => {
+    if (e.target.closest('button') || e.target.closest('video') || e.target.closest('.local-video-preview')) return;
+    e.preventDefault();
+    isDraggingCard.current = true;
+    cardDragStart.current = { x: e.clientX, y: e.clientY };
+    cardElementStart.current = { x: cardPos?.x || 0, y: cardPos?.y || 0 };
+    document.addEventListener('mousemove', handleCardMouseMove);
+    document.addEventListener('mouseup', handleCardMouseUp);
+  };
+
+  const handleCardMouseMove = (e) => {
+    if (!isDraggingCard.current) return;
+    const dx = e.clientX - cardDragStart.current.x;
+    const dy = e.clientY - cardDragStart.current.y;
+    let newX = cardElementStart.current.x + dx;
+    let newY = cardElementStart.current.y + dy;
+    const maxX = window.innerWidth - 320 - 12;
+    const maxY = window.innerHeight - 440 - 12;
+    newX = Math.max(12, Math.min(newX, maxX));
+    newY = Math.max(12, Math.min(newY, maxY));
+    setCardPos({ x: newX, y: newY });
+  };
+
+  const handleCardMouseUp = () => {
+    isDraggingCard.current = false;
+    document.removeEventListener('mousemove', handleCardMouseMove);
+    document.removeEventListener('mouseup', handleCardMouseUp);
+  };
+
+  const handleCardTouchStart = (e) => {
+    if (e.target.closest('button') || e.target.closest('video') || e.target.closest('.local-video-preview')) return;
+    isDraggingCard.current = true;
+    const touch = e.touches[0];
+    cardDragStart.current = { x: touch.clientX, y: touch.clientY };
+    cardElementStart.current = { x: cardPos?.x || 0, y: cardPos?.y || 0 };
+    document.addEventListener('touchmove', handleCardTouchMove, { passive: false });
+    document.addEventListener('touchend', handleCardTouchEnd);
+  };
+
+  const handleCardTouchMove = (e) => {
+    if (!isDraggingCard.current) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const dx = touch.clientX - cardDragStart.current.x;
+    const dy = touch.clientY - cardDragStart.current.y;
+    let newX = cardElementStart.current.x + dx;
+    let newY = cardElementStart.current.y + dy;
+    const maxX = window.innerWidth - 320 - 12;
+    const maxY = window.innerHeight - 440 - 12;
+    newX = Math.max(12, Math.min(newX, maxX));
+    newY = Math.max(12, Math.min(newY, maxY));
+    setCardPos({ x: newX, y: newY });
+  };
+
+  const handleCardTouchEnd = () => {
+    isDraggingCard.current = false;
+    document.removeEventListener('touchmove', handleCardTouchMove);
+    document.removeEventListener('touchend', handleCardTouchEnd);
+  };
+
+  // Draggable logic for the minimized bubble
+  const isDraggingBubble = useRef(false);
+  const bubbleDragStart = useRef({ x: 0, y: 0 });
+  const bubbleElementStart = useRef({ x: 0, y: 0 });
+  const clickPrevented = useRef(false);
+
+  const handleBubbleMouseDown = (e) => {
+    e.preventDefault();
+    isDraggingBubble.current = true;
+    clickPrevented.current = false;
+    bubbleDragStart.current = { x: e.clientX, y: e.clientY };
+    bubbleElementStart.current = { x: bubblePos.x, y: bubblePos.y };
+    document.addEventListener('mousemove', handleBubbleMouseMove);
+    document.addEventListener('mouseup', handleBubbleMouseUp);
+  };
+
+  const handleBubbleMouseMove = (e) => {
+    if (!isDraggingBubble.current) return;
+    const dx = e.clientX - bubbleDragStart.current.x;
+    const dy = e.clientY - bubbleDragStart.current.y;
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      clickPrevented.current = true;
+    }
+    let newX = bubbleElementStart.current.x + dx;
+    let newY = bubbleElementStart.current.y + dy;
+    const maxX = window.innerWidth - 70;
+    const maxY = window.innerHeight - 70;
+    newX = Math.max(10, Math.min(newX, maxX));
+    newY = Math.max(10, Math.min(newY, maxY));
+    setBubblePos({ x: newX, y: newY });
+  };
+
+  const handleBubbleMouseUp = () => {
+    isDraggingBubble.current = false;
+    document.removeEventListener('mousemove', handleBubbleMouseMove);
+    document.removeEventListener('mouseup', handleBubbleMouseUp);
+  };
+
+  const handleBubbleTouchStart = (e) => {
+    isDraggingBubble.current = true;
+    clickPrevented.current = false;
+    const touch = e.touches[0];
+    bubbleDragStart.current = { x: touch.clientX, y: touch.clientY };
+    bubbleElementStart.current = { x: bubblePos.x, y: bubblePos.y };
+    document.addEventListener('touchmove', handleBubbleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleBubbleTouchEnd);
+  };
+
+  const handleBubbleTouchMove = (e) => {
+    if (!isDraggingBubble.current) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const dx = touch.clientX - bubbleDragStart.current.x;
+    const dy = touch.clientY - bubbleDragStart.current.y;
+    if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+      clickPrevented.current = true;
+    }
+    let newX = bubbleElementStart.current.x + dx;
+    let newY = bubbleElementStart.current.y + dy;
+    const maxX = window.innerWidth - 70;
+    const maxY = window.innerHeight - 70;
+    newX = Math.max(10, Math.min(newX, maxX));
+    newY = Math.max(10, Math.min(newY, maxY));
+    setBubblePos({ x: newX, y: newY });
+  };
+
+  const handleBubbleTouchEnd = () => {
+    isDraggingBubble.current = false;
+    document.removeEventListener('touchmove', handleBubbleTouchMove);
+    document.removeEventListener('touchend', handleBubbleTouchEnd);
+  };
+
+  const handleBubbleClick = (e) => {
+    if (clickPrevented.current) {
+      e.stopPropagation();
+      return;
+    }
+    setIsMinimized(false);
+  };
+
+  // Reset positioning & minimization on call state transition
+  useEffect(() => {
+    if (callState.status !== 'idle') {
+      setIsMinimized(false);
+      setCardPos({
+        x: Math.max(12, window.innerWidth / 2 - 160),
+        y: Math.max(12, window.innerHeight / 2 - 220)
+      });
+      setBubblePos({
+        x: window.innerWidth - 80,
+        y: window.innerHeight - 120
+      });
+    } else {
+      setCardPos(null);
+    }
+  }, [callState.status]);
+
+  // Window resize handler to keep components within viewport bounds
+  useEffect(() => {
+    const handleResize = () => {
+      setBubblePos(prev => {
+        const maxX = window.innerWidth - 70;
+        const maxY = window.innerHeight - 70;
+        return {
+          x: Math.min(prev.x, maxX),
+          y: Math.min(prev.y, maxY)
+        };
+      });
+      if (cardPos) {
+        setCardPos(prev => {
+          const maxX = window.innerWidth - 320 - 12;
+          const maxY = window.innerHeight - 440 - 12;
+          return {
+            x: Math.max(12, Math.min(prev.x, maxX)),
+            y: Math.max(12, Math.min(prev.y, maxY))
+          };
+        });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [cardPos]);
 
   // If outgoing call, target is callState.chatId. If incoming, display caller info.
   const activeChat = chats.find(c => c.id === callState.chatId);
@@ -358,9 +551,59 @@ export default function CallOverlay() {
   const hasVideo = !!(localVideoStream || remoteVideoStream);
   const isScreenShareSupported = typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function';
 
+  if (isMinimized) {
+    return (
+      <div 
+        className="call-minimized-bubble"
+        style={{ left: `${bubblePos.x}px`, top: `${bubblePos.y}px` }}
+        onMouseDown={handleBubbleMouseDown}
+        onTouchStart={handleBubbleTouchStart}
+        onClick={handleBubbleClick}
+        title="Развернуть звонок"
+      >
+        <div className="call-bubble-avatar" style={{ background: avatarColor }}>
+          {renderAvatar(avatarContent, '👤')}
+        </div>
+        {callState.status === 'connected' && callState.webrtcState === 'connected' && (
+          <div className="call-bubble-pulse" />
+        )}
+        <div className="call-bubble-timer">
+          {statusText}
+        </div>
+      </div>
+    );
+  }
+
+  const isIncoming = callState.status === 'incoming';
+  const cardStyle = cardPos ? {
+    position: 'absolute',
+    left: `${cardPos.x}px`,
+    top: `${cardPos.y}px`,
+    margin: 0
+  } : {};
+
   return (
-    <div className={`call-overlay-wrapper ${callState.status !== 'idle' ? 'active' : ''}`}>
-      <div className={`call-card ${remoteVideoStream ? 'has-remote-video' : ''} ${hasVideo ? 'has-video' : ''}`} ref={containerRef}>
+    <div className={`call-overlay-wrapper ${callState.status !== 'idle' ? 'active' : ''} ${!isIncoming ? 'non-blocking' : ''}`}>
+      <div 
+        className={`call-card ${remoteVideoStream ? 'has-remote-video' : ''} ${hasVideo ? 'has-video' : ''}`} 
+        ref={containerRef}
+        style={cardStyle}
+        onMouseDown={handleCardMouseDown}
+        onTouchStart={handleCardTouchStart}
+      >
+        {/* Minimize Button (only if not incoming) */}
+        {!isIncoming && (
+          <div className="call-header-actions">
+            <button 
+              type="button" 
+              className="call-action-icon-btn" 
+              onClick={() => setIsMinimized(true)}
+              title="Свернуть"
+            >
+              <Minimize2 size={16} />
+            </button>
+          </div>
+        )}
         
         {/* Remote Video Stream Feed */}
         {remoteVideoStream && (

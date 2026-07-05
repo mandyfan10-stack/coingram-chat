@@ -297,6 +297,23 @@ export default function ChatArea() {
     setActiveChatId
   } = useChat();
 
+  const isOwner = activeChat && currentUser && (
+    activeChat.createdBy === currentUser.id ||
+    activeChat.createdBy === 'current'
+  );
+
+  const canPost = !activeChat || 
+    activeChat.type === 'personal' || 
+    activeChat.type === 'bot' || 
+    isOwner || 
+    (activeChat.type === 'group' && !activeChat.settings?.only_admins_can_post);
+
+  const canSendMedia = !activeChat ||
+    activeChat.type === 'personal' ||
+    activeChat.type === 'bot' ||
+    isOwner ||
+    activeChat.settings?.allow_media !== false;
+
   const isCustomWallpaper = wallpaper && !['classic', 'sunset', 'space', 'mint', 'cyber'].includes(wallpaper);
   const chatBodyStyle = isCustomWallpaper ? {
     backgroundImage: `url(${wallpaper})`,
@@ -1119,7 +1136,14 @@ export default function ChatArea() {
       )}
 
       {/* Input Area */}
-      <footer className="chat-footer-input">
+      {!canPost ? (
+        <footer className="chat-footer-input restricted" style={{ padding: '8px 16px' }}>
+          <div className="restricted-input-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px', color: 'var(--text-secondary)', fontSize: '13px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border-color)', width: '100%', textAlign: 'center', boxSizing: 'border-box' }}>
+            <span>{activeChat?.type === 'channel' ? 'Только администраторы могут отправлять сообщения в этот канал' : 'Только администраторы могут отправлять сообщения в эту группу'}</span>
+          </div>
+        </footer>
+      ) : (
+        <footer className="chat-footer-input">
         {/* Reply Bar Overlay */}
         {replyingTo && (
           <div className="reply-indicator-bar">
@@ -1190,28 +1214,30 @@ export default function ChatArea() {
           ) : (
             <>
               {/* Attachment button */}
-              <div className="attach-wrapper">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileChange}
-                  accept="image/*,audio/*"
-                  style={{ display: 'none' }}
-                  disabled={uploading}
-                />
-                <button
-                  className="input-action-btn"
-                  onClick={() => fileInputRef.current?.click()}
-                  title="Прикрепить изображение"
-                  disabled={uploading}
-                >
-                  {uploading ? (
-                    <div className="spinner" style={{ width: '18px', height: '18px', borderColor: 'var(--text-secondary)', borderTopColor: 'var(--accent-color)' }} />
-                  ) : (
-                    <Paperclip size={22} />
-                  )}
-                </button>
-              </div>
+              {canSendMedia && (
+                <div className="attach-wrapper">
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*,audio/*"
+                    style={{ display: 'none' }}
+                    disabled={uploading}
+                  />
+                  <button
+                    className="input-action-btn"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Прикрепить изображение"
+                    disabled={uploading}
+                  >
+                    {uploading ? (
+                      <div className="spinner" style={{ width: '18px', height: '18px', borderColor: 'var(--text-secondary)', borderTopColor: 'var(--accent-color)' }} />
+                    ) : (
+                      <Paperclip size={22} />
+                    )}
+                  </button>
+                </div>
+              )}
 
               {/* Text Area */}
               <div className="input-textarea-wrapper">
@@ -1365,7 +1391,7 @@ export default function ChatArea() {
             >
               <Send size={20} />
             </button>
-          ) : (
+          ) : canSendMedia ? (
             <div style={{ position: 'relative' }}>
               {isRecording && !isRecordingLocked && (
                 <div className={`recording-lock-indicator ${isLockActive ? 'active' : ''}`}>
@@ -1398,9 +1424,19 @@ export default function ChatArea() {
                 )}
               </button>
             </div>
+          ) : (
+            <button
+              className="send-message-btn"
+              disabled
+              title="Отправка медиа ограничена"
+              style={{ opacity: 0.4, cursor: 'not-allowed' }}
+            >
+              <Send size={20} />
+            </button>
           )}
         </div>
       </footer>
+      )}
 
       {/* Video Recording Live Preview Overlay */}
       {isRecording && recordMode === 'video' && (
