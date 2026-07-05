@@ -224,7 +224,7 @@ const startAudioAnalyzer = (stream, onVolume) => {
         sum += dataArray[i];
       }
       const average = sum / bufferLength;
-      const isSpeaking = average > 5;
+      const isSpeaking = average > 15;
       onVolume(isSpeaking);
       
       setTimeout(() => {
@@ -1695,10 +1695,12 @@ export const ChatProvider = ({ children }) => {
             })
             .on('broadcast', { event: 'hangup' }, (payload) => {
               const { senderId } = payload.payload || {};
-              if (senderId && pcsRef.current[senderId]) {
+              if (senderId) {
                 console.log(`Peer ${senderId} hung up.`);
-                pcsRef.current[senderId].close();
-                delete pcsRef.current[senderId];
+                if (pcsRef.current[senderId]) {
+                  pcsRef.current[senderId].close();
+                  delete pcsRef.current[senderId];
+                }
                 
                 // Clear their candidate queue
                 delete candidateQueuesRef.current[senderId];
@@ -1708,6 +1710,9 @@ export const ChatProvider = ({ children }) => {
                   el.srcObject = null;
                   el.remove();
                 });
+
+                // Remove from group call participants
+                setGroupCallParticipants(prev => prev.filter(p => p.id !== senderId));
               }
             })
             .subscribe(async (status) => {
@@ -2239,51 +2244,29 @@ export const ChatProvider = ({ children }) => {
         }
       ]);
 
-      // Start simulation of group members joining
-      const timers = [];
-      const mockMembers = chat.members.filter(m => m.id !== 'current' && m.id !== currentUser.id);
-
-      mockMembers.forEach((member, index) => {
-        const joinTimer = setTimeout(() => {
+      if (!isSupabaseConfigured) {
+        const timers = [];
+        const speakInterval = setInterval(() => {
           setGroupCallParticipants(prev => {
-            if (prev.some(p => p.id === member.id)) return prev;
-            return [...prev, {
-              id: member.id,
-              name: member.name,
-              avatar: member.avatar,
-              avatarColor: member.avatarColor || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)',
-              muted: Math.random() > 0.7,
-              videoStream: null,
-              speaking: false
-            }];
-          });
-        }, (index + 1) * 1500);
-        timers.push(joinTimer);
-      });
-
-      const speakInterval = setInterval(() => {
-        setGroupCallParticipants(prev => {
-          return prev.map(p => {
-            const isMe = p.id === (currentUser?.id || 'current');
-            if (isMe) {
-              if (!isSupabaseConfigured) {
+            return prev.map(p => {
+              const isMe = p.id === (currentUser?.id || 'current');
+              if (isMe) {
                 return { ...p, speaking: !p.muted && Math.random() > 0.65 };
               }
-              return p;
-            }
-            if (p.isReal) {
-              return p;
-            }
-            if (!p.muted) {
-              return { ...p, speaking: Math.random() > 0.65 };
-            }
-            return { ...p, speaking: false };
+              if (p.isReal) {
+                return p;
+              }
+              if (!p.muted) {
+                return { ...p, speaking: Math.random() > 0.65 };
+              }
+              return { ...p, speaking: false };
+            });
           });
-        });
-      }, 1500);
-      timers.push(speakInterval);
+        }, 1500);
+        timers.push(speakInterval);
 
-      groupCallTimersRef.current = timers;
+        groupCallTimersRef.current = timers;
+      }
     }
 
     if (isSupabaseConfigured) {
@@ -2330,6 +2313,23 @@ export const ChatProvider = ({ children }) => {
   }, [currentUser, chats, sendSignalingMessage]);
 
   const acceptCall = useCallback(() => {
+    const chat = chats.find(c => c.id === callState.chatId);
+    const isGroup = chat && chat.type === 'group';
+
+    if (isGroup) {
+      setGroupCallParticipants([
+        {
+          id: currentUser.id || 'current',
+          name: 'Вы',
+          avatar: currentUser.avatar || '🪙',
+          avatarColor: currentUser.avatarColor,
+          muted: false,
+          videoStream: null,
+          speaking: false
+        }
+      ]);
+    }
+
     if (isSupabaseConfigured && callState.otherUserId) {
       sendSignalingMessage(callState.otherUserId, 'call-accepted', { responderId: currentUser.id });
     }
@@ -2350,7 +2350,7 @@ export const ChatProvider = ({ children }) => {
         });
       }, 1500);
     }
-  }, [callState.otherUserId, currentUser, sendSignalingMessage]);
+  }, [callState.chatId, callState.otherUserId, currentUser, chats, sendSignalingMessage, setGroupCallParticipants]);
 
   const rejectCall = useCallback(() => {
     if (isSupabaseConfigured && callState.otherUserId) {

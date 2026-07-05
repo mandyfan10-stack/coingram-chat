@@ -781,7 +781,7 @@ export default function CallOverlay() {
           <>
             {/* Background Visual Wave Glow Circles */}
             <div className={`call-avatar-section ${!showBackgroundAvatar ? 'fade-out' : ''}`}>
-              {callState.status === 'connected' && callState.webrtcState === 'connected' && !callState.muted && (
+              {callState.status === 'connected' && callState.webrtcState === 'connected' && callState.isRemoteSpeaking && (
                 <>
                   <div className="wave-pulse wave-1" style={{ transform: `scale(${pulseScale * 1.15})`, opacity: 0.15 }} />
                   <div className="wave-pulse wave-2" style={{ transform: `scale(${pulseScale * 1.35})`, opacity: 0.1 }} />
