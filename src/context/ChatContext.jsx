@@ -234,11 +234,14 @@ export const ChatProvider = ({ children }) => {
     isOutgoing: false,
     callerInfo: null,
     otherUserId: null,
-    webrtcState: 'disconnected'
+    webrtcState: 'disconnected',
+    isRemoteScreenSharing: false
   });
 
   const [groupCallParticipants, setGroupCallParticipants] = useState([]);
   const groupCallTimersRef = useRef([]);
+  const pcsRef = useRef({});
+  const candidateQueuesRef = useRef({});
 
   const [localVideoStream, setLocalVideoStream] = useState(null);
   const [remoteVideoStream, setRemoteVideoStream] = useState(null);
@@ -1278,7 +1281,8 @@ export const ChatProvider = ({ children }) => {
           isOutgoing: false,
           callerInfo: null,
           otherUserId: null,
-          webrtcState: 'disconnected'
+          webrtcState: 'disconnected',
+          isRemoteScreenSharing: false
         });
       }, 1500);
     };
@@ -1379,6 +1383,9 @@ export const ChatProvider = ({ children }) => {
         } else if (event.track.kind === 'video') {
           console.log("Setting remote video stream state.");
           setRemoteVideoStream(remoteStream);
+          const label = event.track.label ? event.track.label.toLowerCase() : '';
+          const isScreen = label.includes('screen') || label.includes('window') || label.includes('display') || label.includes('desktop');
+          setCallState(prev => ({ ...prev, isRemoteScreenSharing: isScreen }));
         }
       };
 
@@ -1390,164 +1397,368 @@ export const ChatProvider = ({ children }) => {
 
       // 6. Join WebRTC signaling channel (Supabase only)
       if (isSupabaseConfigured) {
-        console.log(`Subscribing to WebRTC signaling channel: call-signals-webrtc-${callState.chatId}`);
-        activeCallChannel = supabase.channel(`call-signals-webrtc-${callState.chatId}`);
-        activeCallChannelRef.current = activeCallChannel;
+        const isGroup = activeChat?.type === 'group';
 
-        const sendOffer = async () => {
-          if (pc.remoteDescription) {
-            console.log("Remote description already set, skipping offer generation/resend.");
-            return;
-          }
-          if (pc.localDescription) {
-            console.log("Offer already set locally. Re-broadcasting existing offer...");
-            if (activeCallChannel) {
+        if (isGroup) {
+          console.log(`Subscribing to WebRTC group signaling: call-signals-webrtc-${callState.chatId}`);
+          activeCallChannel = supabase.channel(`call-signals-webrtc-${callState.chatId}`);
+          activeCallChannelRef.current = activeCallChannel;
+
+          const processPeerCandidateQueue = async (peerId, pcInstance) => {
+            const queue = candidateQueuesRef.current[peerId];
+            if (!queue || queue.length === 0) return;
+            console.log(`Processing ICE candidate queue for peer ${peerId} (${queue.length} items)...`);
+            while (queue.length > 0) {
+              const candidate = queue.shift();
+              try {
+                await pcInstance.addIceCandidate(candidate);
+                console.log(`Successfully added queued ICE candidate for peer ${peerId}:`, candidate.candidate);
+              } catch (e) {
+                console.error(`Error adding queued ICE candidate for peer ${peerId}:`, e);
+              }
+            }
+          };
+
+          const getOrCreatePeerConnection = (peerId) => {
+            if (pcsRef.current[peerId]) {
+              return pcsRef.current[peerId];
+            }
+            console.log(`Creating RTCPeerConnection for peer: ${peerId}`);
+            const pcInstance = new RTCPeerConnection({
+              iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' }
+              ]
+            });
+
+            pcInstance.oniceconnectionstatechange = () => {
+              console.log(`ICE Connection State for peer ${peerId}:`, pcInstance.iceConnectionState);
+              if (pcInstance.iceConnectionState === 'connected' || pcInstance.iceConnectionState === 'completed') {
+                setCallState(prev => ({ ...prev, webrtcState: 'connected' }));
+              }
+            };
+
+            pcInstance.onicecandidate = (event) => {
+              if (event.candidate && activeCallChannel) {
+                activeCallChannel.send({
+                  type: 'broadcast',
+                  event: 'signal',
+                  payload: {
+                    type: 'candidate',
+                    candidate: event.candidate,
+                    senderId: currentUser.id,
+                    targetId: peerId
+                  }
+                });
+              }
+            };
+
+            pcInstance.ontrack = (event) => {
+              console.log(`Remote track received from peer ${peerId}:`, event.track.kind);
+              const remoteStream = event.streams[0] || new MediaStream([event.track]);
+              
+              if (event.track.kind === 'audio') {
+                const elementId = `webrtc-audio-${peerId}-${remoteStream.id}`;
+                let audioEl = document.getElementById(elementId);
+                if (!audioEl) {
+                  audioEl = document.createElement('audio');
+                  audioEl.id = elementId;
+                  audioEl.autoplay = true;
+                  audioEl.playsInline = true;
+                  audioEl.className = 'webrtc-remote-audio-feed';
+                  document.body.appendChild(audioEl);
+                }
+                audioEl.srcObject = remoteStream;
+                audioEl.play().catch(e => {
+                  console.warn("Audio element autoplay failed:", e);
+                });
+              } else if (event.track.kind === 'video') {
+                console.log(`Setting remote video stream state from peer ${peerId}.`);
+                setRemoteVideoStream(remoteStream);
+                const label = event.track.label ? event.track.label.toLowerCase() : '';
+                const isScreen = label.includes('screen') || label.includes('window') || label.includes('display') || label.includes('desktop');
+                setCallState(prev => ({ ...prev, isRemoteScreenSharing: isScreen }));
+              }
+            };
+
+            if (localStream) {
+              localStream.getTracks().forEach(track => {
+                pcInstance.addTrack(track, localStream);
+              });
+            }
+
+            pcsRef.current[peerId] = pcInstance;
+            return pcInstance;
+          };
+
+          activeCallChannel
+            .on('broadcast', { event: 'join-group-call' }, async (payload) => {
+              const { senderId } = payload.payload;
+              if (senderId === currentUser.id) return;
+              
+              // Prevent duplicates if already connected
+              if (pcsRef.current[senderId]) {
+                const existingPc = pcsRef.current[senderId];
+                if (existingPc.connectionState === 'connected' || existingPc.iceConnectionState === 'connected') {
+                  console.log(`Already connected to peer ${senderId}, skipping duplicate offer generation.`);
+                  return;
+                }
+              }
+              
+              console.log(`User ${senderId} joined group call. Initializing handshake...`);
+              const pcInstance = getOrCreatePeerConnection(senderId);
+              try {
+                const offer = await pcInstance.createOffer();
+                await pcInstance.setLocalDescription(offer);
+                activeCallChannel.send({
+                  type: 'broadcast',
+                  event: 'signal',
+                  payload: {
+                    type: 'offer',
+                    sdp: offer.sdp,
+                    senderId: currentUser.id,
+                    targetId: senderId
+                  }
+                });
+              } catch (err) {
+                console.error(`Error generating offer for peer ${senderId}:`, err);
+              }
+            })
+            .on('broadcast', { event: 'signal' }, async (payload) => {
+              const signal = payload.payload;
+              if (signal.targetId !== currentUser.id) return;
+              const senderId = signal.senderId;
+              if (!senderId) return;
+
+              const pcInstance = getOrCreatePeerConnection(senderId);
+
+              if (signal.type === 'offer') {
+                try {
+                  await pcInstance.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
+                  const answer = await pcInstance.createAnswer();
+                  await pcInstance.setLocalDescription(answer);
+                  activeCallChannel.send({
+                    type: 'broadcast',
+                    event: 'signal',
+                    payload: {
+                      type: 'answer',
+                      sdp: answer.sdp,
+                      senderId: currentUser.id,
+                      targetId: senderId
+                    }
+                  });
+                  await processPeerCandidateQueue(senderId, pcInstance);
+                } catch (e) {
+                  console.error(`Error handshaking offer from peer ${senderId}:`, e);
+                }
+              } else if (signal.type === 'answer') {
+                try {
+                  await pcInstance.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
+                  await processPeerCandidateQueue(senderId, pcInstance);
+                } catch (e) {
+                  console.error(`Error setting answer from peer ${senderId}:`, e);
+                }
+              } else if (signal.type === 'candidate') {
+                try {
+                  const iceCandidate = new RTCIceCandidate(signal.candidate);
+                  if (pcInstance.remoteDescription && pcInstance.remoteDescription.type) {
+                    await pcInstance.addIceCandidate(iceCandidate);
+                    console.log(`Directly added remote ICE candidate from peer ${senderId}:`, iceCandidate.candidate);
+                  } else {
+                    candidateQueuesRef.current[senderId] = candidateQueuesRef.current[senderId] || [];
+                    candidateQueuesRef.current[senderId].push(iceCandidate);
+                    console.log(`Queued remote ICE candidate from peer ${senderId} (remoteDescription not set yet).`);
+                  }
+                } catch (e) {
+                  console.error(`Error adding ICE candidate from peer ${senderId}:`, e);
+                }
+              }
+            })
+            .on('broadcast', { event: 'hangup' }, (payload) => {
+              const { senderId } = payload.payload || {};
+              if (senderId && pcsRef.current[senderId]) {
+                console.log(`Peer ${senderId} hung up.`);
+                pcsRef.current[senderId].close();
+                delete pcsRef.current[senderId];
+                
+                // Clear their candidate queue
+                delete candidateQueuesRef.current[senderId];
+
+                // Remove their remote audio elements
+                document.querySelectorAll(`[id^="webrtc-audio-${senderId}-"]`).forEach(el => {
+                  el.srcObject = null;
+                  el.remove();
+                });
+              }
+            })
+            .subscribe(async (status) => {
+              if (status === 'SUBSCRIBED') {
+                console.log("Subscribed to group voice chat signaling channel. Broadcasting join signal...");
+                activeCallChannel.send({
+                  type: 'broadcast',
+                  event: 'join-group-call',
+                  payload: { senderId: currentUser.id }
+                });
+              }
+            });
+        } else {
+          console.log(`Subscribing to WebRTC signaling channel: call-signals-webrtc-${callState.chatId}`);
+          activeCallChannel = supabase.channel(`call-signals-webrtc-${callState.chatId}`);
+          activeCallChannelRef.current = activeCallChannel;
+
+          const sendOffer = async () => {
+            if (pc.remoteDescription) {
+              console.log("Remote description already set, skipping offer generation/resend.");
+              return;
+            }
+            if (pc.localDescription) {
+              console.log("Offer already set locally. Re-broadcasting existing offer...");
+              if (activeCallChannel) {
+                activeCallChannel.send({
+                  type: 'broadcast',
+                  event: 'signal',
+                  payload: { type: 'offer', sdp: pc.localDescription.sdp }
+                });
+              }
+              return;
+            }
+            if (pc.signalingState !== 'stable') {
+              console.log(`Signaling state is not stable (${pc.signalingState}), skipping offer creation.`);
+              return;
+            }
+            try {
+              console.log("Creating SDP Offer...");
+              const offer = await pc.createOffer();
+              await pc.setLocalDescription(offer);
+              console.log("Local description set (offer). Broadcasting offer...");
               activeCallChannel.send({
                 type: 'broadcast',
                 event: 'signal',
-                payload: { type: 'offer', sdp: pc.localDescription.sdp }
+                payload: { type: 'offer', sdp: offer.sdp }
               });
+            } catch (err) {
+              console.error("Error generating offer:", err);
             }
-            return;
-          }
-          if (pc.signalingState !== 'stable') {
-            console.log(`Signaling state is not stable (${pc.signalingState}), skipping offer creation.`);
-            return;
-          }
-          try {
-            console.log("Creating SDP Offer...");
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-            console.log("Local description set (offer). Broadcasting offer...");
-            activeCallChannel.send({
-              type: 'broadcast',
-              event: 'signal',
-              payload: { type: 'offer', sdp: offer.sdp }
-            });
-          } catch (err) {
-            console.error("Error generating offer:", err);
-          }
-        };
+          };
 
-        activeCallChannel
-          .on('broadcast', { event: 'signal' }, async (payload) => {
-            const signal = payload.payload;
-            console.log("Received WebRTC signal event:", signal.type);
+          activeCallChannel
+            .on('broadcast', { event: 'signal' }, async (payload) => {
+              const signal = payload.payload;
+              console.log("Received WebRTC signal event:", signal.type);
 
-            const isInitialSignal = ['ready', 'offer', 'answer'].includes(signal.type);
-            if (isInitialSignal && (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected')) {
-              console.log("WebRTC already connected, ignoring initial signal:", signal.type);
-              return;
-            }
+              const isInitialSignal = ['ready', 'offer', 'answer'].includes(signal.type);
+              if (isInitialSignal && (pc.connectionState === 'connected' || pc.iceConnectionState === 'connected')) {
+                console.log("WebRTC already connected, ignoring initial signal:", signal.type);
+                return;
+              }
 
-            if (signal.type === 'ready' && callState.isOutgoing) {
-              console.log("Peer is ready. Starting handshake offer...");
-              await sendOffer();
-            } else if (signal.type === 'offer' && !callState.isOutgoing) {
-              try {
-                if (pc.remoteDescription) {
-                  console.log("Receiver remote description already set, ignoring duplicate offer.");
-                  return;
-                }
-                if (pc.signalingState !== 'stable') {
-                  console.log(`Receiver signaling state is not stable (${pc.signalingState}), skipping offer.`);
-                  return;
-                }
-                console.log("Received SDP Offer. Setting remote description...");
-                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
-                console.log("Remote description set (offer). Creating answer...");
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-                console.log("Local description set (answer). Broadcasting answer...");
-                activeCallChannel.send({
-                  type: 'broadcast',
-                  event: 'signal',
-                  payload: { type: 'answer', sdp: answer.sdp }
-                });
-                await processCandidateQueue();
-              } catch (e) {
-                console.error("Error setting offer or creating answer:", e);
-              }
-            } else if (signal.type === 'answer' && callState.isOutgoing) {
-              try {
-                if (pc.remoteDescription) {
-                  console.log("Caller remote description already set, ignoring duplicate answer.");
-                  return;
-                }
-                if (pc.signalingState !== 'have-local-offer') {
-                  console.log(`Caller signaling state is not have-local-offer (${pc.signalingState}), skipping answer.`);
-                  return;
-                }
-                console.log("Received SDP Answer. Setting remote description...");
-                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
-                await processCandidateQueue();
-              } catch (e) {
-                console.error("Error setting remote answer:", e);
-              }
-            } else if (signal.type === 'renegotiate-offer') {
-              try {
-                console.log("Received renegotiation SDP Offer. Setting remote description...");
-                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
-                console.log("Remote description set (renegotiation offer). Creating answer...");
-                const answer = await pc.createAnswer();
-                await pc.setLocalDescription(answer);
-                console.log("Local description set (renegotiation answer). Broadcasting answer...");
-                activeCallChannel.send({
-                  type: 'broadcast',
-                  event: 'signal',
-                  payload: { type: 'renegotiate-answer', sdp: answer.sdp }
-                });
-                await processCandidateQueue();
-              } catch (e) {
-                console.error("Error setting renegotiation offer or creating answer:", e);
-              }
-            } else if (signal.type === 'renegotiate-answer') {
-              try {
-                console.log("Received renegotiation SDP Answer. Setting remote description...");
-                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
-                await processCandidateQueue();
-              } catch (e) {
-                console.error("Error setting remote renegotiation answer:", e);
-              }
-            } else if (signal.type === 'video-stopped') {
-              console.log("Peer stopped their video feed.");
-              setRemoteVideoStream(null);
-            } else if (signal.type === 'candidate') {
-              try {
-                const iceCandidate = new RTCIceCandidate(signal.candidate);
-                if (pc.remoteDescription && pc.remoteDescription.type) {
-                  await pc.addIceCandidate(iceCandidate);
-                  console.log("Directly added remote ICE candidate:", iceCandidate.candidate);
-                } else {
-                  candidateQueue.push(iceCandidate);
-                  console.log("Queued remote ICE candidate (remote description not set yet).");
-                }
-              } catch (e) {
-                console.error("Error adding ice candidate:", e);
-              }
-            }
-          })
-          .on('broadcast', { event: 'hangup' }, () => {
-            console.log("Received hangup broadcast signal.");
-            endCallLocally();
-          })
-          .subscribe(async (status) => {
-            console.log("WebRTC signaling subscription status:", status);
-            if (status === 'SUBSCRIBED') {
-              if (callState.isOutgoing) {
-                // If caller is subscribed, also try sending an offer (covers case where receiver subscribed first)
+              if (signal.type === 'ready' && callState.isOutgoing) {
+                console.log("Peer is ready. Starting handshake offer...");
                 await sendOffer();
-              } else {
-                // If receiver is subscribed, broadcast 'ready' to caller
-                console.log("Receiver is subscribed. Broadcasting 'ready' signal...");
-                activeCallChannel.send({
-                  type: 'broadcast',
-                  event: 'signal',
-                  payload: { type: 'ready' }
-                });
+              } else if (signal.type === 'offer' && !callState.isOutgoing) {
+                try {
+                  if (pc.remoteDescription) {
+                    console.log("Receiver remote description already set, ignoring duplicate offer.");
+                    return;
+                  }
+                  if (pc.signalingState !== 'stable') {
+                    console.log(`Receiver signaling state is not stable (${pc.signalingState}), skipping offer.`);
+                    return;
+                  }
+                  console.log("Received SDP Offer. Setting remote description...");
+                  await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
+                  console.log("Remote description set (offer). Creating answer...");
+                  const answer = await pc.createAnswer();
+                  await pc.setLocalDescription(answer);
+                  console.log("Local description set (answer). Broadcasting answer...");
+                  activeCallChannel.send({
+                    type: 'broadcast',
+                    event: 'signal',
+                    payload: { type: 'answer', sdp: answer.sdp }
+                  });
+                  await processCandidateQueue();
+                } catch (e) {
+                  console.error("Error setting offer or creating answer:", e);
+                }
+              } else if (signal.type === 'answer' && callState.isOutgoing) {
+                try {
+                  if (pc.remoteDescription) {
+                    console.log("Caller remote description already set, ignoring duplicate answer.");
+                    return;
+                  }
+                  if (pc.signalingState !== 'have-local-offer') {
+                    console.log(`Caller signaling state is not have-local-offer (${pc.signalingState}), skipping answer.`);
+                    return;
+                  }
+                  console.log("Received SDP Answer. Setting remote description...");
+                  await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
+                  await processCandidateQueue();
+                } catch (e) {
+                  console.error("Error setting remote answer:", e);
+                }
+              } else if (signal.type === 'renegotiate-offer') {
+                try {
+                  console.log("Received renegotiation SDP Offer. Setting remote description...");
+                  await pc.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
+                  console.log("Remote description set (renegotiation offer). Creating answer...");
+                  const answer = await pc.createAnswer();
+                  await pc.setLocalDescription(answer);
+                  console.log("Local description set (renegotiation answer). Broadcasting answer...");
+                  activeCallChannel.send({
+                    type: 'broadcast',
+                    event: 'signal',
+                    payload: { type: 'renegotiate-answer', sdp: answer.sdp }
+                  });
+                  await processCandidateQueue();
+                } catch (e) {
+                  console.error("Error setting renegotiation offer or creating answer:", e);
+                }
+              } else if (signal.type === 'renegotiate-answer') {
+                try {
+                  console.log("Received renegotiation SDP Answer. Setting remote description...");
+                  await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: signal.sdp }));
+                  await processCandidateQueue();
+                } catch (e) {
+                  console.error("Error setting remote renegotiation answer:", e);
+                }
+              } else if (signal.type === 'video-stopped') {
+                console.log("Peer stopped their video feed.");
+                setRemoteVideoStream(null);
+              } else if (signal.type === 'candidate') {
+                try {
+                  const iceCandidate = new RTCIceCandidate(signal.candidate);
+                  if (pc.remoteDescription && pc.remoteDescription.type) {
+                    await pc.addIceCandidate(iceCandidate);
+                    console.log("Directly added remote ICE candidate:", iceCandidate.candidate);
+                  } else {
+                    candidateQueue.push(iceCandidate);
+                    console.log("Queued remote ICE candidate (remote description not set yet).");
+                  }
+                } catch (e) {
+                  console.error("Error adding ice candidate:", e);
+                }
               }
-            }
-          });
+            })
+            .on('broadcast', { event: 'hangup' }, () => {
+              console.log("Received hangup broadcast signal.");
+              endCallLocally();
+            })
+            .subscribe(async (status) => {
+              console.log("WebRTC signaling subscription status:", status);
+              if (status === 'SUBSCRIBED') {
+                if (callState.isOutgoing) {
+                  await sendOffer();
+                } else {
+                  console.log("Receiver is subscribed. Broadcasting 'ready' signal...");
+                  activeCallChannel.send({
+                    type: 'broadcast',
+                    event: 'signal',
+                    payload: { type: 'ready' }
+                  });
+                }
+              }
+            });
+        }
       }
     };
 
@@ -1568,6 +1779,7 @@ export const ChatProvider = ({ children }) => {
         screenStreamRef.current = null;
       }
       setIsScreenSharing(false);
+      candidateQueuesRef.current = {};
       wasCameraActiveRef.current = false;
       setLocalVideoStream(null);
       setRemoteVideoStream(null);
@@ -1814,6 +2026,14 @@ export const ChatProvider = ({ children }) => {
     }
     setGroupCallParticipants([]);
 
+    // Close and clear group peer connections
+    Object.keys(pcsRef.current).forEach(peerId => {
+      if (pcsRef.current[peerId]) {
+        pcsRef.current[peerId].close();
+      }
+    });
+    pcsRef.current = {};
+
     setTimeout(() => {
       setCallState({
         status: 'idle',
@@ -1823,7 +2043,8 @@ export const ChatProvider = ({ children }) => {
         isOutgoing: false,
         callerInfo: null,
         otherUserId: null,
-        webrtcState: 'disconnected'
+        webrtcState: 'disconnected',
+        isRemoteScreenSharing: false
       });
     }, 1500);
   }, []);
@@ -2002,19 +2223,19 @@ export const ChatProvider = ({ children }) => {
   }, [callState.otherUserId, endCallLocally, sendSignalingMessage]);
 
   const endCall = useCallback(() => {
-    if (isSupabaseConfigured && callState.otherUserId) {
+    if (isSupabaseConfigured) {
       if (activeCallChannelRef.current) {
         activeCallChannelRef.current.send({
           type: 'broadcast',
           event: 'hangup',
-          payload: {}
+          payload: { senderId: currentUser?.id }
         });
-      } else {
+      } else if (callState.otherUserId) {
         sendSignalingMessage(callState.otherUserId, 'call-rejected', {});
       }
     }
     endCallLocally();
-  }, [callState.otherUserId, endCallLocally]);
+  }, [callState.otherUserId, endCallLocally, currentUser]);
 
   const toggleCallMute = useCallback(() => {
     const nextMuted = !callState.muted;

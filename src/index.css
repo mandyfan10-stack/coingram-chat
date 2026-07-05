@@ -4525,20 +4525,20 @@ input:checked + .switch-slider:before {
 
 .call-card {
   width: 320px;
-  background: rgba(30, 41, 59, 0.65);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(135deg, rgba(17, 24, 39, 0.85) 0%, rgba(15, 23, 42, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 24px;
   padding: 32px 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 24px 48px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   color: white;
   transform: scale(0.92);
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.3s ease, min-height 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), width 0.3s ease, height 0.3s ease;
 }
 
 .call-overlay-wrapper.active .call-card {
@@ -5238,7 +5238,7 @@ input:checked + .switch-slider:before {
   opacity: 1;
 }
 
-/* Group Voice Chat Grid styling */
+/* Group Voice Chat Telegram Stage List styling */
 .group-call-container {
   display: flex;
   flex-direction: column;
@@ -5248,99 +5248,246 @@ input:checked + .switch-slider:before {
   min-height: 0;
 }
 
-.group-call-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
-  gap: 16px;
+.group-call-stage-list {
+  display: flex;
+  flex-direction: column;
   width: 100%;
   max-height: 280px;
   overflow-y: auto;
   padding: 8px 4px;
   margin-bottom: 16px;
   flex: 1;
+  gap: 8px;
 }
 
-/* Scrollbar styling for the participant grid */
-.group-call-grid::-webkit-scrollbar {
+/* Scrollbar styling for the participant stage list */
+.group-call-stage-list::-webkit-scrollbar {
   width: 4px;
 }
-.group-call-grid::-webkit-scrollbar-track {
+.group-call-stage-list::-webkit-scrollbar-track {
   background: transparent;
 }
-.group-call-grid::-webkit-scrollbar-thumb {
+.group-call-stage-list::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 2px;
 }
 
-.group-call-member {
+.group-call-member-row {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
+}
+
+.group-call-member-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(-1px);
+}
+
+.group-call-member-row.speaking {
+  background: rgba(0, 210, 254, 0.08);
+  border-color: rgba(0, 210, 254, 0.2);
 }
 
 .group-call-avatar-wrapper {
   position: relative;
-  width: 56px;
-  height: 56px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: box-shadow 0.3s ease;
-  box-shadow: 0 0 0 0px rgba(46, 204, 113, 0);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 0 0px rgba(0, 210, 254, 0);
 }
 
 .group-call-avatar-wrapper.speaking {
-  box-shadow: 0 0 0 3px #2ecc71;
+  box-shadow: 0 0 0 3px #00d2fe, 0 0 15px rgba(0, 210, 254, 0.5);
   animation: active-speaker-pulse 1.5s infinite ease-in-out;
 }
 
-.group-call-avatar-wrapper .avatar-placeholder,
+.group-call-avatar-wrapper .premium-avatar-container,
+.group-call-avatar-wrapper .premium-avatar-icon,
 .group-call-avatar-wrapper img {
-  width: 56px;
-  height: 56px;
+  width: 42px !important;
+  height: 42px !important;
   border-radius: 50%;
   object-fit: cover;
 }
 
+.group-call-member-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  margin-left: 14px;
+  text-align: left;
+  min-width: 0;
+}
+
 .group-call-member-name {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.85);
-  margin-top: 6px;
-  text-align: center;
+  color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 72px;
 }
 
-.group-call-mute-badge {
-  position: absolute;
-  bottom: -2px;
-  right: -2px;
-  background: #e74c3c;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
+.group-call-member-status {
+  font-size: 11px;
+  margin-top: 2px;
+}
+.group-call-member-status.muted {
+  color: #ef4444;
+}
+.group-call-member-status.speaking {
+  color: #10b981;
+  font-weight: 500;
+}
+.group-call-member-status.online {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.group-call-member-action {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1.5px solid #18222d;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  min-width: 24px;
+}
+
+.group-call-status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+}
+.group-call-status-icon.muted {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+}
+.group-call-status-icon.active {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* Speaking waves */
+.speaking-wave-indicator {
+  display: flex;
+  align-items: flex-end;
+  gap: 2.5px;
+  height: 14px;
+  padding-bottom: 1px;
+}
+.speaking-wave-indicator .wave-bar {
+  width: 2.5px;
+  background-color: #2ecc71;
+  border-radius: 1px;
+  animation: bounce-wave 0.8s infinite ease-in-out alternate;
+}
+.speaking-wave-indicator .wave-bar:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.speaking-wave-indicator .wave-bar:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+.speaking-wave-indicator.one-to-one-wave {
+  margin-left: 8px;
+  height: 12px;
+}
+.speaking-wave-indicator.one-to-one-wave .wave-bar {
+  width: 2px;
+  background-color: #00d2fe;
+}
+
+.call-status-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32px;
+}
+
+.call-status-container .call-status-subtitle {
+  margin-bottom: 0 !important;
+}
+
+@keyframes bounce-wave {
+  0% {
+    height: 3px;
+  }
+  100% {
+    height: 14px;
+  }
 }
 
 @keyframes active-speaker-pulse {
   0% {
-    box-shadow: 0 0 0 0px rgba(46, 204, 113, 0.6);
+    box-shadow: 0 0 0 0px rgba(0, 210, 254, 0.6);
   }
   70% {
-    box-shadow: 0 0 0 8px rgba(46, 204, 113, 0);
+    box-shadow: 0 0 0 8px rgba(0, 210, 254, 0);
   }
   100% {
-    box-shadow: 0 0 0 0px rgba(46, 204, 113, 0);
+    box-shadow: 0 0 0 0px rgba(0, 210, 254, 0);
   }
+}
+
+/* Active control panel and large Mute button */
+.active-controls-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  width: 100%;
+}
+
+.call-ctrl-btn.ctrl-secondary {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+}
+
+.btn-mute-stage {
+  width: 64px !important;
+  height: 64px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+}
+
+.btn-mute-stage:hover {
+  transform: scale(1.1) !important;
+  background: rgba(255, 255, 255, 0.25) !important;
+}
+
+.btn-mute-stage.active-mute {
+  background: rgba(239, 68, 68, 0.85) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.5) !important;
+}
+
+.btn-mute-stage:not(.active-mute) {
+  background: rgba(16, 185, 129, 0.85) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.5) !important;
+}
+
+/* Contain modes for screen shares */
+.call-card.is-contain .remote-video-feed {
+  object-fit: contain !important;
+  background: #000 !important;
+}
+.call-card.is-contain .local-video-feed {
+  object-fit: contain !important;
+  background: #000 !important;
 }
 
 /* Member Role Settings Popup in ChatInfo */

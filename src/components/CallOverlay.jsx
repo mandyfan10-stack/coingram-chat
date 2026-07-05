@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
-import { Mic, MicOff, PhoneOff, Phone, Video, VideoOff, Monitor, Minimize2 } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, Phone, Video, VideoOff, Monitor, Minimize2, Maximize2 } from 'lucide-react';
 
 export default function CallOverlay() {
   const { 
@@ -34,6 +34,7 @@ export default function CallOverlay() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [bubblePos, setBubblePos] = useState({ x: window.innerWidth - 80, y: window.innerHeight - 120 });
   const [cardSize, setCardSize] = useState({ width: 320, height: 440 });
+  const [isVideoContain, setIsVideoContain] = useState(false);
 
   // Drag position offset for floating preview window
   const [dragPos, setDragPos] = useState({ x: 318, y: 12 });
@@ -485,6 +486,33 @@ export default function CallOverlay() {
     }
   }, [remoteVideoStream]);
 
+  // Auto-contain remote screen shares
+  useEffect(() => {
+    if (callState.isRemoteScreenSharing) {
+      setIsVideoContain(true);
+    }
+  }, [callState.isRemoteScreenSharing]);
+
+  // Keep local video preview (dragPos) inside card bounds when cardSize or stream changes
+  useEffect(() => {
+    if (dragRef.current && containerRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect();
+      const elementRect = dragRef.current.getBoundingClientRect();
+      
+      const maxX = containerRect.width - elementRect.width - 12;
+      const maxY = containerRect.height - elementRect.height - 12;
+      
+      setDragPos(prev => {
+        const newX = Math.max(12, Math.min(prev.x, maxX));
+        const newY = Math.max(12, Math.min(prev.y, maxY));
+        if (newX !== prev.x || newY !== prev.y) {
+          return { x: newX, y: newY };
+        }
+        return prev;
+      });
+    }
+  }, [cardSize, localVideoStream]);
+
   // Interactive Drag-and-drop Handlers
   const handleMouseDown = (e) => {
     e.preventDefault();
@@ -649,15 +677,25 @@ export default function CallOverlay() {
   return (
     <div className={`call-overlay-wrapper ${callState.status !== 'idle' ? 'active' : ''} ${!isIncoming ? 'non-blocking' : ''}`}>
       <div 
-        className={`call-card ${remoteVideoStream ? 'has-remote-video' : ''} ${hasVideo ? 'has-video' : ''}`} 
+        className={`call-card ${remoteVideoStream ? 'has-remote-video' : ''} ${hasVideo ? 'has-video' : ''} ${isVideoContain ? 'is-contain' : ''}`} 
         ref={containerRef}
         style={cardStyle}
         onMouseDown={handleCardMouseDown}
         onTouchStart={handleCardTouchStart}
       >
-        {/* Minimize Button (only if not incoming) */}
+        {/* Minimize & Scale buttons in Header */}
         {!isIncoming && (
           <div className="call-header-actions">
+            {remoteVideoStream && (
+              <button 
+                type="button" 
+                className="call-action-icon-btn" 
+                onClick={() => setIsVideoContain(prev => !prev)}
+                title={isVideoContain ? "Заполнить экран" : "Вписать в экран"}
+              >
+                <Maximize2 size={16} />
+              </button>
+            )}
             <button 
               type="button" 
               className="call-action-icon-btn" 
@@ -703,21 +741,38 @@ export default function CallOverlay() {
             <h2 className="call-user-name" style={{ marginBottom: '8px' }}>Голосовой чат: {displayName}</h2>
             <p className="call-status-subtitle" style={{ marginBottom: '16px' }}>{statusText}</p>
             
-            <div className="group-call-grid">
+            <div className="group-call-stage-list">
               {(groupCallParticipants || []).map(p => (
-                <div key={p.id} className="group-call-member">
+                <div key={p.id} className={`group-call-member-row ${p.speaking ? 'speaking' : ''}`}>
                   <div 
                     className={`group-call-avatar-wrapper ${p.speaking ? 'speaking' : ''}`}
                     style={{ background: p.avatarColor || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)' }}
                   >
                     {renderAvatar(p.avatar, '👤')}
-                    {p.muted && (
-                      <div className="group-call-mute-badge" title="Микрофон выключен">
-                        <MicOff size={10} style={{ color: 'white' }} />
+                  </div>
+                  <div className="group-call-member-info">
+                    <span className="group-call-member-name">{p.name}</span>
+                    <span className={`group-call-member-status ${p.muted ? 'muted' : p.speaking ? 'speaking' : 'online'}`}>
+                      {p.muted ? 'Микрофон выкл.' : p.speaking ? 'Говорит' : 'Слушает'}
+                    </span>
+                  </div>
+                  <div className="group-call-member-action">
+                    {p.muted ? (
+                      <div className="group-call-status-icon muted">
+                        <MicOff size={14} />
+                      </div>
+                    ) : p.speaking ? (
+                      <div className="speaking-wave-indicator">
+                        <span className="wave-bar"></span>
+                        <span className="wave-bar"></span>
+                        <span className="wave-bar"></span>
+                      </div>
+                    ) : (
+                      <div className="group-call-status-icon active">
+                        <Mic size={14} />
                       </div>
                     )}
                   </div>
-                  <span className="group-call-member-name">{p.name}</span>
                 </div>
               ))}
             </div>
@@ -740,7 +795,16 @@ export default function CallOverlay() {
 
             {/* User Info Header */}
             <h2 className="call-user-name">{displayName}</h2>
-            <p className="call-status-subtitle">{statusText}</p>
+            <div className="call-status-container">
+              <p className="call-status-subtitle">{statusText}</p>
+              {callState.status === 'connected' && callState.webrtcState === 'connected' && !callState.muted && (
+                <div className="speaking-wave-indicator one-to-one-wave">
+                  <span className="wave-bar"></span>
+                  <span className="wave-bar"></span>
+                  <span className="wave-bar"></span>
+                </div>
+              )}
+            </div>
           </>
         )}
 
@@ -766,49 +830,49 @@ export default function CallOverlay() {
               </button>
             </div>
           ) : (
-            <>
+            <div className="active-controls-panel">
               <button 
                 type="button"
-                className={`call-ctrl-btn ${callState.muted ? 'active-mute' : ''}`}
-                onClick={toggleCallMute}
-                disabled={callState.status === 'ended'}
-                title={callState.muted ? 'Включить микрофон' : 'Отключить микрофон'}
-              >
-                {callState.muted ? <MicOff size={22} /> : <Mic size={22} />}
-              </button>
-              
-              <button 
-                type="button"
-                className={`call-ctrl-btn ${localVideoStream && !isScreenSharing ? 'active-video' : ''}`}
+                className={`call-ctrl-btn ctrl-secondary ${localVideoStream && !isScreenSharing ? 'active-video' : ''}`}
                 onClick={toggleCallVideo}
                 disabled={callState.status === 'ended'}
                 title={localVideoStream && !isScreenSharing ? 'Выключить камеру' : 'Включить камеру'}
               >
-                {localVideoStream && !isScreenSharing ? <VideoOff size={22} /> : <Video size={22} />}
+                {localVideoStream && !isScreenSharing ? <VideoOff size={20} /> : <Video size={20} />}
               </button>
 
+              <button 
+                type="button"
+                className={`call-ctrl-btn btn-mute-stage ${callState.muted ? 'active-mute' : ''}`}
+                onClick={toggleCallMute}
+                disabled={callState.status === 'ended'}
+                title={callState.muted ? 'Включить микрофон' : 'Отключить микрофон'}
+              >
+                {callState.muted ? <MicOff size={28} /> : <Mic size={28} />}
+              </button>
+              
               {isScreenShareSupported && (
                 <button 
                   type="button"
-                  className={`call-ctrl-btn ${isScreenSharing ? 'active-screenshare' : ''}`}
+                  className={`call-ctrl-btn ctrl-secondary ${isScreenSharing ? 'active-screenshare' : ''}`}
                   onClick={toggleCallScreenShare}
                   disabled={callState.status === 'ended'}
                   title={isScreenSharing ? 'Остановить демонстрацию экрана' : 'Демонстрация экрана'}
                 >
-                  <Monitor size={22} />
+                  <Monitor size={20} />
                 </button>
               )}
 
               <button 
                 type="button"
-                className="call-ctrl-btn call-hangup"
+                className="call-ctrl-btn call-hangup ctrl-secondary"
                 onClick={endCall}
                 disabled={callState.status === 'ended'}
                 title="Завершить звонок"
               >
-                <PhoneOff size={22} />
+                <PhoneOff size={20} />
               </button>
-            </>
+            </div>
           )}
         </div>
 
