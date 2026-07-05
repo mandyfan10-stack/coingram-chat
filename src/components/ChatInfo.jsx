@@ -75,7 +75,7 @@ export default function ChatInfo() {
   };
 
   const handleCopyShareLink = () => {
-    const inviteLink = `https://mandyfan10-stack.github.io/coingram-chat/?invite=${activeChat.username}`;
+    const inviteLink = `https://mandyfan10-stack.github.io/coingram-chat/?invite=${activeChat.username || activeChat.id}`;
     navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -224,25 +224,25 @@ export default function ChatInfo() {
       {/* Bio / Meta Information */}
       <div className="info-metadata-section">
         {activeChat.username && (
-          <>
-            <div className="meta-row">
-              <span className="meta-label">Имя пользователя</span>
-              <span className="meta-value">@{activeChat.username}</span>
+          <div className="meta-row">
+            <span className="meta-label">Имя пользователя</span>
+            <span className="meta-value">@{activeChat.username}</span>
+          </div>
+        )}
+        {(activeChat.type === 'group' || activeChat.type === 'channel') && (
+          <div className="meta-row">
+            <span className="meta-label">Ссылка для приглашения</span>
+            <div className="meta-value-share">
+              <span className="meta-value-link">{`https://mandyfan10-stack.github.io/coingram-chat/?invite=${activeChat.username || activeChat.id}`}</span>
+              <button
+                className={`info-share-btn ${copied ? 'copied' : ''}`}
+                onClick={handleCopyShareLink}
+                title="Копировать ссылку"
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+              </button>
             </div>
-            <div className="meta-row">
-              <span className="meta-label">Ссылка для приглашения</span>
-              <div className="meta-value-share">
-                <span className="meta-value-link">{`https://mandyfan10-stack.github.io/coingram-chat/?invite=${activeChat.username}`}</span>
-                <button
-                  className={`info-share-btn ${copied ? 'copied' : ''}`}
-                  onClick={handleCopyShareLink}
-                  title="Копировать ссылку"
-                >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                </button>
-              </div>
-            </div>
-          </>
+          </div>
         )}
         {activeChat.bio && (
           <div className="meta-row">
@@ -338,7 +338,7 @@ export default function ChatInfo() {
 
         {activeTab === 'members' && (activeChat.type === 'group' || (activeChat.type === 'channel' && activeChat.createdBy === currentUser?.id)) && (
           <div className="members-list">
-            {activeChat.type === 'group' && (
+            {(activeChat.type === 'group' || (activeChat.type === 'channel' && activeChat.createdBy === currentUser?.id)) && (
               <div className="add-member-section">
                 <form onSubmit={handleAddMemberSubmit} className="add-member-form">
                   <input

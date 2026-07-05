@@ -2709,7 +2709,86 @@ export const ChatProvider = ({ children }) => {
       // Small delay to ensure chats are loaded and layout is ready
       const timer = setTimeout(async () => {
         try {
-          await createChat(targetUsername, false);
+          const cleanTarget = targetUsername;
+          
+          if (isSupabaseConfigured) {
+            // 1. Check if it's a chat ID (UUID)
+            const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanTarget);
+            let targetChat = null;
+            
+            if (isUuid) {
+              const { data } = await supabase
+                .from('chats')
+                .select('*')
+                .eq('id', cleanTarget)
+                .maybeSingle();
+              targetChat = data;
+            } else {
+              // Try to find chat by username
+              const { data } = await supabase
+                .from('chats')
+                .select('*')
+                .eq('username', cleanTarget)
+                .maybeSingle();
+              targetChat = data;
+            }
+            
+            if (targetChat) {
+              // Check if we are already a member of this chat
+              const { data: membership } = await supabase
+                .from('chat_members')
+                .select('*')
+                .eq('chat_id', targetChat.id)
+                .eq('profile_id', currentUser.id)
+                .maybeSingle();
+                
+              if (!membership) {
+                // Add current user to chat_members
+                await supabase
+                  .from('chat_members')
+                  .insert({ chat_id: targetChat.id, profile_id: currentUser.id });
+              }
+              
+              await fetchChats();
+              setActiveChatId(targetChat.id);
+              return;
+            }
+            
+            // 2. If it's not a group/channel, try to find a user profile by username
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('username', cleanTarget)
+              .maybeSingle();
+              
+            if (profile) {
+              if (profile.id !== currentUser.id) {
+                await createChat(profile.username, 'personal');
+              }
+              return;
+            }
+          } else {
+            // Mock mode
+            // Search chats by ID or username
+            const mockChats = chats;
+            const targetChat = mockChats.find(c => c.id === cleanTarget || (c.username && c.username.toLowerCase() === cleanTarget));
+            
+            if (targetChat) {
+              if (!targetChat.members.some(m => m.id === 'current' || m.id === currentUser.id)) {
+                targetChat.members.push({ id: 'current', name: currentUser.name || 'Вы', avatar: '🪙' });
+                setChats([...mockChats]);
+              }
+              setActiveChatId(targetChat.id);
+              return;
+            }
+            
+            // Search mock users
+            const mockUsers = JSON.parse(localStorage.getItem('tg-mock-users') || '[]');
+            const user = mockUsers.find(u => u.username.toLowerCase() === cleanTarget);
+            if (user && user.id !== currentUser.id) {
+              await createChat(user.username, 'personal');
+            }
+          }
         } catch (e) {
           console.error("Failed to process invite link:", e);
         }
@@ -2717,7 +2796,7 @@ export const ChatProvider = ({ children }) => {
 
       return () => clearTimeout(timer);
     }
-  }, [currentUser, createChat]);
+  }, [currentUser, createChat, chats, fetchChats, setActiveChatId, setChats]);
 
   // Watch stories viewing state
   const viewStory = (storyId) => {
