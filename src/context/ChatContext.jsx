@@ -231,6 +231,9 @@ export const ChatProvider = ({ children }) => {
 
   const [localVideoStream, setLocalVideoStream] = useState(null);
   const [remoteVideoStream, setRemoteVideoStream] = useState(null);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const screenStreamRef = useRef(null);
+  const wasCameraActiveRef = useRef(false);
 
   const localStreamRef = useRef(null);
   const localVideoStreamRef = useRef(null);
@@ -498,6 +501,7 @@ export const ChatProvider = ({ children }) => {
             media: m.media,
             replyTo: m.reply_to,
             read: m.read,
+            reactions: m.reactions || [],
             timestamp: new Date(m.created_at)
           }))
         };
@@ -948,6 +952,7 @@ export const ChatProvider = ({ children }) => {
                 media: newMsg.media,
                 replyTo: newMsg.reply_to,
                 read: newMsg.read,
+                reactions: newMsg.reactions || [],
                 timestamp: new Date(newMsg.created_at)
               };
 
@@ -994,7 +999,8 @@ export const ChatProvider = ({ children }) => {
                     ...c,
                     messages: c.messages.map(m => m.id === updatedMsg.id ? {
                       ...m,
-                      read: updatedMsg.read
+                      read: updatedMsg.read,
+                      reactions: updatedMsg.reactions || []
                     } : m)
                   };
                 }
@@ -1161,10 +1167,15 @@ export const ChatProvider = ({ children }) => {
           webrtcState: 'disconnected'
         });
       })
-      .on('broadcast', { event: 'call-accepted' }, () => {
+      .on('broadcast', { event: 'call-accepted' }, (payload) => {
+        const { responderId } = payload.payload || {};
         setCallState(prev => {
           if (prev.status === 'calling') {
-            return { ...prev, status: 'connected' };
+            return { 
+              ...prev, 
+              status: 'connected', 
+              otherUserId: responderId || prev.otherUserId 
+            };
           }
           return prev;
         });
@@ -1206,6 +1217,12 @@ export const ChatProvider = ({ children }) => {
         localVideoStreamRef.current.getTracks().forEach(track => track.stop());
         localVideoStreamRef.current = null;
       }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
+        screenStreamRef.current = null;
+      }
+      setIsScreenSharing(false);
+      wasCameraActiveRef.current = false;
       setLocalVideoStream(null);
       setRemoteVideoStream(null);
       setTimeout(() => {
@@ -1500,6 +1517,12 @@ export const ChatProvider = ({ children }) => {
         localVideoStreamRef.current.getTracks().forEach(track => track.stop());
         localVideoStreamRef.current = null;
       }
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
+        screenStreamRef.current = null;
+      }
+      setIsScreenSharing(false);
+      wasCameraActiveRef.current = false;
       setLocalVideoStream(null);
       setRemoteVideoStream(null);
       if (pcRef.current) {
@@ -1720,7 +1743,7 @@ export const ChatProvider = ({ children }) => {
 
     // Call only personal/group chats
     const otherMember = chat.members.find(m => m.id !== currentUser.id && m.id !== 'current');
-    const otherUserId = otherMember ? otherMember.id : null;
+    const otherUserId = chat.type === 'personal' ? (otherMember ? otherMember.id : null) : null;
 
     setCallState({
       status: 'calling',
@@ -1733,14 +1756,32 @@ export const ChatProvider = ({ children }) => {
       webrtcState: 'disconnected'
     });
 
-    if (isSupabaseConfigured && otherUserId) {
-      sendSignalingMessage(otherUserId, 'incoming-call', {
-        callerId: currentUser.id,
-        callerName: currentUser.name || currentUser.username || 'Пользователь',
-        callerAvatar: currentUser.avatar,
-        callerAvatarColor: currentUser.avatarColor,
-        chatId
-      });
+    if (isSupabaseConfigured) {
+      if (chat.type === 'personal') {
+        if (otherUserId) {
+          sendSignalingMessage(otherUserId, 'incoming-call', {
+            callerId: currentUser.id,
+            callerName: currentUser.name || currentUser.username || 'Пользователь',
+            callerAvatar: currentUser.avatar,
+            callerAvatarColor: currentUser.avatarColor,
+            chatId
+          });
+        }
+      } else {
+        // Group call: broadcast incoming-call to all other members
+        chat.members.forEach(member => {
+          const targetId = member.id === 'current' ? currentUser.id : member.id;
+          if (targetId && targetId !== currentUser.id) {
+            sendSignalingMessage(targetId, 'incoming-call', {
+              callerId: currentUser.id,
+              callerName: chat.name || 'Группа',
+              callerAvatar: chat.avatar,
+              callerAvatarColor: chat.avatarColor || chat.avatar_color,
+              chatId
+            });
+          }
+        });
+      }
     } else if (!isSupabaseConfigured) {
       // Simulate answer after 3 seconds in mock mode
       setTimeout(() => {
@@ -1760,7 +1801,7 @@ export const ChatProvider = ({ children }) => {
 
   const acceptCall = useCallback(() => {
     if (isSupabaseConfigured && callState.otherUserId) {
-      sendSignalingMessage(callState.otherUserId, 'call-accepted', {});
+      sendSignalingMessage(callState.otherUserId, 'call-accepted', { responderId: currentUser.id });
     }
     setCallState(prev => ({
       ...prev,
@@ -1779,7 +1820,7 @@ export const ChatProvider = ({ children }) => {
         });
       }, 1500);
     }
-  }, [callState.otherUserId, sendSignalingMessage]);
+  }, [callState.otherUserId, currentUser, sendSignalingMessage]);
 
   const rejectCall = useCallback(() => {
     if (isSupabaseConfigured && callState.otherUserId) {
@@ -1821,9 +1862,15 @@ export const ChatProvider = ({ children }) => {
 
     if (localVideoStream) {
       // Turn off video
-      console.log("Turning off local camera stream...");
+      console.log("Turning off local camera/screen stream...");
       localVideoStream.getTracks().forEach(track => track.stop());
       localVideoStreamRef.current = null;
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
+        screenStreamRef.current = null;
+      }
+      setIsScreenSharing(false);
+      wasCameraActiveRef.current = false;
       
       // Remove video track from pc
       if (pcRef.current) {
@@ -1894,8 +1941,153 @@ export const ChatProvider = ({ children }) => {
     }
   }, [callState.status, localVideoStream]);
 
+  const triggerRenegotiation = useCallback(async () => {
+    if (pcRef.current && activeCallChannelRef.current) {
+      try {
+        console.log("Creating renegotiation offer...");
+        const offer = await pcRef.current.createOffer();
+        await pcRef.current.setLocalDescription(offer);
+        activeCallChannelRef.current.send({
+          type: 'broadcast',
+          event: 'signal',
+          payload: { type: 'renegotiate-offer', sdp: offer.sdp }
+        });
+      } catch (e) {
+        console.error("Renegotiation failed:", e);
+      }
+    }
+  }, []);
+
+  const cleanupVideoTracks = useCallback(async () => {
+    if (localVideoStreamRef.current) {
+      localVideoStreamRef.current.getTracks().forEach(track => track.stop());
+      localVideoStreamRef.current = null;
+    }
+    setLocalVideoStream(null);
+    if (pcRef.current) {
+      const senders = pcRef.current.getSenders();
+      const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+      if (videoSender) {
+        pcRef.current.removeTrack(videoSender);
+      }
+    }
+    if (activeCallChannelRef.current) {
+      activeCallChannelRef.current.send({
+        type: 'broadcast',
+        event: 'signal',
+        payload: { type: 'video-stopped' }
+      });
+      await triggerRenegotiation();
+    }
+  }, [triggerRenegotiation]);
+
+  const stopScreenSharing = useCallback(async (revertToCamera = false) => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+    }
+    setIsScreenSharing(false);
+
+    if (revertToCamera && wasCameraActiveRef.current) {
+      console.log("Reverting back to local camera stream...");
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+        setLocalVideoStream(stream);
+        localVideoStreamRef.current = stream;
+        
+        const videoTrack = stream.getVideoTracks()[0];
+        if (pcRef.current) {
+          const senders = pcRef.current.getSenders();
+          const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+          if (videoSender) {
+            await videoSender.replaceTrack(videoTrack);
+          } else {
+            pcRef.current.addTrack(videoTrack, stream);
+            await triggerRenegotiation();
+          }
+        }
+      } catch (err) {
+        console.error("Failed to re-acquire camera stream:", err);
+        await cleanupVideoTracks();
+      }
+    } else {
+      await cleanupVideoTracks();
+    }
+    wasCameraActiveRef.current = false;
+  }, [cleanupVideoTracks, triggerRenegotiation]);
+
+  const toggleCallScreenShare = useCallback(async () => {
+    if (callState.status !== 'connected') return;
+
+    if (isScreenSharing) {
+      await stopScreenSharing(true);
+    } else {
+      console.log("Requesting screen share access...");
+      try {
+        const wasCameraActive = !!localVideoStream;
+        wasCameraActiveRef.current = wasCameraActive;
+
+        if (wasCameraActive) {
+          if (localVideoStreamRef.current) {
+            localVideoStreamRef.current.getTracks().forEach(track => track.stop());
+            localVideoStreamRef.current = null;
+          }
+          setLocalVideoStream(null);
+        }
+
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        screenStreamRef.current = screenStream;
+        setIsScreenSharing(true);
+        setLocalVideoStream(screenStream);
+        localVideoStreamRef.current = screenStream;
+
+        const screenTrack = screenStream.getVideoTracks()[0];
+        
+        screenTrack.onended = () => {
+          console.log("Screen share track ended natively.");
+          stopScreenSharing(true);
+        };
+
+        if (pcRef.current) {
+          const senders = pcRef.current.getSenders();
+          const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+          if (videoSender) {
+            await videoSender.replaceTrack(screenTrack);
+          } else {
+            pcRef.current.addTrack(screenTrack, screenStream);
+            await triggerRenegotiation();
+          }
+        }
+      } catch (err) {
+        console.error("Failed to start screen share:", err);
+        if (wasCameraActiveRef.current) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+            setLocalVideoStream(stream);
+            localVideoStreamRef.current = stream;
+            
+            const videoTrack = stream.getVideoTracks()[0];
+            if (pcRef.current) {
+              const senders = pcRef.current.getSenders();
+              const videoSender = senders.find(s => s.track && s.track.kind === 'video');
+              if (videoSender) {
+                await videoSender.replaceTrack(videoTrack);
+              } else {
+                pcRef.current.addTrack(videoTrack, stream);
+                await triggerRenegotiation();
+              }
+            }
+          } catch (cameraErr) {
+            console.error("Failed to restore camera after cancelled screen share:", cameraErr);
+          }
+        }
+        wasCameraActiveRef.current = false;
+      }
+    }
+  }, [callState.status, isScreenSharing, localVideoStream, stopScreenSharing, triggerRenegotiation]);
+
   // Create Chat/Start dialog
-  const createChat = useCallback(async (target, typeOrIsGroup = 'personal') => {
+  const createChat = useCallback(async (target, typeOrIsGroup = 'personal', initialMembers = []) => {
     if (!currentUser) return null;
 
     let type = 'personal';
@@ -1976,10 +2168,25 @@ export const ChatProvider = ({ children }) => {
 
           if (chatErr) throw chatErr;
 
-          // Add creator as member
+          // Add creator and selected initialMembers
+          const memberRows = [
+            { chat_id: newChat.id, profile_id: currentUser.id }
+          ];
+
+          if (Array.isArray(initialMembers)) {
+            for (const m of initialMembers) {
+              const profileId = typeof m === 'object' ? m.id : m;
+              if (profileId && profileId !== currentUser.id) {
+                if (!memberRows.some(row => row.profile_id === profileId)) {
+                  memberRows.push({ chat_id: newChat.id, profile_id: profileId });
+                }
+              }
+            }
+          }
+
           const { error: memberErr } = await supabase
             .from('chat_members')
-            .insert({ chat_id: newChat.id, profile_id: currentUser.id });
+            .insert(memberRows);
 
           if (memberErr) throw memberErr;
 
@@ -2006,7 +2213,7 @@ export const ChatProvider = ({ children }) => {
           bio: 'Новый контакт в Mock-режиме',
           username: target.toLowerCase(),
           members: [
-            { id: 'current', name: currentUser.name, avatar: '🪙' },
+            { id: 'current', name: currentUser.name || currentUser.display_name || 'Вы', avatar: '🪙' },
             { id: `mock-${Date.now()}`, name, avatar: '👤' }
           ],
           messages: []
@@ -2014,6 +2221,21 @@ export const ChatProvider = ({ children }) => {
         setChats(prev => [newChat, ...prev]);
         setActiveChatId(newChat.id);
       } else {
+        const memberObjects = [
+          { id: 'current', name: currentUser.name || currentUser.display_name || 'Вы', avatar: '🪙' }
+        ];
+
+        if (Array.isArray(initialMembers)) {
+          for (const m of initialMembers) {
+            const memberId = typeof m === 'object' ? m.id : m;
+            const memberName = typeof m === 'object' ? (m.display_name || m.username || m.name) : `User-${m}`;
+            const memberAvatar = typeof m === 'object' ? (m.avatar || '👤') : '👤';
+            if (memberId && memberId !== currentUser.id && !memberObjects.some(mo => mo.id === memberId)) {
+              memberObjects.push({ id: memberId, name: memberName, avatar: memberAvatar });
+            }
+          }
+        }
+
         const newChat = {
           id: `chat-mock-${Date.now()}`,
           name: target,
@@ -2024,14 +2246,95 @@ export const ChatProvider = ({ children }) => {
           notifications: true,
           bio: type === 'channel' ? 'Новый канал' : 'Новая группа',
           createdBy: currentUser.id,
-          members: [
-            { id: 'current', name: currentUser.name, avatar: '🪙' }
-          ],
+          members: memberObjects,
           messages: []
         };
         setChats(prev => [newChat, ...prev]);
         setActiveChatId(newChat.id);
       }
+    }
+  }, [currentUser, chats, fetchChats]);
+
+  // Add Member to Chat
+  const addMemberToChat = useCallback(async (chatId, username) => {
+    if (!currentUser || !chatId || !username.trim()) return { error: 'Неверные данные' };
+
+    const cleanUsername = username.trim().toLowerCase();
+
+    if (isSupabaseConfigured) {
+      try {
+        // 1. Search for profile
+        const { data: profile, error: profileErr } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('username', cleanUsername)
+          .single();
+
+        if (profileErr || !profile) {
+          return { error: `Пользователь с никнеймом "${username}" не найден.` };
+        }
+
+        // 2. Check if already member
+        const chat = chats.find(c => c.id === chatId);
+        if (chat && chat.members.some(m => m.id === profile.id)) {
+          return { error: 'Пользователь уже является участником чата.' };
+        }
+
+        // 3. Add to chat_members
+        const { error: insertErr } = await supabase
+          .from('chat_members')
+          .insert({ chat_id: chatId, profile_id: profile.id });
+
+        if (insertErr) throw insertErr;
+
+        await fetchChats();
+        return { success: true, profile: {
+          id: profile.id,
+          name: profile.display_name || profile.username,
+          username: profile.username,
+          avatar: profile.avatar || '👤',
+          avatarColor: profile.avatar_color || '#ccc',
+          bio: profile.bio || ''
+        }};
+      } catch (err) {
+        console.error("Error adding member in Supabase:", err);
+        return { error: err.message };
+      }
+    } else {
+      // Mock mode
+      const mockUsers = JSON.parse(localStorage.getItem('tg-mock-users') || '[]');
+      const user = mockUsers.find(u => u.username.toLowerCase() === cleanUsername);
+
+      if (!user) {
+        return { error: `Пользователь с никнеймом "${username}" не найден.` };
+      }
+
+      // Check if already member
+      const chat = chats.find(c => c.id === chatId);
+      if (chat && chat.members.some(m => m.id === user.id || m.username.toLowerCase() === cleanUsername)) {
+        return { error: 'Пользователь уже является участником чата.' };
+      }
+
+      const newMember = {
+        id: user.id,
+        name: user.name,
+        username: user.username,
+        avatar: user.avatar || '👤',
+        avatarColor: user.avatarColor || '#ccc',
+        bio: user.bio || ''
+      };
+
+      setChats(prev => prev.map(c => {
+        if (c.id === chatId) {
+          return {
+            ...c,
+            members: [...c.members, newMember]
+          };
+        }
+        return c;
+      }));
+
+      return { success: true, profile: newMember };
     }
   }, [currentUser, chats, fetchChats]);
 
@@ -2184,7 +2487,9 @@ export const ChatProvider = ({ children }) => {
   }, [activeChatId, activeChatMessagesLength, markMessagesAsRead]);
 
   // Add reaction to a message
-  const toggleReaction = useCallback((chatId, messageId, emoji) => {
+  const toggleReaction = useCallback(async (chatId, messageId, emoji) => {
+    let newReactions = [];
+    
     setChats(prevChats => {
       return prevChats.map(c => {
         if (c.id === chatId) {
@@ -2192,22 +2497,25 @@ export const ChatProvider = ({ children }) => {
             ...c,
             messages: c.messages.map(m => {
               if (m.id === messageId) {
-                const reactions = m.reactions ? [...m.reactions] : [];
+                const reactions = m.reactions ? JSON.parse(JSON.stringify(m.reactions)) : [];
                 const exist = reactions.find(r => r.emoji === emoji);
+                const userKey = isSupabaseConfigured && currentUser ? currentUser.id : 'current';
+                
                 if (exist) {
-                  if (exist.users.includes('current')) {
-                    exist.users = exist.users.filter(u => u !== 'current');
+                  if (exist.users.includes(userKey)) {
+                    exist.users = exist.users.filter(u => u !== userKey);
                     exist.count -= 1;
                   } else {
-                    exist.users.push('current');
+                    exist.users.push(userKey);
                     exist.count += 1;
                   }
                 } else {
-                  reactions.push({ emoji, count: 1, users: ['current'] });
+                  reactions.push({ emoji, count: 1, users: [userKey] });
                 }
+                newReactions = reactions.filter(r => r.count > 0);
                 return {
                   ...m,
-                  reactions: reactions.filter(r => r.count > 0)
+                  reactions: newReactions
                 };
               }
               return m;
@@ -2217,7 +2525,20 @@ export const ChatProvider = ({ children }) => {
         return c;
       });
     });
-  }, []);
+
+    if (isSupabaseConfigured && currentUser) {
+      try {
+        const { error } = await supabase
+          .from('messages')
+          .update({ reactions: newReactions })
+          .eq('id', messageId);
+
+        if (error) throw error;
+      } catch (err) {
+        console.error("Failed to sync reaction to database:", err);
+      }
+    }
+  }, [currentUser]);
 
   // Broadcast typing status function
   const sendTypingStatus = useCallback((chatId, isTyping) => {
@@ -2523,8 +2844,11 @@ export const ChatProvider = ({ children }) => {
       localVideoStream,
       remoteVideoStream,
       toggleCallVideo,
+      isScreenSharing,
+      toggleCallScreenShare,
       installedStickers,
-      importStickerPack
+      importStickerPack,
+      addMemberToChat
     }}>
       {children}
     </ChatContext.Provider>

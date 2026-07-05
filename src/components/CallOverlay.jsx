@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
-import { Mic, MicOff, PhoneOff, Phone, Video, VideoOff } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, Phone, Video, VideoOff, Monitor } from 'lucide-react';
 
 export default function CallOverlay() {
   const { 
@@ -15,7 +15,9 @@ export default function CallOverlay() {
     currentUser,
     localVideoStream,
     remoteVideoStream,
-    toggleCallVideo
+    toggleCallVideo,
+    isScreenSharing,
+    toggleCallScreenShare
   } = useChat();
 
   const [pulseScale, setPulseScale] = useState(1);
@@ -354,6 +356,7 @@ export default function CallOverlay() {
 
   const showBackgroundAvatar = !remoteVideoStream;
   const hasVideo = !!(localVideoStream || remoteVideoStream);
+  const isScreenShareSupported = typeof navigator !== 'undefined' && navigator.mediaDevices && typeof navigator.mediaDevices.getDisplayMedia === 'function';
 
   return (
     <div className={`call-overlay-wrapper ${callState.status !== 'idle' ? 'active' : ''}`}>
@@ -441,13 +444,25 @@ export default function CallOverlay() {
               
               <button 
                 type="button"
-                className={`call-ctrl-btn ${localVideoStream ? 'active-video' : ''}`}
+                className={`call-ctrl-btn ${localVideoStream && !isScreenSharing ? 'active-video' : ''}`}
                 onClick={toggleCallVideo}
                 disabled={callState.status === 'ended'}
-                title={localVideoStream ? 'Выключить камеру' : 'Включить камеру'}
+                title={localVideoStream && !isScreenSharing ? 'Выключить камеру' : 'Включить камеру'}
               >
-                {localVideoStream ? <VideoOff size={22} /> : <Video size={22} />}
+                {localVideoStream && !isScreenSharing ? <VideoOff size={22} /> : <Video size={22} />}
               </button>
+
+              {isScreenShareSupported && (
+                <button 
+                  type="button"
+                  className={`call-ctrl-btn ${isScreenSharing ? 'active-screenshare' : ''}`}
+                  onClick={toggleCallScreenShare}
+                  disabled={callState.status === 'ended'}
+                  title={isScreenSharing ? 'Остановить демонстрацию экрана' : 'Демонстрация экрана'}
+                >
+                  <Monitor size={22} />
+                </button>
+              )}
 
               <button 
                 type="button"

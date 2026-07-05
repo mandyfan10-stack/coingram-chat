@@ -4589,6 +4589,12 @@ input:checked + .switch-slider:before {
   box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
 }
 
+.call-ctrl-btn.active-screenshare {
+  background: #3498db;
+  color: white;
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
 .call-ctrl-btn.call-hangup {
   background: #ea2027;
   box-shadow: 0 4px 16px rgba(234, 32, 39, 0.35);
@@ -4678,6 +4684,16 @@ input:checked + .switch-slider:before {
 
 .call-card.has-video .call-ctrl-btn.active-video:hover {
   background: rgba(39, 174, 96, 0.95);
+}
+
+.call-card.has-video .call-ctrl-btn.active-screenshare {
+  background: rgba(52, 152, 219, 0.85);
+  border: 1px solid rgba(52, 152, 219, 0.2);
+  box-shadow: 0 8px 24px rgba(52, 152, 219, 0.3);
+}
+
+.call-card.has-video .call-ctrl-btn.active-screenshare:hover {
+  background: rgba(41, 128, 185, 0.95);
 }
 
 .call-card.has-video .call-ctrl-btn.call-hangup {
@@ -4941,6 +4957,111 @@ input:checked + .switch-slider:before {
 .no-stickers-placeholder p {
   font-size: 13px;
   margin-bottom: 4px;
+}
+
+/* --- Add Member Section in ChatInfo --- */
+.add-member-section {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(14, 22, 33, 0.2);
+}
+
+.add-member-form {
+  display: flex;
+  gap: 8px;
+}
+
+.add-member-input {
+  flex: 1;
+  background: var(--bg-hover, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.add-member-input:focus {
+  border-color: var(--accent-color);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.add-member-btn {
+  background: var(--accent-gradient, linear-gradient(135deg, #2481cc 0%, #24a1de 100%));
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.1s;
+}
+
+.add-member-btn:hover {
+  opacity: 0.9;
+}
+
+.add-member-btn:active {
+  transform: scale(0.96);
+}
+
+.add-member-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.add-member-error {
+  font-size: 11px;
+  color: #ff4d4f;
+  margin-top: 2px;
+  padding-left: 2px;
+}
+
+/* Selected Chips UI */
+.selected-chips-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  max-height: 80px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.selected-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--accent-color-alpha);
+  color: var(--accent-color);
+  padding: 4px 10px;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid rgba(52, 152, 219, 0.2);
+}
+
+.chip-remove-btn {
+  background: none;
+  border: none;
+  color: var(--accent-color);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+.chip-remove-btn:hover {
+  opacity: 1;
 }
 
 

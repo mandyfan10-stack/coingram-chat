@@ -174,7 +174,7 @@ export default function SettingsModal() {
   };
 
   const handleCopyInviteLink = () => {
-    const inviteLink = `${window.location.origin}/?invite=${currentUser.username}`;
+    const inviteLink = `https://mandyfan10-stack.github.io/coingram-chat/?invite=${currentUser.username}`;
     navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -327,7 +327,7 @@ export default function SettingsModal() {
               <div className="invite-link-wrapper">
                 <input
                   type="text"
-                  value={`${window.location.origin}/?invite=${currentUser.username}`}
+                  value={`https://mandyfan10-stack.github.io/coingram-chat/?invite=${currentUser.username}`}
                   readOnly
                   className="invite-link-input"
                 />

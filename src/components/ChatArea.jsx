@@ -347,21 +347,19 @@ export default function ChatArea() {
 
   const emojis = ['😀', '😂', '😍', '👍', '🔥', '🎉', '👏', '❤️', '🤔', '👀', '✨', '🚀', '💯', '😎'];
 
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
+  const uploadFileDirectly = async (file, isAudio) => {
     setUploading(true);
     try {
       if (isSupabaseConfigured) {
-        // Upload image to Supabase Storage
-        const fileExt = file.name.split('.').pop();
+        const fileExt = file.name ? file.name.split('.').pop() : (isAudio ? 'webm' : 'png');
         const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
         const filePath = `${currentUser.id}/${fileName}`;
 
         const { error } = await supabase.storage
           .from('chat-attachments')
-          .upload(filePath, file);
+          .upload(filePath, file, {
+            contentType: file.type || (isAudio ? 'audio/webm' : 'image/png')
+          });
 
         if (error) throw error;
 
@@ -369,22 +367,63 @@ export default function ChatArea() {
           .from('chat-attachments')
           .getPublicUrl(filePath);
 
-        sendMessage('🖼️ [Изображение]', replyingTo?.id, publicUrl);
+        if (isAudio) {
+          sendMessage('🎤 Голосовое сообщение', replyingTo?.id, publicUrl);
+        } else {
+          sendMessage('🖼️ [Изображение]', replyingTo?.id, publicUrl);
+        }
       } else {
-        // Mock Base64 fallback logic
         const reader = new FileReader();
         reader.onload = (event) => {
-          sendMessage('🖼️ [Изображение]', replyingTo?.id, event.target.result);
+          if (isAudio) {
+            sendMessage('🎤 Голосовое сообщение', replyingTo?.id, event.target.result);
+          } else {
+            sendMessage('🖼️ [Изображение]', replyingTo?.id, event.target.result);
+          }
         };
         reader.readAsDataURL(file);
       }
       setReplyingTo(null);
     } catch (err) {
       console.error("Upload error:", err);
-      alert("Ошибка при загрузке изображения: " + err.message);
+      alert("Ошибка при загрузке: " + err.message);
     } finally {
       setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const isAudio = (file.type && file.type.startsWith('audio/')) || 
+                    ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'].some(ext => file.name.toLowerCase().endsWith(ext));
+    await uploadFileDirectly(file, isAudio);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const handlePaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    
+    let fileToUpload = null;
+    let isAudio = false;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.indexOf('image') !== -1) {
+        fileToUpload = item.getAsFile();
+        isAudio = false;
+        break;
+      } else if (item.type.indexOf('audio') !== -1) {
+        fileToUpload = item.getAsFile();
+        isAudio = true;
+        break;
+      }
+    }
+
+    if (fileToUpload) {
+      e.preventDefault();
+      await uploadFileDirectly(fileToUpload, isAudio);
     }
   };
 
@@ -1004,7 +1043,7 @@ export default function ChatArea() {
                       {msg.reactions.map(r => (
                         <button
                           key={r.emoji}
-                          className={`reaction-badge ${r.users.includes('current') ? 'active' : ''}`}
+                          className={`reaction-badge ${(r.users.includes('current') || (currentUser && r.users.includes(currentUser.id))) ? 'active' : ''}`}
                           onClick={() => toggleReaction(activeChat.id, msg.id, r.emoji)}
                         >
                           {r.emoji} <span className="react-count">{r.count}</span>
@@ -1152,7 +1191,7 @@ export default function ChatArea() {
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileChange}
-                  accept="image/*"
+                  accept="image/*,audio/*"
                   style={{ display: 'none' }}
                   disabled={uploading}
                 />
@@ -1177,6 +1216,7 @@ export default function ChatArea() {
                   value={inputVal}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyPress}
+                  onPaste={handlePaste}
                   rows={1}
                 />
 

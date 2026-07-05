@@ -13,7 +13,8 @@ export default function ChatInfo() {
     deleteChat,
     clearChatMessages,
     updateChatAvatar,
-    startCall
+    startCall,
+    addMemberToChat
   } = useChat();
 
   const [activeTab, setActiveTab] = useState('media');
@@ -21,10 +22,37 @@ export default function ChatInfo() {
   const fileInputRef = useRef(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  const [newMemberUsername, setNewMemberUsername] = useState('');
+  const [addingMember, setAddingMember] = useState(false);
+  const [addMemberError, setAddMemberError] = useState('');
+
+  const handleAddMemberSubmit = async (e) => {
+    e.preventDefault();
+    if (!newMemberUsername.trim()) return;
+
+    setAddingMember(true);
+    setAddMemberError('');
+
+    const targetUsername = newMemberUsername.startsWith('@') 
+      ? newMemberUsername.substring(1) 
+      : newMemberUsername;
+
+    const res = await addMemberToChat(activeChat.id, targetUsername);
+    setAddingMember(false);
+
+    if (res.error) {
+      setAddMemberError(res.error);
+    } else {
+      setNewMemberUsername('');
+      alert("Участник успешно добавлен!");
+    }
+  };
+
   const isOwner = activeChat && currentUser && (
     activeChat.createdBy === currentUser.id ||
     (activeChat.createdBy === 'current' && currentUser) ||
-    (activeChat.createdBy && activeChat.createdBy === currentUser.id)
+    (activeChat.createdBy && activeChat.createdBy === currentUser.id) ||
+    activeChat.type === 'group'
   );
 
   const handleAvatarChange = async (e) => {
@@ -47,7 +75,7 @@ export default function ChatInfo() {
   };
 
   const handleCopyShareLink = () => {
-    const inviteLink = `${window.location.origin}/?invite=${activeChat.username}`;
+    const inviteLink = `https://mandyfan10-stack.github.io/coingram-chat/?invite=${activeChat.username}`;
     navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -180,7 +208,7 @@ export default function ChatInfo() {
         <span className="info-status">{activeChat.lastSeen}</span>
 
         {/* Action icons */}
-        {activeChat.type === 'personal' && activeChat.name !== 'Избранное' && (
+        {(activeChat.type === 'personal' || activeChat.type === 'group') && activeChat.name !== 'Избранное' && (
           <div className="info-actions">
             <button 
               className="info-action-btn" 
@@ -204,7 +232,7 @@ export default function ChatInfo() {
             <div className="meta-row">
               <span className="meta-label">Ссылка для приглашения</span>
               <div className="meta-value-share">
-                <span className="meta-value-link">{`${window.location.origin}/?invite=${activeChat.username}`}</span>
+                <span className="meta-value-link">{`https://mandyfan10-stack.github.io/coingram-chat/?invite=${activeChat.username}`}</span>
                 <button
                   className={`info-share-btn ${copied ? 'copied' : ''}`}
                   onClick={handleCopyShareLink}
@@ -310,6 +338,23 @@ export default function ChatInfo() {
 
         {activeTab === 'members' && (activeChat.type === 'group' || (activeChat.type === 'channel' && activeChat.createdBy === currentUser?.id)) && (
           <div className="members-list">
+            {activeChat.type === 'group' && (
+              <div className="add-member-section">
+                <form onSubmit={handleAddMemberSubmit} className="add-member-form">
+                  <input
+                    type="text"
+                    placeholder="Добавить по @username..."
+                    value={newMemberUsername}
+                    onChange={(e) => setNewMemberUsername(e.target.value)}
+                    className="add-member-input"
+                  />
+                  <button type="submit" className="add-member-btn" disabled={addingMember}>
+                    {addingMember ? '...' : 'Добавить'}
+                  </button>
+                </form>
+                {addMemberError && <span className="add-member-error">{addMemberError}</span>}
+              </div>
+            )}
             {activeChat.members && activeChat.members.map(member => {
               const isMemberOwner = member.id === activeChat.createdBy || 
                                     (member.id === 'current' && activeChat.createdBy === currentUser?.id) ||
