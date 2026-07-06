@@ -1487,6 +1487,13 @@ body {
   flex-direction: column;
   flex-shrink: 0;
 }
+.chat-info-scrollable {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
 
 .info-header {
   height: 56px;
@@ -1585,6 +1592,10 @@ body {
 .info-tabs {
   display: flex;
   border-bottom: 1px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  background-color: var(--bg-secondary);
+  z-index: 5;
 }
 .info-tab {
   flex: 1;
@@ -2409,6 +2420,9 @@ body {
     padding-top: calc(12px + env(safe-area-inset-top, 0px)) !important;
     height: calc(56px + env(safe-area-inset-top, 0px)) !important;
   }
+  .info-tabs {
+    background-color: var(--bg-primary) !important;
+  }
 
   .chat-back-btn {
     display: flex !important;
@@ -2528,14 +2542,14 @@ body {
   }
 }
 
-/* --- Auth Screen Styling (Premium Glassmorphism) --- */
+/* --- Auth Screen Styling (Telegram Desktop style) --- */
 .auth-screen-container {
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100vw;
   height: 100vh;
-  background: radial-gradient(circle at 50% 50%, #101c2b 0%, #080f18 100%);
+  background-color: var(--bg-primary, #0e1621);
   position: fixed;
   top: 0;
   left: 0;
@@ -2546,96 +2560,67 @@ body {
 .auth-card-wrapper {
   position: relative;
   width: 100%;
-  max-width: 420px;
+  max-width: 400px;
   padding: 20px;
-}
-
-.auth-glow {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  opacity: 0.15;
-  z-index: 1;
-}
-
-.glow-1 {
-  width: 300px;
-  height: 300px;
-  background: var(--accent-color);
-  top: -80px;
-  left: -80px;
-}
-
-.glow-2 {
-  width: 250px;
-  height: 250px;
-  background: #a1c4fd;
-  bottom: -60px;
-  right: -60px;
 }
 
 .auth-card {
   position: relative;
   z-index: 2;
-  background: rgba(23, 33, 43, 0.75);
-  backdrop-filter: blur(25px);
-  -webkit-backdrop-filter: blur(25px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 24px;
-  padding: 35px 30px;
-  box-shadow: var(--shadow-lg);
+  background-color: var(--bg-secondary, #17212b);
+  border: 1px solid var(--border-color, #242f3d);
+  border-radius: 16px;
+  padding: 36px 30px;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 22px;
 }
 
 .auth-logo-section {
   text-align: center;
   margin-bottom: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-.auth-logo {
+.auth-logo-svg-wrapper {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
-  background: var(--accent-gradient);
-  color: white;
-  font-size: 28px;
-  border-radius: 20px;
-  margin-bottom: 12px;
-  box-shadow: 0 8px 20px rgba(36, 129, 204, 0.3);
-  animation: pulse-glow 3s infinite;
+  width: 80px;
+  height: 80px;
+  margin-bottom: 16px;
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.3));
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-@keyframes pulse-glow {
-  0% { transform: scale(1); box-shadow: 0 8px 20px rgba(36, 129, 204, 0.3); }
-  50% { transform: scale(1.05); box-shadow: 0 8px 25px rgba(36, 129, 204, 0.5); }
-  100% { transform: scale(1); box-shadow: 0 8px 20px rgba(36, 129, 204, 0.3); }
+.auth-logo-svg-wrapper:hover {
+  transform: scale(1.06) rotate(5deg);
 }
 
 .auth-logo-section h2 {
   font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 4px;
+  font-weight: 600;
+  color: var(--text-primary, #ffffff);
+  margin-bottom: 6px;
 }
 
 .auth-subtitle {
-  font-size: 13px;
-  color: var(--text-secondary);
-  letter-spacing: 0.5px;
+  font-size: 13.5px;
+  color: var(--text-secondary, #7f91a4);
+  font-weight: 400;
 }
 
 .auth-warning-alert {
   display: flex;
   gap: 12px;
-  background: rgba(217, 119, 6, 0.1);
+  background: rgba(217, 119, 6, 0.12);
   border-left: 3px solid #d97706;
   padding: 12px;
-  border-radius: 12px;
-  font-size: 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
 }
 
 .auth-warning-alert strong {
@@ -2645,7 +2630,7 @@ body {
 }
 
 .auth-warning-alert p {
-  color: var(--text-secondary);
+  color: var(--text-secondary, #7f91a4);
   line-height: 1.4;
 }
 
@@ -2659,26 +2644,26 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.12);
   border: 1px solid rgba(239, 68, 68, 0.2);
   color: #fca5a5;
   padding: 12px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-size: 13px;
 }
 
 .auth-error-alert.success {
-  background: rgba(16, 185, 129, 0.1);
+  background: rgba(16, 185, 129, 0.12);
   border-color: rgba(16, 185, 129, 0.2);
   color: #a7f3d0;
 }
 
 .auth-tabs {
   display: flex;
-  background: var(--bg-input);
-  padding: 4px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color);
+  background: var(--bg-primary, #0e1621);
+  padding: 3px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, #242f3d);
 }
 
 .auth-tab {
@@ -2689,18 +2674,23 @@ body {
   gap: 8px;
   background: none;
   border: none;
-  color: var(--text-secondary);
-  padding: 8px;
-  border-radius: 8px;
-  font-size: 14px;
+  color: var(--text-secondary, #7f91a4);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13.5px;
+  font-weight: 500;
   cursor: pointer;
-  transition: var(--transition-fast);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.auth-tab:hover {
+  color: var(--text-primary, #ffffff);
 }
 
 .auth-tab.active {
-  background: var(--bg-active);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-sm);
+  background: var(--bg-secondary, #17212b);
+  color: var(--accent-color, #2481cc);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 
 .auth-form {
@@ -2717,8 +2707,9 @@ body {
 
 .auth-input-group label {
   font-size: 12px;
-  color: var(--text-secondary);
+  color: var(--text-secondary, #7f91a4);
   font-weight: 500;
+  padding-left: 2px;
 }
 
 .auth-input-wrapper {
@@ -2730,52 +2721,54 @@ body {
 .input-icon {
   position: absolute;
   left: 12px;
-  color: var(--text-secondary);
+  color: var(--text-secondary, #7f91a4);
+  pointer-events: none;
 }
 
 .auth-input-wrapper input {
   width: 100%;
-  background: var(--bg-input);
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 11px 12px 11px 40px;
-  color: var(--text-primary);
+  background: var(--bg-primary, #0e1621);
+  border: 1px solid var(--border-color, #242f3d);
+  border-radius: 8px;
+  padding: 0 12px 0 40px;
+  height: 42px;
+  box-sizing: border-box;
+  color: var(--text-primary, #ffffff);
   font-size: 14px;
   outline: none;
-  transition: var(--transition-fast);
+  transition: border-color 0.2s, background-color 0.2s;
 }
 
 .auth-input-wrapper input:focus {
-  border-color: var(--accent-color);
-  background: var(--bg-secondary);
-  box-shadow: 0 0 0 3px var(--accent-color-alpha);
+  border-color: var(--accent-color, #2481cc);
+  background: var(--bg-primary, #0e1621);
 }
 
 .auth-submit-btn {
-  background: var(--accent-gradient);
+  background: var(--accent-color, #2481cc);
   color: white;
   border: none;
-  border-radius: 12px;
-  padding: 12px;
+  border-radius: 8px;
+  padding: 0 16px;
+  height: 44px;
+  box-sizing: border-box;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  box-shadow: 0 4px 12px rgba(36, 129, 204, 0.2);
-  transition: var(--transition-fast);
+  transition: opacity var(--transition-fast), transform 0.1s;
   margin-top: 10px;
 }
 
 .auth-submit-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 15px rgba(36, 129, 204, 0.3);
+  opacity: 0.95;
 }
 
 .auth-submit-btn:active {
-  transform: translateY(0);
+  transform: scale(0.98);
 }
 
 .auth-submit-btn:disabled {
@@ -5081,6 +5074,7 @@ input:checked + .switch-slider:before {
 .add-member-form {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 
 .add-member-input {
@@ -5088,8 +5082,10 @@ input:checked + .switch-slider:before {
   background: var(--bg-hover, rgba(255, 255, 255, 0.05));
   border: 1px solid var(--border-color);
   border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 0 12px;
+  height: 36px;
+  box-sizing: border-box;
+  font-size: 13.5px;
   color: var(--text-primary);
   outline: none;
   transition: border-color 0.2s, background-color 0.2s;
@@ -5105,10 +5101,15 @@ input:checked + .switch-slider:before {
   color: white;
   border: none;
   border-radius: 8px;
-  padding: 8px 14px;
-  font-size: 13px;
+  padding: 0 16px;
+  height: 36px;
+  box-sizing: border-box;
+  font-size: 13.5px;
   font-weight: 500;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: opacity 0.2s, transform 0.1s;
 }
 
@@ -5130,6 +5131,103 @@ input:checked + .switch-slider:before {
   color: #ff4d4f;
   margin-top: 2px;
   padding-left: 2px;
+}
+
+/* Premium Telegram-style Settings Toggle Switches */
+.chat-settings-panel {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+
+.settings-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 4px 0 6px 4px;
+}
+
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: var(--bg-hover, rgba(255, 255, 255, 0.02));
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), border-color var(--transition-fast);
+  user-select: none;
+}
+
+.settings-row:hover {
+  background: var(--bg-active, rgba(255, 255, 255, 0.05));
+  border-color: rgba(36, 129, 204, 0.4);
+}
+
+.settings-label-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  padding-right: 12px;
+  line-height: 1.4;
+}
+
+.switch-wrapper {
+  position: relative;
+  width: 36px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.switch-wrapper input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #536371;
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 20px;
+}
+
+.switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+
+.switch-wrapper input:checked + .switch-slider {
+  background-color: var(--accent-color, #2481cc);
+}
+
+.switch-wrapper input:checked + .switch-slider:before {
+  transform: translateX(16px);
 }
 
 /* Selected Chips UI */

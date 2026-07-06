@@ -593,11 +593,6 @@ export const ChatProvider = ({ children }) => {
       }));
 
       setChats(formattedChats);
-
-      // Auto-set first chat as active if none set (desktop only)
-      if (window.innerWidth > 768) {
-        setActiveChatId(prev => prev || (formattedChats.length > 0 ? formattedChats[0].id : null));
-      }
     } catch (e) {
       console.error("Failed to fetch chats from Supabase:", e);
     }
@@ -1218,20 +1213,12 @@ export const ChatProvider = ({ children }) => {
               ...chat,
               messages: chat.messages.map(m => ({ ...m, timestamp: new Date(m.timestamp) }))
             }));
-            if (window.innerWidth > 768) {
-              setActiveChatId(prev => prev || (parsed.length > 0 ? parsed[0].id : null));
-            }
+            setChats(parsed);
           } catch (e) {
             setChats(initialChatsMock);
-            if (window.innerWidth > 768) {
-              setActiveChatId(prev => prev || initialChatsMock[0].id);
-            }
           }
         } else {
           setChats(initialChatsMock);
-          if (window.innerWidth > 768) {
-            setActiveChatId(prev => prev || initialChatsMock[0].id);
-          }
         }
       }
     }

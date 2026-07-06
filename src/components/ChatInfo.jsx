@@ -176,6 +176,8 @@ export default function ChatInfo() {
         </button>
       </div>
 
+      <div className="chat-info-scrollable">
+
       {/* Main Profile Info */}
       <div className="info-profile-section">
         {isOwner && (activeChat.type === 'group' || activeChat.type === 'channel') ? (
@@ -424,61 +426,69 @@ export default function ChatInfo() {
           </div>
         )}
         {activeTab === 'settings' && isOwner && (activeChat.type === 'group' || activeChat.type === 'channel') && (
-          <div className="chat-settings-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px', textAlign: 'left' }}>
-            <h4 style={{ margin: '0 0 4px 0', fontSize: '13px', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Разрешения для участников</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="chat-settings-panel">
+            <h4 className="settings-section-title">Разрешения для участников</h4>
+            <div className="settings-list">
               {activeChat.type === 'group' && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', cursor: 'pointer', userSelect: 'none' }}>
-                  <input
-                    type="checkbox"
-                    checked={!!activeChat.settings?.only_admins_can_post}
-                    onChange={(e) => {
-                      const newSettings = { ...activeChat.settings, only_admins_can_post: e.target.checked };
-                      updateChatSettings(activeChat.id, newSettings);
-                    }}
-                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                  />
-                  <span>Только администраторы могут писать</span>
+                <label className="settings-row">
+                  <span className="settings-label-text">Только администраторы могут писать</span>
+                  <div className="switch-wrapper">
+                    <input
+                      type="checkbox"
+                      checked={!!activeChat.settings?.only_admins_can_post}
+                      onChange={(e) => {
+                        const newSettings = { ...activeChat.settings, only_admins_can_post: e.target.checked };
+                        updateChatSettings(activeChat.id, newSettings);
+                      }}
+                    />
+                    <span className="switch-slider"></span>
+                  </div>
                 </label>
               )}
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', cursor: 'pointer', userSelect: 'none' }}>
-                <input
-                  type="checkbox"
-                  checked={activeChat.settings?.allow_media !== false}
-                  onChange={(e) => {
-                    const newSettings = { ...activeChat.settings, allow_media: e.target.checked };
-                    updateChatSettings(activeChat.id, newSettings);
-                  }}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                />
-                <span>Разрешить отправку медиа (фото/аудио)</span>
+              <label className="settings-row">
+                <span className="settings-label-text">Разрешить отправку медиа (фото/аудио)</span>
+                <div className="switch-wrapper">
+                  <input
+                    type="checkbox"
+                    checked={activeChat.settings?.allow_media !== false}
+                    onChange={(e) => {
+                      const newSettings = { ...activeChat.settings, allow_media: e.target.checked };
+                      updateChatSettings(activeChat.id, newSettings);
+                    }}
+                  />
+                  <span className="switch-slider"></span>
+                </div>
               </label>
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', cursor: 'pointer', userSelect: 'none' }}>
-                <input
-                  type="checkbox"
-                  checked={activeChat.settings?.allow_add_members !== false}
-                  onChange={(e) => {
-                    const newSettings = { ...activeChat.settings, allow_add_members: e.target.checked };
-                    updateChatSettings(activeChat.id, newSettings);
-                  }}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                />
-                <span>Разрешить добавление других участников</span>
+              <label className="settings-row">
+                <span className="settings-label-text">Разрешить добавление других участников</span>
+                <div className="switch-wrapper">
+                  <input
+                    type="checkbox"
+                    checked={activeChat.settings?.allow_add_members !== false}
+                    onChange={(e) => {
+                      const newSettings = { ...activeChat.settings, allow_add_members: e.target.checked };
+                      updateChatSettings(activeChat.id, newSettings);
+                    }}
+                  />
+                  <span className="switch-slider"></span>
+                </div>
               </label>
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13.5px', cursor: 'pointer', userSelect: 'none' }}>
-                <input
-                  type="checkbox"
-                  checked={activeChat.settings?.allow_pin_messages !== false}
-                  onChange={(e) => {
-                    const newSettings = { ...activeChat.settings, allow_pin_messages: e.target.checked };
-                    updateChatSettings(activeChat.id, newSettings);
-                  }}
-                  style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                />
-                <span>Разрешить закрепление сообщений</span>
+              <label className="settings-row">
+                <span className="settings-label-text">Разрешить закрепление сообщений</span>
+                <div className="switch-wrapper">
+                  <input
+                    type="checkbox"
+                    checked={activeChat.settings?.allow_pin_messages !== false}
+                    onChange={(e) => {
+                      const newSettings = { ...activeChat.settings, allow_pin_messages: e.target.checked };
+                      updateChatSettings(activeChat.id, newSettings);
+                    }}
+                  />
+                  <span className="switch-slider"></span>
+                </div>
               </label>
             </div>
           </div>
@@ -542,6 +552,7 @@ export default function ChatInfo() {
           </div>
         );
       })()}
+      </div>
       </div>
     </aside>
   );

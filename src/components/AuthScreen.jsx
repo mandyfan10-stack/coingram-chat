@@ -64,13 +64,27 @@ export default function AuthScreen() {
   return (
     <div className="auth-screen-container">
       <div className="auth-card-wrapper">
-        {/* Glow effect decorative elements */}
-        <div className="auth-glow glow-1"></div>
-        <div className="auth-glow glow-2"></div>
-
         <div className="auth-card">
           <div className="auth-logo-section">
-            <span className="auth-logo">🪙</span>
+            <div className="auth-logo-svg-wrapper">
+              <svg width="80" height="80" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="auth-logo-svg">
+                <defs>
+                  <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#FFE57F" />
+                    <stop offset="50%" stopColor="#FFC107" />
+                    <stop offset="100%" stopColor="#FF8F00" />
+                  </linearGradient>
+                  <linearGradient id="goldInner" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#FFF9C4" />
+                    <stop offset="100%" stopColor="#FFA000" />
+                  </linearGradient>
+                </defs>
+                <circle cx="50" cy="50" r="46" fill="url(#goldGrad)" />
+                <circle cx="50" cy="50" r="40" fill="#17212b" />
+                <circle cx="50" cy="50" r="35" fill="url(#goldInner)" />
+                <path d="M57 44C56 38 48 37 45 40C41 43 41 51 45 54C49 57 56 55 57 50H50" stroke="#17212b" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
             <h2>CoinGram</h2>
             <p className="auth-subtitle">Премиальный Веб-Клиент</p>
           </div>
