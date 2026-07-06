@@ -312,7 +312,7 @@ export default function MainMenuDrawer() {
               <Moon size={20} className="drawer-item-icon" />
               <span className="drawer-item-text">Ночной режим</span>
             </div>
-            <label className="switch-toggle">
+            <label className="switch-wrapper">
               <input 
                 type="checkbox" 
                 checked={isDarkMode} 
