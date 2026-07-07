@@ -1021,10 +1021,6 @@ export const ChatProvider = ({ children }) => {
 
               return prevChats.map(c => {
                 if (c.id === newMsg.chat_id) {
-                  // Simulate Bot response trigger
-                  if (c.type === 'bot' && isMe) {
-                    simulateBotReply(c.id, newMsg.text);
-                  }
                   return {
                     ...c,
                     messages: replacedOptimistic ? nextMessages : [...c.messages, formattedMsg]
@@ -1192,7 +1188,7 @@ export const ChatProvider = ({ children }) => {
         }
       }
     }
-  }, [currentUser, fetchChats, markMessagesAsRead, simulateBotReply]);
+  }, [currentUser, fetchChats, markMessagesAsRead]);
 
   // Save Mock Chats state to localStorage
   useEffect(() => {
@@ -3038,9 +3034,7 @@ export const ChatProvider = ({ children }) => {
 
       playSound('outgoing');
 
-      if (activeChat?.type === 'bot') {
-        simulateBotReply(activeChat.id, text.trim());
-      } else if (activeChat?.type === 'personal' || activeChat?.type === 'group') {
+      if (activeChat?.type === 'personal' || activeChat?.type === 'group') {
         // Simulate recipient reading after 2 seconds in Mock Mode
         const chatToUpdate = activeChat.id;
         setTimeout(() => {
@@ -3063,7 +3057,7 @@ export const ChatProvider = ({ children }) => {
         }, 2000);
       }
     }
-  }, [activeChatId, currentUser, activeChat, simulateBotReply]);
+  }, [activeChatId, currentUser, activeChat]);
 
   // Delete message
   const deleteMessage = useCallback(async (chatId, messageId) => {
