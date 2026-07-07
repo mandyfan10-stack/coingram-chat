@@ -105,8 +105,59 @@ const isNewerVersion = (latest, current) => {
 };
 
 function MainLayout() {
-  const { currentUser, authLoading, activeChatId } = useChat();
+  const { currentUser, authLoading, activeChatId, isDrawerOpen, setIsDrawerOpen } = useChat();
   const [showUpdate, setShowUpdate] = useState(false);
+
+  // Swipe from edge to open MainMenuDrawer
+  const touchStartRef = React.useRef({ x: 0, y: 0 });
+  const touchMoveRef = React.useRef({ x: 0, y: 0 });
+  const isDrawerGestureRef = React.useRef(false);
+
+  const handleGlobalTouchStart = (e) => {
+    if (window.innerWidth >= 768 || e.touches.length !== 1 || isDrawerOpen || activeChatId) return;
+    const startX = e.touches[0].clientX;
+    const startY = e.touches[0].clientY;
+    if (startX > 30) {
+      touchStartRef.current = { x: 0, y: 0 };
+      return;
+    }
+    touchStartRef.current = { x: startX, y: startY };
+    touchMoveRef.current = { x: startX, y: startY };
+    isDrawerGestureRef.current = false;
+  };
+
+  const handleGlobalTouchMove = (e) => {
+    if (window.innerWidth >= 768 || e.touches.length !== 1 || touchStartRef.current.x === 0) return;
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const deltaX = currentX - touchStartRef.current.x;
+    const deltaY = currentY - touchStartRef.current.y;
+    touchMoveRef.current = { x: currentX, y: currentY };
+    if (!isDrawerGestureRef.current) {
+      if (deltaX > 15 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+        isDrawerGestureRef.current = true;
+      } else if (Math.abs(deltaY) > 15 || deltaX < -15) {
+        touchStartRef.current = { x: 0, y: 0 };
+      }
+    }
+    if (isDrawerGestureRef.current) {
+      e.preventDefault();
+    }
+  };
+
+  const handleGlobalTouchEnd = () => {
+    if (window.innerWidth >= 768 || !isDrawerGestureRef.current || touchStartRef.current.x === 0) {
+      isDrawerGestureRef.current = false;
+      touchStartRef.current = { x: 0, y: 0 };
+      return;
+    }
+    const deltaX = touchMoveRef.current.x - touchStartRef.current.x;
+    if (deltaX > 50) {
+      setIsDrawerOpen(true);
+    }
+    isDrawerGestureRef.current = false;
+    touchStartRef.current = { x: 0, y: 0 };
+  };
   const [releaseInfo, setReleaseInfo] = useState(null);
 
   useEffect(() => {
@@ -164,7 +215,12 @@ function MainLayout() {
   }
 
   return (
-    <div className={`app-container ${activeChatId ? 'active-chat-selected' : ''}`}>
+    <div 
+      className={`app-container ${activeChatId ? 'active-chat-selected' : ''}`}
+      onTouchStart={handleGlobalTouchStart}
+      onTouchMove={handleGlobalTouchMove}
+      onTouchEnd={handleGlobalTouchEnd}
+    >
       <h1 className="sr-only" style={{ display: 'none' }}>CoinGram</h1>
       <Sidebar />
       <ChatArea />

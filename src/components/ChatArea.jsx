@@ -845,6 +845,86 @@ export default function ChatArea() {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
+  // Touch Gestures for Swipe Back on Mobile
+  const touchStartRef = useRef({ x: 0, y: 0 });
+  const touchMoveRef = useRef({ x: 0, y: 0 });
+  const isSwipeGestureRef = useRef(false);
+  const mainRef = useRef(null);
+
+  const handleTouchStart = (e) => {
+    if (window.innerWidth >= 768 || e.touches.length !== 1) return;
+    const startX = e.touches[0].clientX;
+    const startY = e.touches[0].clientY;
+    if (startX > window.innerWidth * 0.25) {
+      touchStartRef.current = { x: 0, y: 0 };
+      return;
+    }
+    touchStartRef.current = { x: startX, y: startY };
+    touchMoveRef.current = { x: startX, y: startY };
+    isSwipeGestureRef.current = false;
+    if (mainRef.current) {
+      mainRef.current.style.transition = 'none';
+    }
+  };
+
+  const handleTouchMove = (e) => {
+    if (window.innerWidth >= 768 || e.touches.length !== 1 || touchStartRef.current.x === 0) return;
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const deltaX = currentX - touchStartRef.current.x;
+    const deltaY = currentY - touchStartRef.current.y;
+    touchMoveRef.current = { x: currentX, y: currentY };
+    if (!isSwipeGestureRef.current) {
+      if (deltaX > 15 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+        isSwipeGestureRef.current = true;
+      } else if (Math.abs(deltaY) > 15 || deltaX < -15) {
+        touchStartRef.current = { x: 0, y: 0 };
+      }
+    }
+    if (isSwipeGestureRef.current && deltaX > 0) {
+      e.preventDefault();
+      if (mainRef.current) {
+        mainRef.current.style.transform = `translate3d(${deltaX}px, 0, 0)`;
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    if (window.innerWidth >= 768 || !isSwipeGestureRef.current || touchStartRef.current.x === 0) {
+      isSwipeGestureRef.current = false;
+      touchStartRef.current = { x: 0, y: 0 };
+      return;
+    }
+    const deltaX = touchMoveRef.current.x - touchStartRef.current.x;
+    const threshold = window.innerWidth * 0.25;
+    if (mainRef.current) {
+      mainRef.current.style.transition = 'transform 0.24s cubic-bezier(0.1, 0.76, 0.55, 0.94)';
+    }
+    if (deltaX > threshold) {
+      if (mainRef.current) {
+        mainRef.current.style.transform = 'translate3d(100%, 0, 0)';
+      }
+      setTimeout(() => {
+        setActiveChatId(null);
+        if (mainRef.current) {
+          mainRef.current.style.transform = '';
+          mainRef.current.style.transition = '';
+        }
+      }, 240);
+    } else {
+      if (mainRef.current) {
+        mainRef.current.style.transform = '';
+      }
+      setTimeout(() => {
+        if (mainRef.current) {
+          mainRef.current.style.transition = '';
+        }
+      }, 240);
+    }
+    isSwipeGestureRef.current = false;
+    touchStartRef.current = { x: 0, y: 0 };
+  };
+
   if (!activeChat) {
     return (
       <main className="chat-area empty">
@@ -911,7 +991,13 @@ export default function ChatArea() {
     : null;
 
   return (
-    <main className="chat-area">
+    <main 
+      className="chat-area"
+      ref={mainRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+    >
       {/* Header */}
       <header className="chat-header" onClick={() => setIsInfoOpen(!isInfoOpen)}>
         <div className="chat-header-info">

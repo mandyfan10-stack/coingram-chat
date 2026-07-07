@@ -34,6 +34,47 @@ export default function MainMenuDrawer() {
 
   const drawerRef = useRef(null);
 
+  // Touch Gestures to swipe close MainMenuDrawer
+  const touchStartRef = useRef({ x: 0, y: 0 });
+  const touchMoveRef = useRef({ x: 0, y: 0 });
+  const isSwipeCloseGestureRef = useRef(false);
+
+  const handleDrawerTouchStart = (e) => {
+    if (e.touches.length !== 1) return;
+    const startX = e.touches[0].clientX;
+    const startY = e.touches[0].clientY;
+    touchStartRef.current = { x: startX, y: startY };
+    touchMoveRef.current = { x: startX, y: startY };
+    isSwipeCloseGestureRef.current = false;
+  };
+
+  const handleDrawerTouchMove = (e) => {
+    if (e.touches.length !== 1) return;
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    const deltaX = currentX - touchStartRef.current.x;
+    const deltaY = currentY - touchStartRef.current.y;
+    touchMoveRef.current = { x: currentX, y: currentY };
+    if (!isSwipeCloseGestureRef.current) {
+      if (deltaX < -15 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+        isSwipeCloseGestureRef.current = true;
+      }
+    }
+    if (isSwipeCloseGestureRef.current) {
+      e.preventDefault();
+    }
+  };
+
+  const handleDrawerTouchEnd = () => {
+    if (isSwipeCloseGestureRef.current) {
+      const deltaX = touchMoveRef.current.x - touchStartRef.current.x;
+      if (deltaX < -50) {
+        setIsDrawerOpen(false);
+      }
+    }
+    isSwipeCloseGestureRef.current = false;
+  };
+
   // Close drawer on escape key
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -181,6 +222,9 @@ export default function MainMenuDrawer() {
         className={`drawer-container ${isDrawerOpen ? 'open' : ''}`} 
         onClick={(e) => e.stopPropagation()}
         ref={drawerRef}
+        onTouchStart={handleDrawerTouchStart}
+        onTouchMove={handleDrawerTouchMove}
+        onTouchEnd={handleDrawerTouchEnd}
       >
         {/* Drawer Header */}
         <div className="drawer-header">
