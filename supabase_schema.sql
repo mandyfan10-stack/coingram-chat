@@ -72,25 +72,74 @@ alter table public.messages enable row level security;
 
 -- Проверяет, является ли пользователь участником чата
 create or replace function public.is_chat_member(chat_id uuid, user_id uuid)
-returns boolean as $$
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
 begin
   return exists (
     select 1 from public.chat_members
     where chat_members.chat_id = $1 and chat_members.profile_id = $2
   );
 end;
-$$ language plpgsql security definer;
+$$;
 
 -- Проверяет, является ли пользователь администратором чата
 create or replace function public.is_chat_admin(chat_id uuid, user_id uuid)
-returns boolean as $$
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
 begin
   return exists (
     select 1 from public.chat_members
     where chat_members.chat_id = $1 and chat_members.profile_id = $2 and chat_members.role = 'admin'
   );
 end;
-$$ language plpgsql security definer;
+$$;
+
+-- Проверяет, что критические поля сообщения не изменены (для обхода рекурсии в политике UPDATE)
+create or replace function public.is_message_unmodified(
+  message_id uuid,
+  new_sender_id uuid,
+  new_chat_id uuid,
+  new_text text,
+  new_media text,
+  new_reply_to uuid
+)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  old_sender_id uuid;
+  old_chat_id uuid;
+  old_text text;
+  old_media text;
+  old_reply_to uuid;
+begin
+  select sender_id, chat_id, text, media, reply_to
+  into old_sender_id, old_chat_id, old_text, old_media, old_reply_to
+  FROM public.messages
+  where id = message_id;
+
+  if not found then
+    return false;
+  end if;
+
+  return (
+    new_sender_id = old_sender_id and
+    new_chat_id = old_chat_id and
+    new_text = old_text and
+    coalesce(new_media, '') = coalesce(old_media, '') and
+    coalesce(new_reply_to, '00000000-0000-0000-0000-000000000000'::uuid) = coalesce(old_reply_to, '00000000-0000-0000-0000-000000000000'::uuid)
+  );
+end;
+$$;
+
 
 -- ==========================================
 -- 3. Политики безопасности (Policies)
@@ -223,13 +272,7 @@ create policy "Участники чата могут отмечать проч�
     public.is_chat_member(chat_id, auth.uid())
     and (
       (sender_id = auth.uid())
-      or (
-        sender_id = (select m.sender_id from public.messages m where m.id = messages.id)
-        and chat_id = (select m.chat_id from public.messages m where m.id = messages.id)
-        and text = (select m.text from public.messages m where m.id = messages.id)
-        and coalesce(media, '') = coalesce((select m.media from public.messages m where m.id = messages.id), '')
-        and coalesce(reply_to, '00000000-0000-0000-0000-000000000000'::uuid) = coalesce((select m.reply_to from public.messages m where m.id = messages.id), '00000000-0000-0000-0000-000000000000'::uuid)
-      )
+      or public.is_message_unmodified(id, sender_id, chat_id, text, media, reply_to)
     )
   );
 
