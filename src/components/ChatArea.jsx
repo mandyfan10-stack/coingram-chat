@@ -19,7 +19,8 @@ import {
   Film,
   ArrowLeft,
   VolumeX,
-  Volume2
+  Volume2,
+  AlertCircle
 } from 'lucide-react';
 
 const SingleCheck = ({ className }) => (
@@ -339,7 +340,9 @@ export default function ChatArea() {
     renderAvatar,
     installedStickers,
     setActiveChatId,
-    isOnline
+    isOnline,
+    retrySendMessage,
+    deleteFailedMessage
   } = useChat();
 
   const isOwner = activeChat && currentUser && (
@@ -366,6 +369,7 @@ export default function ChatArea() {
   } : {};
 
   const [inputVal, setInputVal] = useState('');
+  const [retryMenuMsgId, setRetryMenuMsgId] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [pickerTab, setPickerTab] = useState('emoji'); // 'emoji' | 'sticker'
   const [activeStickerPackId, setActiveStickerPackId] = useState(null);
@@ -412,7 +416,16 @@ export default function ChatArea() {
   const uploadFileDirectly = async (file, isAudio) => {
     setUploading(true);
     try {
+      const mediaType = isAudio ? 'audio' : 'image';
+      const msgText = isAudio ? 'Голосовое сообщение' : 'Изображение';
+
       if (isSupabaseConfigured) {
+        if (!navigator.onLine) {
+          sendMessage(msgText, replyingTo?.id, null, file, mediaType);
+          setReplyingTo(null);
+          return;
+        }
+
         const fileExt = file.name ? file.name.split('.').pop() : (isAudio ? 'webm' : 'png');
         const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
         const filePath = `${currentUser.id}/${fileName}`;
@@ -429,26 +442,26 @@ export default function ChatArea() {
           .from('chat-attachments')
           .getPublicUrl(filePath);
 
-        if (isAudio) {
-          sendMessage('Голосовое сообщение', replyingTo?.id, publicUrl);
-        } else {
-          sendMessage('Изображение', replyingTo?.id, publicUrl);
-        }
+        sendMessage(msgText, replyingTo?.id, publicUrl);
       } else {
         const reader = new FileReader();
         reader.onload = (event) => {
-          if (isAudio) {
-            sendMessage('Голосовое сообщение', replyingTo?.id, event.target.result);
-          } else {
-            sendMessage('Изображение', replyingTo?.id, event.target.result);
-          }
+          sendMessage(msgText, replyingTo?.id, event.target.result);
         };
         reader.readAsDataURL(file);
       }
       setReplyingTo(null);
     } catch (err) {
       console.error("Upload error:", err);
-      alert("Ошибка при загрузке: " + err.message);
+      const isNetworkError = !navigator.onLine || err.message?.includes('FetchError') || err.message?.includes('failed to fetch');
+      if (isNetworkError) {
+        const mediaType = isAudio ? 'audio' : 'image';
+        const msgText = isAudio ? 'Голосовое сообщение' : 'Изображение';
+        sendMessage(msgText, replyingTo?.id, null, file, mediaType);
+        setReplyingTo(null);
+      } else {
+        alert("Ошибка при загрузке: " + err.message);
+      }
     } finally {
       setUploading(false);
     }
@@ -457,6 +470,14 @@ export default function ChatArea() {
   const handleFileChange = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+
+    const MAX_SIZE = 15 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      alert("Размер файла превышает лимит 15 МБ. Выберите файл меньшего размера.");
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+
     const isAudio = (file.type && file.type.startsWith('audio/')) || 
                     ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'].some(ext => file.name.toLowerCase().endsWith(ext));
     await uploadFileDirectly(file, isAudio);
@@ -485,6 +506,11 @@ export default function ChatArea() {
 
     if (fileToUpload) {
       e.preventDefault();
+      const MAX_SIZE = 15 * 1024 * 1024;
+      if (fileToUpload.size > MAX_SIZE) {
+        alert("Размер вставляемого файла превышает лимит 15 МБ.");
+        return;
+      }
       await uploadFileDirectly(fileToUpload, isAudio);
     }
   };
@@ -754,12 +780,27 @@ export default function ChatArea() {
   const uploadAndSendRecord = async (blob) => {
     setUploading(true);
     try {
+      const MAX_SIZE = 15 * 1024 * 1024;
+      if (blob.size > MAX_SIZE) {
+        alert("Запись слишком длинная и превышает лимит 15 МБ.");
+        return;
+      }
+
       const isVoice = recordMode === 'voice';
-      const fileExt = 'webm';
-      const fileName = `record_${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-      const filePath = `${currentUser.id}/${fileName}`;
+      const mediaType = isVoice ? 'audio' : 'video';
+      const msgText = isVoice ? 'Голосовое сообщение' : 'Видеосообщение';
 
       if (isSupabaseConfigured) {
+        if (!navigator.onLine) {
+          sendMessage(msgText, replyingTo?.id, null, blob, mediaType);
+          setReplyingTo(null);
+          return;
+        }
+
+        const fileExt = 'webm';
+        const fileName = `record_${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const filePath = `${currentUser.id}/${fileName}`;
+
         const { error } = await supabase.storage
           .from('chat-attachments')
           .upload(filePath, blob, {
@@ -772,12 +813,10 @@ export default function ChatArea() {
           .from('chat-attachments')
           .getPublicUrl(filePath);
 
-        const msgText = isVoice ? 'Голосовое сообщение' : 'Видеосообщение';
         sendMessage(msgText, replyingTo?.id, publicUrl);
       } else {
         const reader = new FileReader();
         reader.onload = (event) => {
-          const msgText = isVoice ? 'Голосовое сообщение' : 'Видеосообщение';
           sendMessage(msgText, replyingTo?.id, event.target.result);
         };
         reader.readAsDataURL(blob);
@@ -785,7 +824,16 @@ export default function ChatArea() {
       setReplyingTo(null);
     } catch (err) {
       console.error("Upload recording error:", err);
-      alert("Ошибка при сохранении сообщения: " + err.message);
+      const isNetworkError = !navigator.onLine || err.message?.includes('FetchError') || err.message?.includes('failed to fetch');
+      if (isNetworkError) {
+        const isVoice = recordMode === 'voice';
+        const mediaType = isVoice ? 'audio' : 'video';
+        const msgText = isVoice ? 'Голосовое сообщение' : 'Видеосообщение';
+        sendMessage(msgText, replyingTo?.id, null, blob, mediaType);
+        setReplyingTo(null);
+      } else {
+        alert("Ошибка при сохранении сообщения: " + err.message);
+      }
     } finally {
       setUploading(false);
     }
@@ -847,6 +895,9 @@ export default function ChatArea() {
       }
       if (!e.target.closest('.message-hover-actions')) {
         setShowMsgActionsId(null);
+      }
+      if (!e.target.closest('.failed-message-menu') && !e.target.closest('.seen-check.failed')) {
+        setRetryMenuMsgId(null);
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
@@ -1120,7 +1171,16 @@ export default function ChatArea() {
                         </span>
                         {isMe && (
                           <span className="check-icons" style={{ color: 'white' }}>
-                            {msg.isPending ? (
+                            {msg.isFailed ? (
+                              <AlertCircle 
+                                className="seen-check failed" 
+                                style={{ width: '12px', height: '12px', color: '#f87171', cursor: 'pointer', pointerEvents: 'auto' }} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRetryMenuMsgId(retryMenuMsgId === msg.id ? null : msg.id);
+                                }}
+                              />
+                            ) : msg.isPending ? (
                               <PendingClock className="seen-check pending" style={{ width: '10px', height: '10px' }} />
                             ) : activeChat.type === 'channel' ? (
                               <SingleCheck className="seen-check" style={{ width: '10px', height: '10px' }} />
@@ -1151,7 +1211,16 @@ export default function ChatArea() {
                         </span>
                         {isMe && (
                           <span className="check-icons" style={{ color: 'white' }}>
-                            {msg.isPending ? (
+                            {msg.isFailed ? (
+                              <AlertCircle 
+                                className="seen-check failed" 
+                                style={{ width: '12px', height: '12px', color: '#f87171', cursor: 'pointer', pointerEvents: 'auto' }} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRetryMenuMsgId(retryMenuMsgId === msg.id ? null : msg.id);
+                                }}
+                              />
+                            ) : msg.isPending ? (
                               <PendingClock className="seen-check pending" />
                             ) : activeChat.type === 'channel' ? (
                               <SingleCheck className="seen-check" />
@@ -1179,12 +1248,20 @@ export default function ChatArea() {
                         )
                       )}
 
-                      {/* Metadata & Read Checks */}
                       <div className="bubble-metadata">
                         <span className="message-time">{getFormatTime(msg.timestamp)}</span>
                         {isMe && (
                           <span className="check-icons">
-                            {msg.isPending ? (
+                            {msg.isFailed ? (
+                              <AlertCircle 
+                                className="seen-check failed" 
+                                style={{ width: '12px', height: '12px', color: '#f87171', cursor: 'pointer', pointerEvents: 'auto' }} 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRetryMenuMsgId(retryMenuMsgId === msg.id ? null : msg.id);
+                                }}
+                              />
+                            ) : msg.isPending ? (
                               <PendingClock className="seen-check pending" />
                             ) : activeChat.type === 'channel' ? (
                               <SingleCheck className="seen-check" />
@@ -1261,6 +1338,25 @@ export default function ChatArea() {
                       </div>
                     )}
                   </div>
+                  
+                  {retryMenuMsgId === msg.id && (
+                    <div className="failed-message-menu">
+                      <button className="failed-menu-btn retry" onClick={(e) => {
+                        e.stopPropagation();
+                        retrySendMessage(msg.id);
+                        setRetryMenuMsgId(null);
+                      }}>
+                        Повторить
+                      </button>
+                      <button className="failed-menu-btn delete" onClick={(e) => {
+                        e.stopPropagation();
+                        deleteFailedMessage(msg.id);
+                        setRetryMenuMsgId(null);
+                      }}>
+                        Удалить
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );

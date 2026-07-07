@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
+import { saveOfflineAttachment, getOfflineAttachment, deleteOfflineAttachment } from '../utils/indexedDbHelper';
 import { Users, Megaphone, Bookmark, User, Bot, CloudSun, Brain, Zap } from 'lucide-react';
 
 const ChatContext = createContext();
@@ -314,21 +315,68 @@ export const ChatProvider = ({ children }) => {
     localStorage.setItem('tg-offline-queue', JSON.stringify(offlineQueue));
   }, [offlineQueue]);
 
+  const markMessageAsFailed = useCallback((chatId, optimisticId) => {
+    setChats(prevChats => prevChats.map(c => {
+      if (c.id === chatId) {
+        return {
+          ...c,
+          messages: c.messages.map(m => m.id === optimisticId ? { ...m, isFailed: true, isPending: false } : m)
+        };
+      }
+      return c;
+    }));
+
+    setOfflineQueue(prev => prev.map(q => q.optimisticId === optimisticId ? { ...q, isFailed: true, isPending: false } : q));
+  }, []);
+
   // Sync offline queue messages when we return online
   const syncOfflineMessages = useCallback(async () => {
     if (!isSupabaseConfigured || offlineQueue.length === 0) return;
     
-    const queueToProcess = [...offlineQueue];
+    // Only process pending items that are not failed
+    const queueToProcess = offlineQueue.filter(q => !q.isFailed);
+    if (queueToProcess.length === 0) return;
     
     for (const item of queueToProcess) {
       try {
+        let finalMediaUrl = item.media;
+
+        // If the item has offline media queued, upload it first
+        if (item.hasOfflineMedia) {
+          const blob = await getOfflineAttachment(item.optimisticId);
+          if (!blob) {
+            throw new Error("Файл вложения не найден в локальном хранилище.");
+          }
+
+          const fileExt = item.mediaType === 'audio' ? 'webm' : (item.mediaType === 'video' ? 'webm' : 'png');
+          const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+          const filePath = `${item.senderId}/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('chat-attachments')
+            .upload(filePath, blob, {
+              contentType: blob.type || (item.mediaType === 'audio' ? 'audio/webm' : (item.mediaType === 'video' ? 'video/webm' : 'image/png'))
+            });
+
+          if (uploadError) throw uploadError;
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('chat-attachments')
+            .getPublicUrl(filePath);
+
+          finalMediaUrl = publicUrl;
+
+          // Delete from IndexedDB now that it has been uploaded
+          await deleteOfflineAttachment(item.optimisticId);
+        }
+
         const { data, error } = await supabase
           .from('messages')
           .insert({
             chat_id: item.chatId,
             sender_id: item.senderId,
             text: item.text,
-            media: item.media,
+            media: finalMediaUrl,
             reply_to: item.replyToId
           })
           .select()
@@ -347,6 +395,7 @@ export const ChatProvider = ({ children }) => {
                     return {
                       ...m,
                       id: data.id,
+                      media: finalMediaUrl, // Update to the real public storage URL
                       isPending: false,
                       isOptimistic: false
                     };
@@ -363,11 +412,65 @@ export const ChatProvider = ({ children }) => {
         }
       } catch (err) {
         console.error("Failed to sync offline message:", err);
-        if (!navigator.onLine) {
+        const isNetworkError = !navigator.onLine || err.message?.includes('FetchError') || err.message?.includes('failed to fetch');
+        if (isNetworkError) {
           setIsOnline(false);
-          break;
+          break; // Stop processing the queue until connection is restored
+        } else {
+          // Permanent failure, mark this item as failed
+          markMessageAsFailed(item.chatId, item.optimisticId);
         }
       }
+    }
+  }, [offlineQueue, markMessageAsFailed]);
+
+  const retrySendMessage = useCallback(async (optimisticId) => {
+    const item = offlineQueue.find(q => q.optimisticId === optimisticId);
+    if (!item) return;
+
+    // Reset status to pending in UI
+    setChats(prevChats => prevChats.map(c => {
+      if (c.id === item.chatId) {
+        return {
+          ...c,
+          messages: c.messages.map(m => m.id === optimisticId ? { ...m, isFailed: false, isPending: true } : m)
+        };
+      }
+      return c;
+    }));
+
+    // Reset status in the queue
+    setOfflineQueue(prev => prev.map(q => q.optimisticId === optimisticId ? { ...q, isFailed: false, isPending: true } : q));
+
+    if (navigator.onLine) {
+      setIsOnline(true);
+      // Wait a tick for state to update, then sync
+      setTimeout(() => {
+        syncOfflineMessages();
+      }, 50);
+    }
+  }, [offlineQueue, syncOfflineMessages]);
+
+  const deleteFailedMessage = useCallback(async (optimisticId) => {
+    const item = offlineQueue.find(q => q.optimisticId === optimisticId);
+    if (!item) return;
+
+    setChats(prevChats => prevChats.map(c => {
+      if (c.id === item.chatId) {
+        return {
+          ...c,
+          messages: c.messages.filter(m => m.id !== optimisticId)
+        };
+      }
+      return c;
+    }));
+
+    setOfflineQueue(prev => prev.filter(q => q.optimisticId !== optimisticId));
+
+    try {
+      await deleteOfflineAttachment(optimisticId);
+    } catch (e) {
+      console.error("Failed to delete offline attachment:", e);
     }
   }, [offlineQueue]);
 
@@ -709,6 +812,20 @@ export const ChatProvider = ({ children }) => {
         localQueue = JSON.parse(localStorage.getItem('tg-offline-queue') || '[]');
       } catch {}
 
+      // Recreate Object URLs for offline media from IndexedDB
+      for (const q of localQueue) {
+        if (q.hasOfflineMedia && q.optimisticId) {
+          try {
+            const blob = await getOfflineAttachment(q.optimisticId);
+            if (blob) {
+              q.media = URL.createObjectURL(blob);
+            }
+          } catch (e) {
+            console.error("Failed to restore offline media from IndexedDB:", e);
+          }
+        }
+      }
+
       const updatedChats = formattedChats.map(c => {
         const pendingMsgs = localQueue
           .filter(q => q.chatId === c.id)
@@ -721,7 +838,8 @@ export const ChatProvider = ({ children }) => {
             replyTo: q.replyToId,
             read: false,
             timestamp: new Date(),
-            isPending: true,
+            isPending: !q.isFailed,
+            isFailed: !!q.isFailed,
             isOptimistic: true
           }));
 
@@ -3070,8 +3188,8 @@ export const ChatProvider = ({ children }) => {
   }, [currentUser, chats, fetchChats]);
 
   // Send Message
-  const sendMessage = useCallback(async (text, replyToId = null, media = null) => {
-    if (!text.trim() && !media) return;
+  const sendMessage = useCallback(async (text, replyToId = null, media = null, offlineMediaBlob = null, offlineMediaType = null) => {
+    if (!text.trim() && !media && !offlineMediaBlob) return;
     if (!currentUser || !activeChatId) return;
 
     if (isSupabaseConfigured) {
@@ -3089,6 +3207,23 @@ export const ChatProvider = ({ children }) => {
         isPending: !navigator.onLine
       };
 
+      // Handle offline media caching if a Blob is passed and we are offline
+      let hasOfflineMedia = false;
+      let tempMediaUrl = media;
+
+      if (offlineMediaBlob) {
+        try {
+          await saveOfflineAttachment(optimisticMsg.id, offlineMediaBlob);
+          tempMediaUrl = URL.createObjectURL(offlineMediaBlob);
+          optimisticMsg.media = tempMediaUrl;
+          hasOfflineMedia = true;
+          // Ensure it shows as pending/offline since it's an offline media message
+          optimisticMsg.isPending = true;
+        } catch (e) {
+          console.error("Failed to cache offline media in IndexedDB:", e);
+        }
+      }
+
       // 2. Add to local state immediately
       setChats(prevChats => prevChats.map(c => {
         if (c.id === activeChatId) {
@@ -3103,15 +3238,19 @@ export const ChatProvider = ({ children }) => {
       playSound('outgoing');
 
       // If we are currently offline, queue it immediately
-      if (!navigator.onLine) {
+      if (!navigator.onLine || hasOfflineMedia) {
         const offlineItem = {
           queueId: `queue-${Date.now()}`,
           chatId: activeChatId,
           senderId: currentUser.id,
           text: text,
           replyToId: replyToId,
-          media: media,
-          optimisticId: optimisticMsg.id
+          media: tempMediaUrl,
+          optimisticId: optimisticMsg.id,
+          hasOfflineMedia,
+          mediaType: offlineMediaType,
+          isPending: true,
+          isFailed: false
         };
         setOfflineQueue(prev => [...prev, offlineItem]);
         return;
@@ -3153,7 +3292,10 @@ export const ChatProvider = ({ children }) => {
                 text: text,
                 replyToId: replyToId,
                 media: media,
-                optimisticId: optimisticMsg.id
+                optimisticId: optimisticMsg.id,
+                hasOfflineMedia: false,
+                isPending: true,
+                isFailed: false
               };
               setOfflineQueue(prev => [...prev, offlineItem]);
             } else {
@@ -3720,7 +3862,9 @@ export const ChatProvider = ({ children }) => {
       toggleMemberRole,
       groupCallParticipants,
       setGroupCallParticipants,
-      isOnline
+      isOnline,
+      retrySendMessage,
+      deleteFailedMessage
     }}>
       {children}
     </ChatContext.Provider>

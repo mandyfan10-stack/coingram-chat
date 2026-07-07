@@ -5863,3 +5863,61 @@ html.theme-light .empty-state p {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* --- Failed Message Popover & Error Icon Styles --- */
+.seen-check.failed {
+  color: #ef4444 !important;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.failed-message-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  background-color: var(--bg-primary, #1e1e1e);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 1000;
+  min-width: 130px;
+  backdrop-filter: blur(10px);
+}
+
+.failed-menu-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-primary, #ffffff);
+  padding: 8px 12px;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.failed-menu-btn:hover {
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.08));
+}
+
+.failed-menu-btn.retry {
+  color: #3b82f6; /* Blue */
+}
+
+.failed-menu-btn.delete {
+  color: #ef4444; /* Red */
+}
+
+@keyframes pulse {
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
+}
