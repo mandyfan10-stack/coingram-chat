@@ -15,7 +15,10 @@ create table public.profiles (
   bio text default '',
   theme text default 'telegram-blue',
   wallpaper text default 'classic',
-  last_seen timestamp with time zone default now()
+  last_seen timestamp with time zone default now(),
+  public_key text,
+  encrypted_private_key text,
+  has_e2ee boolean default false
 );
 
 -- 1.2 Таблица чатов (диалоги, группы, каналы)

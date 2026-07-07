@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { saveOfflineAttachment, getOfflineAttachment, deleteOfflineAttachment } from '../utils/indexedDbHelper';
-import { generateE2EEKeyPair, exportPublicKey, importPublicKey, exportPrivateKey, importPrivateKey, backupPrivateKey, restorePrivateKey, deriveSymmetricKey, encryptMessage, decryptMessage } from '../utils/e2eeHelper';
+import { generateE2EEKeyPair, exportPublicKey, importPublicKey, exportPrivateKey, importPrivateKey, backupPrivateKey, restorePrivateKey, deriveSymmetricKey, encryptMessage, decryptMessage, generateRecoveryCode } from '../utils/e2eeHelper';
 import { Users, Megaphone, Bookmark, User, Bot, CloudSun, Brain, Zap } from 'lucide-react';
 
 const ChatContext = createContext();
@@ -353,10 +353,11 @@ export const ChatProvider = ({ children }) => {
   }, []);
 
   const setupE2EE = useCallback(async (password) => {
-    if (!currentUser || !isSupabaseConfigured) return false;
+    if (!currentUser || !isSupabaseConfigured) return null;
     try {
       const keyPair = await generateE2EEKeyPair();
-      const encryptedPrivKeyStr = await backupPrivateKey(keyPair.privateKey, password);
+      const recoveryCode = generateRecoveryCode();
+      const encryptedPrivKeyStr = await backupPrivateKey(keyPair.privateKey, password, recoveryCode);
       const pubKeyStr = await exportPublicKey(keyPair.publicKey);
 
       const { error } = await supabase
@@ -379,22 +380,78 @@ export const ChatProvider = ({ children }) => {
         public_key: pubKeyStr,
         encrypted_private_key: encryptedPrivKeyStr
       }));
-      return true;
+      return { success: true, recoveryCode };
     } catch (e) {
       console.error("E2EE Setup failed:", e);
       alert("Не удалось настроить шифрование: " + e.message);
+      return null;
+    }
+  }, [currentUser]);
+
+  const unlockE2EE = useCallback(async (passwordOrCode, isRecovery = false) => {
+    if (!currentUser || !isSupabaseConfigured || !currentUser.encrypted_private_key) return false;
+    try {
+      const decryptedKey = await restorePrivateKey(currentUser.encrypted_private_key, passwordOrCode, isRecovery);
+      setE2eePrivateKey(decryptedKey);
+      return true;
+    } catch (e) {
+      console.error("E2EE Unlock failed (wrong password/recovery code?):", e);
       return false;
     }
   }, [currentUser]);
 
-  const unlockE2EE = useCallback(async (password) => {
-    if (!currentUser || !isSupabaseConfigured || !currentUser.encrypted_private_key) return false;
+  const changePasswordAfterRecovery = useCallback(async (recoveryCode, newPassword) => {
+    if (!currentUser || !isSupabaseConfigured || !e2eePrivateKey) return false;
     try {
-      const decryptedKey = await restorePrivateKey(currentUser.encrypted_private_key, password);
-      setE2eePrivateKey(decryptedKey);
+      const encryptedPrivKeyStr = await backupPrivateKey(e2eePrivateKey, newPassword, recoveryCode);
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          encrypted_private_key: encryptedPrivKeyStr
+        })
+        .eq('id', currentUser.id);
+
+      if (error) throw error;
+
+      setCurrentUser(prev => ({
+        ...prev,
+        encrypted_private_key: encryptedPrivKeyStr
+      }));
       return true;
     } catch (e) {
-      console.error("E2EE Unlock failed (wrong password?):", e);
+      console.error("Failed to change password after E2EE recovery:", e);
+      return false;
+    }
+  }, [currentUser, e2eePrivateKey]);
+
+  const resetE2EE = useCallback(async () => {
+    if (!currentUser || !isSupabaseConfigured) return false;
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          public_key: null,
+          encrypted_private_key: null,
+          has_e2ee: false
+        })
+        .eq('id', currentUser.id);
+
+      if (error) throw error;
+
+      setE2eePrivateKey(null);
+      setSharedKeysCache({});
+      setIsE2EESetupRequired(true);
+
+      setCurrentUser(prev => ({
+        ...prev,
+        has_e2ee: false,
+        public_key: null,
+        encrypted_private_key: null
+      }));
+      return true;
+    } catch (e) {
+      console.error("E2EE Reset failed:", e);
+      alert("Не удалось сбросить шифрование: " + e.message);
       return false;
     }
   }, [currentUser]);
@@ -4103,7 +4160,9 @@ export const ChatProvider = ({ children }) => {
       sharedKeysCache,
       isE2EESetupRequired,
       setupE2EE,
-      unlockE2EE
+      unlockE2EE,
+      changePasswordAfterRecovery,
+      resetE2EE
     }}>
       {children}
     </ChatContext.Provider>

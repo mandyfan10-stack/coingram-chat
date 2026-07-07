@@ -96,42 +96,103 @@ async function derivePasswordKey(password, salt) {
   );
 }
 
-// 5. Encrypt Private Key (Cloud Backup)
-export async function backupPrivateKey(privateKey, password) {
-  const privateKeyJwk = await exportPrivateKey(privateKey);
-  const salt = window.crypto.getRandomValues(new Uint8Array(16));
-  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+// 4.5 Generate 24-character Recovery Code
+export function generateRecoveryCode() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ23456789';
+  const array = new Uint8Array(24);
+  window.crypto.getRandomValues(array);
+  let result = '';
+  for (let i = 0; i < 24; i++) {
+    if (i > 0 && i % 4 === 0) {
+      result += '-';
+    }
+    const val = array[i] % chars.length;
+    result += chars[val];
+  }
+  return result;
+}
 
-  const aesKey = await derivePasswordKey(password, salt);
-  const encryptedContent = await window.crypto.subtle.encrypt(
-    {
-      name: 'AES-GCM',
-      iv: iv
-    },
-    aesKey,
-    encoder.encode(privateKeyJwk)
+// 5. Encrypt Private Key (Cloud Backup)
+export async function backupPrivateKey(privateKey, password, recoveryCode) {
+  const privateKeyJwk = await exportPrivateKey(privateKey);
+  const rawJwk = encoder.encode(privateKeyJwk);
+
+  // 1. Password backup
+  const saltPwd = window.crypto.getRandomValues(new Uint8Array(16));
+  const ivPwd = window.crypto.getRandomValues(new Uint8Array(12));
+  const aesKeyPwd = await derivePasswordKey(password, saltPwd);
+  const encryptedContentPwd = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: ivPwd },
+    aesKeyPwd,
+    rawJwk
   );
 
+  const pwdBackup = {
+    ciphertext: bufToHex(encryptedContentPwd),
+    salt: bufToHex(saltPwd),
+    iv: bufToHex(ivPwd)
+  };
+
+  // 2. Recovery code backup (clean formatting dashes first)
+  const cleanRecoveryCode = recoveryCode.replace(/-/g, '').toUpperCase();
+  const saltRec = window.crypto.getRandomValues(new Uint8Array(16));
+  const ivRec = window.crypto.getRandomValues(new Uint8Array(12));
+  const aesKeyRec = await derivePasswordKey(cleanRecoveryCode, saltRec);
+  const encryptedContentRec = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: ivRec },
+    aesKeyRec,
+    rawJwk
+  );
+
+  const recBackup = {
+    ciphertext: bufToHex(encryptedContentRec),
+    salt: bufToHex(saltRec),
+    iv: bufToHex(ivRec)
+  };
+
   return JSON.stringify({
-    ciphertext: bufToHex(encryptedContent),
-    salt: bufToHex(salt),
-    iv: bufToHex(iv)
+    password_backup: pwdBackup,
+    recovery_backup: recBackup
   });
 }
 
 // 6. Decrypt Private Key (Restore Backup)
-export async function restorePrivateKey(backupJsonString, password) {
+export async function restorePrivateKey(backupJsonString, secret, isRecovery = false) {
   const backup = JSON.parse(backupJsonString);
-  const ciphertext = hexToBuf(backup.ciphertext);
-  const salt = hexToBuf(backup.salt);
-  const iv = hexToBuf(backup.iv);
 
-  const aesKey = await derivePasswordKey(password, salt);
+  // Backward compatibility: check if it's the old single-backup format
+  if (backup.ciphertext && backup.salt && backup.iv) {
+    if (isRecovery) {
+      throw new Error("Восстановление по коду недоступно для старых аккаунтов. Пожалуйста, используйте ваш пароль.");
+    }
+    const ciphertext = hexToBuf(backup.ciphertext);
+    const salt = hexToBuf(backup.salt);
+    const iv = hexToBuf(backup.iv);
+
+    const aesKey = await derivePasswordKey(secret, salt);
+    const decryptedContent = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv },
+      aesKey,
+      ciphertext
+    );
+    const jwkString = decoder.decode(decryptedContent);
+    return await importPrivateKey(jwkString);
+  }
+
+  // Dual-backup format
+  const targetBackup = isRecovery ? backup.recovery_backup : backup.password_backup;
+  if (!targetBackup) {
+    throw new Error("Неверный формат резервной копии ключей.");
+  }
+
+  const ciphertext = hexToBuf(targetBackup.ciphertext);
+  const salt = hexToBuf(targetBackup.salt);
+  const iv = hexToBuf(targetBackup.iv);
+
+  const cleanSecret = isRecovery ? secret.replace(/-/g, '').toUpperCase() : secret;
+  const aesKey = await derivePasswordKey(cleanSecret, salt);
   const decryptedContent = await window.crypto.subtle.decrypt(
-    {
-      name: 'AES-GCM',
-      iv: iv
-    },
+    { name: 'AES-GCM', iv: iv },
     aesKey,
     ciphertext
   );
