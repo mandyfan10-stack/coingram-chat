@@ -967,11 +967,11 @@ export const ChatProvider = ({ children }) => {
                   const parts = m.text.replace('e2ee:aes-gcm:', '').split(':');
                   decryptedText = await decryptMessage(parts[0], parts[1], sharedKey);
                 } catch (e) {
-                  decryptedText = '🔒 Зашифрованное сообщение';
+                  decryptedText = 'Зашифрованное сообщение';
                   isDecrypted = false;
                 }
               } else {
-                decryptedText = '🔒 Зашифрованное сообщение';
+                decryptedText = 'Зашифрованное сообщение';
                 isDecrypted = false;
               }
             }
@@ -999,7 +999,8 @@ export const ChatProvider = ({ children }) => {
             replyTo: m.reply_to,
             read: m.read,
             reactions: m.reactions || [],
-            timestamp: new Date(m.created_at)
+            timestamp: new Date(m.created_at),
+            isLocked: !isDecrypted
           };
         }));
 
@@ -1451,14 +1452,14 @@ export const ChatProvider = ({ children }) => {
                 }
               }
 
+              let isDecrypted = true;
               if (sharedKey) {
-                let isDecrypted = true;
                 if (newMsg.text?.startsWith('e2ee:aes-gcm:')) {
                   try {
                     const parts = newMsg.text.replace('e2ee:aes-gcm:', '').split(':');
                     decryptedText = await decryptMessage(parts[0], parts[1], sharedKey);
                   } catch (e) {
-                    decryptedText = '🔒 Зашифрованное сообщение';
+                    decryptedText = 'Зашифрованное сообщение';
                     isDecrypted = false;
                   }
                 }
@@ -1471,7 +1472,8 @@ export const ChatProvider = ({ children }) => {
                   }
                 }
               } else {
-                decryptedText = '🔒 Зашифрованное сообщение';
+                decryptedText = 'Зашифрованное сообщение';
+                isDecrypted = false;
                 decryptedMedia = null;
               }
             }
@@ -1507,7 +1509,8 @@ export const ChatProvider = ({ children }) => {
                 replyTo: newMsg.reply_to,
                 read: newMsg.read,
                 reactions: newMsg.reactions || [],
-                timestamp: new Date(newMsg.created_at)
+                timestamp: new Date(newMsg.created_at),
+                isLocked: !isDecrypted
               };
 
               // Check if we can replace an optimistic message

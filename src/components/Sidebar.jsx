@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
-import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, Bot, MessageSquarePlus, Eye, Plus } from 'lucide-react';
+import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, Bot, MessageSquarePlus, Eye, Plus, Lock, WifiOff } from 'lucide-react';
 
 export default function Sidebar() {
   const {
@@ -190,8 +190,8 @@ export default function Sidebar() {
         </button>
       </div>
       {!isOnline && (
-        <div className="offline-banner" style={{ padding: '6px 12px', fontSize: '12px' }}>
-          <span className="offline-banner-icon">📡</span>
+        <div className="offline-banner" style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+          <WifiOff size={14} className="offline-banner-icon" />
           <span>Соединение потеряно...</span>
         </div>
       )}
@@ -328,7 +328,7 @@ export default function Sidebar() {
                     <span className="chat-name">
                       {chat.name}
                       {chat.type === 'personal' && (
-                        <span className="e2ee-sidebar-lock" title="Сквозное шифрование">🔒</span>
+                        <Lock size={12} className="e2ee-sidebar-lock-icon" title="Сквозное шифрование" style={{ marginLeft: '4px', verticalAlign: 'middle', display: 'inline-block' }} />
                       )}
                     </span>
                     <span className="chat-time">

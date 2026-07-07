@@ -180,8 +180,9 @@ export default function E2EESetupModal() {
             <p className="e2ee-subtitle danger-text">
               Внимание! Это действие безвозвратно удалит доступ к вашей истории зашифрованных сообщений. Ни вы, ни собеседники не сможете расшифровать старые переписки.
             </p>
-            <div className="e2ee-notice-box">
-              Вы сможете продолжить общение, но старые сообщения будут помечены значком 🔒 и останутся заблокированными.
+            <div className="e2ee-notice-box" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+              <Lock size={14} style={{ flexShrink: 0 }} />
+              <span>Вы сможете продолжить общение, но доступ к старой истории переписки будет заблокирован.</span>
             </div>
             <div className="e2ee-actions-row">
               <button 

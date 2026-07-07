@@ -20,7 +20,8 @@ import {
   ArrowLeft,
   VolumeX,
   Volume2,
-  AlertCircle
+  AlertCircle,
+  WifiOff
 } from 'lucide-react';
 
 const SingleCheck = ({ className }) => (
@@ -1086,7 +1087,7 @@ export default function ChatArea() {
             <h4 className="chat-header-name">
               {activeChat.name}
               {activeChat.type === 'personal' && (
-                <span className="e2ee-header-lock" title="Сквозное шифрование включено">🔒</span>
+                <Lock size={15} className="e2ee-header-lock-icon" title="Сквозное шифрование включено" style={{ color: '#2ecc71', marginLeft: '6px', display: 'inline-block', verticalAlign: 'middle' }} />
               )}
             </h4>
             <span className={`chat-header-status ${isTypingText ? 'typing' : ''}`}>
@@ -1101,8 +1102,8 @@ export default function ChatArea() {
         </div>
       </header>
       {!isOnline && (
-        <div className="offline-banner" style={{ padding: '6px 12px', fontSize: '12px' }}>
-          <span className="offline-banner-icon">📡</span>
+        <div className="offline-banner" style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
+          <WifiOff size={14} className="offline-banner-icon" />
           <span>Соединение потеряно. Переподключение...</span>
         </div>
       )}
@@ -1257,7 +1258,10 @@ export default function ChatArea() {
                         </pre>
                       ) : (
                         (msg.text !== '🖼️ [Изображение]' && msg.text !== 'Изображение') && (
-                          <p className="message-text">{renderMessageTextWithLinks(msg.text)}</p>
+                          <p className="message-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            {msg.isLocked && <Lock size={13} style={{ color: 'var(--text-secondary)', opacity: 0.8, flexShrink: 0 }} />}
+                            <span>{renderMessageTextWithLinks(msg.text)}</span>
+                          </p>
                         )
                       )}
 
@@ -1396,7 +1400,8 @@ export default function ChatArea() {
         <footer className="chat-footer-input">
         {recipientMissingE2EE && (
           <div className="e2ee-waiting-banner">
-            <span>📡 Ожидание настройки ключей шифрования собеседником...</span>
+            <Lock size={14} className="e2ee-banner-icon" />
+            <span>Ожидание настройки ключей шифрования собеседником...</span>
           </div>
         )}
 

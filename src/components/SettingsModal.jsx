@@ -672,7 +672,7 @@ export default function SettingsModal() {
                   <div className="status-row">
                     <span className="status-label">Статус E2EE:</span>
                     <span className={`status-badge ${currentUser.has_e2ee ? 'active' : 'inactive'}`}>
-                      {currentUser.has_e2ee ? '🟢 Активно' : '🔴 Не настроено'}
+                      {currentUser.has_e2ee ? 'Активно' : 'Не настроено'}
                     </span>
                   </div>
                   {currentUser.has_e2ee && (
@@ -680,7 +680,7 @@ export default function SettingsModal() {
                       <div className="status-row">
                         <span className="status-label">Ключи в RAM:</span>
                         <span className={`status-badge ${e2eePrivateKey ? 'active' : 'inactive'}`}>
-                          {e2eePrivateKey ? '🔓 Разблокированы' : '🔒 Заблокированы'}
+                          {e2eePrivateKey ? 'Разблокированы' : 'Заблокированы'}
                         </span>
                       </div>
                       <div className="key-fingerprint-box">
