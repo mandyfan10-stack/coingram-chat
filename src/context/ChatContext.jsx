@@ -80,54 +80,6 @@ const initialChatsMock = [
     ]
   },
   {
-    id: 'chat-3',
-    name: 'Echo Bot 🤖',
-    type: 'bot',
-    avatar: '🤖',
-    avatarColor: 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)',
-    isOnline: true,
-    lastSeen: 'бот',
-    pinned: false,
-    notifications: true,
-    bio: 'Я бот-повторюшка. Напиши мне что-нибудь, и я отвечу эхом, добавив немного юмора!',
-    username: 'echo_luxury_bot',
-    messages: [
-      { id: 'm6', senderId: 'bot', senderName: 'Echo Bot', text: 'Привет! Я Echo Bot. Я буду повторять всё, что ты мне пришлешь, с небольшим творческим дополнением 📣.', read: true, timestamp: new Date(Date.now() - 1000 * 60 * 60 * 12) }
-    ]
-  },
-  {
-    id: 'chat-4',
-    name: 'Quiz Master 🧠',
-    type: 'bot',
-    avatar: '🧠',
-    avatarColor: 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)',
-    isOnline: true,
-    lastSeen: 'бот',
-    pinned: false,
-    notifications: true,
-    bio: 'Официальный бот викторин. Набери максимальный балл!',
-    username: 'quiz_master_bot',
-    messages: [
-      { id: 'm7', senderId: 'bot', senderName: 'Quiz Master', text: 'Привет! Хочешь сыграть в викторину и проверить свои знания? 🎯 Напиши /quiz, чтобы начать игру!', read: true, timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24) }
-    ]
-  },
-  {
-    id: 'chat-5',
-    name: 'Weather Bot 🌤️',
-    type: 'bot',
-    avatar: '🌤️',
-    avatarColor: 'linear-gradient(135deg, #a8ceff 0%, #ffebaa 100%)',
-    isOnline: true,
-    lastSeen: 'бот',
-    pinned: false,
-    notifications: false,
-    bio: 'Самый точный прогноз погоды прямо в чате. Просто напиши название города.',
-    username: 'weather_lux_bot',
-    messages: [
-      { id: 'm8', senderId: 'bot', senderName: 'Weather Bot', text: 'Привет! Напиши мне название любого города (например: Москва, Париж, Токио), и я пришлю тебе текущую погоду ☀️🌧️❄️.', read: true, timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24) }
-    ]
-  },
-  {
     id: 'chat-6',
     name: 'Tech Waves 🌊',
     type: 'channel',
@@ -249,10 +201,78 @@ const startAudioAnalyzer = (stream, onVolume) => {
   }
 };
 
+export const formatLastSeen = (lastSeenStr, isOnline) => {
+  if (isOnline) {
+    return 'в сети';
+  }
+  if (!lastSeenStr) {
+    return 'был(а) недавно';
+  }
+  try {
+    const date = new Date(lastSeenStr);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) {
+      return 'был(а) в сети только что';
+    }
+    if (diffMins < 60) {
+      const lastDigit = diffMins % 10;
+      const lastTwoDigits = diffMins % 100;
+      let minWord = 'минут';
+      if (lastDigit === 1 && lastTwoDigits !== 11) {
+        minWord = 'минуту';
+      } else if (lastDigit >= 2 && lastDigit <= 4 && (lastTwoDigits < 10 || lastTwoDigits >= 20)) {
+        minWord = 'минуты';
+      }
+      return `был(а) в сети ${diffMins} ${minWord} назад`;
+    }
+
+    const formatTime = (d) => {
+      const h = String(d.getHours()).padStart(2, '0');
+      const m = String(d.getMinutes()).padStart(2, '0');
+      return `${h}:${m}`;
+    };
+
+    const isToday = date.getDate() === now.getDate() &&
+                    date.getMonth() === now.getMonth() &&
+                    date.getFullYear() === now.getFullYear();
+    if (isToday) {
+      return `был(а) в сети сегодня в ${formatTime(date)}`;
+    }
+
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    const isYesterday = date.getDate() === yesterday.getDate() &&
+                        date.getMonth() === yesterday.getMonth() &&
+                        date.getFullYear() === yesterday.getFullYear();
+    if (isYesterday) {
+      return `был(а) в сети вчера в ${formatTime(date)}`;
+    }
+
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays < 7) {
+      const days = ['воскресенье', 'понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу'];
+      const dayOfWeek = days[date.getDay()];
+      const prep = dayOfWeek === 'вторник' ? 'во' : 'в';
+      return `был(а) в сети ${prep} ${dayOfWeek} в ${formatTime(date)}`;
+    }
+
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `был(а) в сети ${day}.${month}.${year} в ${formatTime(date)}`;
+  } catch (e) {
+    return 'был(а) недавно';
+  }
+};
+
 export const ChatProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [chats, setChats] = useState([]);
+  const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [installedStickers, setInstalledStickers] = useState([]);
   const [activeChatId, setActiveChatId] = useState(null);
   const [stories, setStories] = useState(initialStories);
@@ -532,7 +552,7 @@ export const ChatProvider = ({ children }) => {
         // Fetch chat members profile details
         const { data: membersRaw } = await supabase
           .from('chat_members')
-          .select('profile_id, role, profiles(display_name, username, avatar, avatar_color, bio)')
+          .select('profile_id, role, profiles(display_name, username, avatar, avatar_color, bio, last_seen)')
           .eq('chat_id', chat.id);
 
         // Fetch messages for this chat
@@ -551,7 +571,8 @@ export const ChatProvider = ({ children }) => {
           avatar: m.profiles?.avatar || '👤',
           avatarColor: m.profiles?.avatar_color || '#ccc',
           bio: m.profiles?.bio || '',
-          role: m.role || 'member'
+          role: m.role || 'member',
+          lastSeen: m.profiles?.last_seen || null
         }));
 
         const otherMember = chat.type === 'personal'
@@ -578,6 +599,7 @@ export const ChatProvider = ({ children }) => {
           notifications: membership?.notifications ?? true,
           members: formattedMembers,
           settings: chat.settings ? { ...defaultSettings, ...chat.settings } : defaultSettings,
+          lastSeen: otherMember ? otherMember.lastSeen : null,
           messages: (messagesRaw || []).map(m => ({
             id: m.id,
             senderId: m.sender_id,
@@ -847,160 +869,97 @@ export const ChatProvider = ({ children }) => {
     }
   }, [currentUser]);
 
-  // Bot response simulator
-  const simulateBotReply = useCallback((botId, userMsg) => {
-    const botName = botId === 'chat-3' || botId === 'echo_bot' 
-      ? 'Echo Bot' 
-      : botId === 'chat-4' || botId === 'quiz_bot' 
-        ? 'Quiz Master' 
-        : 'Weather Bot';
-
-    if (isSupabaseConfigured && currentUser) {
-      supabase
-        .from('messages')
-        .update({ read: true })
-        .eq('chat_id', botId)
-        .eq('sender_id', currentUser.id)
-        .eq('read', false)
-        .then(({ error }) => {
-          if (error) console.error("Error marking messages read by bot:", error);
-        });
+  // Helper to dynamically calculate and format chat statuses in Russian
+  const getChatStatus = useCallback((chat) => {
+    if (!chat) return '';
+    if (chat.type === 'personal') {
+      const other = chat.members?.find(m => m.id !== currentUser?.id);
+      if (!other) return '';
+      const isOnline = onlineUsers.has(other.id);
+      return formatLastSeen(other.lastSeen, isOnline);
     }
-
-    setChats(prev => prev.map(c => {
-      if (c.id === botId) {
-        // Mark user's sent messages as read immediately when bot starts "typing" (reading them)
-        const updatedMessages = c.messages.map(m => {
-          if ((m.senderId === currentUser?.id || m.senderId === 'current') && !m.read) {
-            return { ...m, read: true };
-          }
-          return m;
-        });
-        return {
-          ...c,
-          lastSeen: 'печатает...',
-          messages: updatedMessages
-        };
-      }
-      return c;
-    }));
-    
-    // Add to typing statuses
-    setTypingStatuses(prev => ({
-      ...prev,
-      [botId]: { ...prev[botId], [botId]: botName }
-    }));
-
-    const delay = 1000 + Math.random() * 1500;
-
-    setTimeout(async () => {
-      // Remove from typing statuses
-      setTypingStatuses(prev => {
-        const next = { ...prev[botId] };
-        delete next[botId];
-        return { ...prev, [botId]: next };
-      });
-      let botResponse = '';
+    if (chat.type === 'group') {
+      const total = chat.members?.length || 0;
+      const onlineCount = chat.members?.filter(m => m.id !== currentUser?.id && onlineUsers.has(m.id)).length || 0;
+      const finalOnline = onlineCount + (currentUser ? 1 : 0);
       
-      if (botId === 'chat-3' || botId === 'echo_bot') {
-        const funnyEndings = [
-          '🗣️... И вообще, отлично сказано!',
-          '📢 (повторено трижды в моей голове)',
-          '— мудрость дня, не так ли? 🤔',
-          '🔥 Абсолютно согласен с этим!',
-          '⚡ Бум! Слово не воробей, поймали!'
-        ];
-        const randomEnding = funnyEndings[Math.floor(Math.random() * funnyEndings.length)];
-        botResponse = `Ты сказал: "${userMsg}". \n\n${randomEnding}`;
-      } 
-      else if (botId === 'chat-4' || botId === 'quiz_bot') {
-        const normalized = userMsg.toLowerCase();
-        const quizInfo = quizStateRef.current;
-        
-        if (normalized === '/quiz') {
-          quizInfo.active = true;
-          quizInfo.currentQuestion = 0;
-          quizInfo.score = 0;
-          botResponse = `🎯 Игра началась!\n\nВопрос 1: ${quizQuestions[0].q}`;
-        } else if (quizInfo.active) {
-          const curIndex = quizInfo.currentQuestion;
-          const correctAnswer = quizQuestions[curIndex].a;
-          
-          let feedback = '';
-          if (normalized.includes(correctAnswer)) {
-            quizInfo.score += 1;
-            feedback = '✅ Верно! Отличная работа.';
-          } else {
-            feedback = `❌ Неправильно. Правильный ответ: ${correctAnswer}.`;
-          }
+      const getPluralMembers = (n) => {
+        const lastDigit = n % 10;
+        const lastTwoDigits = n % 100;
+        if (lastDigit === 1 && lastTwoDigits !== 11) return 'участник';
+        if (lastDigit >= 2 && lastDigit <= 4 && (lastTwoDigits < 10 || lastTwoDigits >= 20)) return 'участника';
+        return 'участников';
+      };
+      
+      return `${total} ${getPluralMembers(total)}, ${finalOnline} в сети`;
+    }
+    if (chat.type === 'channel') {
+      const total = chat.members?.length || 0;
+      const getPluralSubscribers = (n) => {
+        const lastDigit = n % 10;
+        const lastTwoDigits = n % 100;
+        if (lastDigit === 1 && lastTwoDigits !== 11) return 'подписчик';
+        if (lastDigit >= 2 && lastDigit <= 4 && (lastTwoDigits < 10 || lastTwoDigits >= 20)) return 'подписчика';
+        return 'подписчиков';
+      };
+      return `${total} ${getPluralSubscribers(total)}`;
+    }
+    return '';
+  }, [currentUser, onlineUsers]);
 
-          const nextIndex = curIndex + 1;
-          if (nextIndex < quizQuestions.length) {
-            quizInfo.currentQuestion = nextIndex;
-            botResponse = `${feedback}\n\nВопрос ${nextIndex + 1}: ${quizQuestions[nextIndex].q}`;
-          } else {
-            botResponse = `${feedback}\n\n🏆 Викторина завершена! Ваш результат: ${quizInfo.score} из ${quizQuestions.length}. Напишите /quiz для повторной игры.`;
-            quizInfo.active = false;
-          }
-        } else {
-          botResponse = 'Я не совсем понял. Напишите /quiz, чтобы запустить интеллектуальную викторину! 🎯';
-        }
-      } 
-      else if (botId === 'chat-5' || botId === 'weather_bot') {
-        const cities = {
-          'москва': 'В Москве сейчас ☀️ +23°C, без осадков. Легкий ветерок.',
-          'лондон': 'В Лондоне 🌧️ +14°C, моросит дождь. Типичная погода.',
-          'токио': 'В Токио 🌤️ +28°C, переменная облачность, высокая влажность.',
-          'париж': 'В Париже ☀️ +21°C, ясно и тепло. Отличное время для прогулок.',
-          'пекин': 'В Пекине 🌫️ +26°C, небольшой смог, без осадков.'
-        };
-        const cleanCity = userMsg.toLowerCase().trim();
-        botResponse = cities[cleanCity] || `🌤️ В городе "${userMsg}" сейчас около +18°C, облачно с прояснениями. К сожалению, точных датчиков у меня там пока нет, но погода отличная!`;
+  // Periodically update current user's last_seen timestamp in the database
+  useEffect(() => {
+    if (!isSupabaseConfigured || !currentUser) return;
+
+    const updateLastSeen = async () => {
+      try {
+        await supabase
+          .from('profiles')
+          .update({ last_seen: new Date().toISOString() })
+          .eq('id', currentUser.id);
+      } catch (e) {
+        console.warn("Failed to update last_seen:", e);
       }
+    };
 
-      if (isSupabaseConfigured) {
-        // Send as Bot in Supabase (simulate from Bot user ID)
-        try {
-          await supabase
-            .from('messages')
-            .insert({
-              chat_id: botId,
-              sender_id: botId, // Bot profiles should have id equal to botId
-              text: botResponse
-            });
-        } catch (e) {
-          console.warn("Failed to write bot message to Supabase", e);
+    updateLastSeen();
+
+    const interval = setInterval(updateLastSeen, 60000);
+
+    const handleUnload = () => {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      if (!supabaseUrl || !supabaseAnonKey) return;
+      
+      let token = '';
+      try {
+        const tokenKey = Object.keys(localStorage).find(key => key.startsWith('sb-') && key.endsWith('-auth-token'));
+        if (tokenKey) {
+          const sessionData = JSON.parse(localStorage.getItem(tokenKey));
+          token = sessionData?.access_token || '';
         }
-      } else {
-        const newBotMsg = {
-          id: `m-bot-${Date.now()}`,
-          senderId: 'bot',
-          senderName: botId === 'chat-3' ? 'Echo Bot' : botId === 'chat-4' ? 'Quiz Master' : 'Weather Bot',
-          text: botResponse,
-          timestamp: new Date(),
-          read: activeChatIdRef.current === botId
-        };
+      } catch (e) {}
 
-        setChats(prev => prev.map(c => {
-          if (c.id === botId) {
-            const updatedMessages = c.messages.map(m => {
-              if ((m.senderId === currentUser?.id || m.senderId === 'current') && !m.read) {
-                return { ...m, read: true };
-              }
-              return m;
-            });
-            return {
-              ...c,
-              lastSeen: 'бот',
-              messages: [...updatedMessages, newBotMsg]
-            };
-          }
-          return c;
-        }));
+      const url = `${supabaseUrl}/rest/v1/profiles?id=eq.${currentUser.id}`;
+      fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': supabaseAnonKey,
+          'Authorization': token ? `Bearer ${token}` : ''
+        },
+        body: JSON.stringify({ last_seen: new Date().toISOString() }),
+        keepalive: true
+      }).catch(() => {});
+    };
 
-        playSound('incoming');
-      }
-    }, delay);
+    window.addEventListener('beforeunload', handleUnload);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', handleUnload);
+      updateLastSeen();
+    };
   }, [currentUser]);
 
   // Load Chats Effect
@@ -1124,20 +1083,31 @@ export const ChatProvider = ({ children }) => {
             const state = presenceChannel.presenceState();
             const onlineIds = Object.keys(state);
             
-            setChats(prev => prev.map(chat => {
-              if (chat.type === 'personal') {
-                const other = chat.members.find(m => m.id !== currentUser.id);
-                if (other) {
-                  const isOnline = onlineIds.includes(other.id);
-                  return {
-                    ...chat,
-                    isOnline,
-                    lastSeen: isOnline ? 'в сети' : 'был(а) недавно'
-                  };
-                }
+            setOnlineUsers(prevOnline => {
+              const nextOnline = new Set(onlineIds);
+              // Find users who were online but are now offline
+              const wentOffline = [...prevOnline].filter(id => !nextOnline.has(id));
+              
+              if (wentOffline.length > 0) {
+                setChats(prevChats => prevChats.map(chat => {
+                  if (chat.type === 'personal') {
+                    const other = chat.members?.find(m => m.id !== currentUser.id);
+                    if (other && wentOffline.includes(other.id)) {
+                      const updatedMembers = chat.members.map(m => 
+                        m.id === other.id ? { ...m, lastSeen: new Date().toISOString() } : m
+                      );
+                      return {
+                        ...chat,
+                        members: updatedMembers,
+                        lastSeen: new Date().toISOString()
+                      };
+                    }
+                  }
+                  return chat;
+                }));
               }
-              return chat;
-            }));
+              return nextOnline;
+            });
           })
           .subscribe(async (status) => {
             if (status === 'SUBSCRIBED') {
@@ -3520,6 +3490,8 @@ export const ChatProvider = ({ children }) => {
 
   return (
     <ChatContext.Provider value={{
+      getChatStatus,
+      onlineUsers,
       currentUser,
       setCurrentUser,
       authLoading,

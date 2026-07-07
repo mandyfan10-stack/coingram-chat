@@ -6,6 +6,7 @@ import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, Bot,
 export default function Sidebar() {
   const {
     chats,
+    onlineUsers,
     activeChatId,
     setActiveChatId,
     searchQuery,
@@ -292,6 +293,11 @@ export default function Sidebar() {
               m => m.senderId !== currentUser?.id && m.senderId !== 'current' && !m.read
             ).length;
 
+            const otherMember = chat.type === 'personal'
+              ? chat.members?.find(m => m.id !== currentUser?.id)
+              : null;
+            const isOnline = otherMember && onlineUsers.has(otherMember.id);
+
             const typingUsers = typingStatuses[chat.id] ? Object.values(typingStatuses[chat.id]) : [];
             const isTypingText = typingUsers.length > 0
               ? `${typingUsers.join(', ')} ${typingUsers.length > 1 ? 'печатают' : 'печатает'}...`
@@ -306,7 +312,7 @@ export default function Sidebar() {
                 {/* Avatar */}
                 <div className="chat-avatar" style={{ background: chat.avatarColor }}>
                   {renderAvatar(chat.avatar, '👤')}
-                  {chat.isOnline && chat.type !== 'bot' && <span className="online-badge" />}
+                  {isOnline && <span className="online-badge" />}
                 </div>
 
                 {/* Info info */}

@@ -319,6 +319,7 @@ function VideoMessagePlayer({ videoUrl }) {
 export default function ChatArea() {
   const {
     activeChat,
+    getChatStatus,
     sendMessage,
     deleteMessage,
     toggleReaction,
@@ -340,13 +341,11 @@ export default function ChatArea() {
 
   const canPost = !activeChat || 
     activeChat.type === 'personal' || 
-    activeChat.type === 'bot' || 
     isOwner || 
     (activeChat.type === 'group' && !activeChat.settings?.only_admins_can_post);
 
   const canSendMedia = !activeChat ||
     activeChat.type === 'personal' ||
-    activeChat.type === 'bot' ||
     isOwner ||
     activeChat.settings?.allow_media !== false;
 
@@ -932,8 +931,8 @@ export default function ChatArea() {
           </div>
           <div className="chat-header-meta">
             <h4 className="chat-header-name">{activeChat.name}</h4>
-            <span className={`chat-header-status ${activeChat.lastSeen === 'печатает...' || isTypingText ? 'typing' : ''}`}>
-              {isTypingText || activeChat.lastSeen}
+            <span className={`chat-header-status ${isTypingText ? 'typing' : ''}`}>
+              {isTypingText || getChatStatus(activeChat)}
             </span>
           </div>
         </div>

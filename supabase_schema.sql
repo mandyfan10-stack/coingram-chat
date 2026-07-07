@@ -22,7 +22,7 @@ create table public.profiles (
 create table public.chats (
   id uuid primary key default gen_random_uuid(),
   name text not null,
-  type text check (type in ('personal', 'group', 'channel', 'bot')) not null,
+  type text check (type in ('personal', 'group', 'channel')) not null,
   avatar text default '👥',
   avatar_color text default 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
   bio text,

@@ -1,10 +1,12 @@
 import React, { useState, useRef } from 'react';
-import { useChat } from '../context/ChatContext';
+import { useChat, formatLastSeen } from '../context/ChatContext';
 import { X, Phone, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut, Camera } from 'lucide-react';
 
 export default function ChatInfo() {
   const {
     activeChat,
+    getChatStatus,
+    onlineUsers,
     isInfoOpen,
     setIsInfoOpen,
     setActiveChatId,
@@ -212,7 +214,7 @@ export default function ChatInfo() {
           </div>
         )}
         <h3 className="info-name">{activeChat.name}</h3>
-        <span className="info-status">{activeChat.lastSeen}</span>
+        <span className="info-status">{getChatStatus(activeChat)}</span>
 
         {/* Action icons */}
         {(activeChat.type === 'personal' || activeChat.type === 'group') && activeChat.name !== 'Избранное' && (
@@ -402,7 +404,9 @@ export default function ChatInfo() {
                   </div>
                   <div className="member-info">
                     <span className="member-name">{member.name}</span>
-                    <span className="member-role">{roleLabel}</span>
+                    <span className="member-role">
+                      {roleLabel} • {isMe ? 'в сети' : formatLastSeen(member.lastSeen, onlineUsers.has(member.id))}
+                    </span>
                   </div>
 
                   {showMenu && (
