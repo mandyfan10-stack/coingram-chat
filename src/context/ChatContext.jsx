@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback } from 'react';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { saveOfflineAttachment, getOfflineAttachment, deleteOfflineAttachment } from '../utils/indexedDbHelper';
+import { generateE2EEKeyPair, exportPublicKey, importPublicKey, exportPrivateKey, importPrivateKey, backupPrivateKey, restorePrivateKey, deriveSymmetricKey, encryptMessage, decryptMessage } from '../utils/e2eeHelper';
 import { Users, Megaphone, Bookmark, User, Bot, CloudSun, Brain, Zap } from 'lucide-react';
 
 const ChatContext = createContext();
@@ -315,6 +316,28 @@ export const ChatProvider = ({ children }) => {
     localStorage.setItem('tg-offline-queue', JSON.stringify(offlineQueue));
   }, [offlineQueue]);
 
+  // E2EE States
+  const [e2eePrivateKey, setE2eePrivateKey] = useState(null);
+  const [sharedKeysCache, setSharedKeysCache] = useState({});
+  const [isE2EESetupRequired, setIsE2EESetupRequired] = useState(false);
+
+  // Monitor currentUser E2EE setup requirements
+  useEffect(() => {
+    if (currentUser) {
+      if (isSupabaseConfigured) {
+        if (!currentUser.has_e2ee || !currentUser.public_key) {
+          setIsE2EESetupRequired(true);
+        } else {
+          setIsE2EESetupRequired(false);
+        }
+      }
+    } else {
+      setIsE2EESetupRequired(false);
+      setE2eePrivateKey(null);
+      setSharedKeysCache({});
+    }
+  }, [currentUser]);
+
   const markMessageAsFailed = useCallback((chatId, optimisticId) => {
     setChats(prevChats => prevChats.map(c => {
       if (c.id === chatId) {
@@ -328,6 +351,53 @@ export const ChatProvider = ({ children }) => {
 
     setOfflineQueue(prev => prev.map(q => q.optimisticId === optimisticId ? { ...q, isFailed: true, isPending: false } : q));
   }, []);
+
+  const setupE2EE = useCallback(async (password) => {
+    if (!currentUser || !isSupabaseConfigured) return false;
+    try {
+      const keyPair = await generateE2EEKeyPair();
+      const encryptedPrivKeyStr = await backupPrivateKey(keyPair.privateKey, password);
+      const pubKeyStr = await exportPublicKey(keyPair.publicKey);
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          public_key: pubKeyStr,
+          encrypted_private_key: encryptedPrivKeyStr,
+          has_e2ee: true
+        })
+        .eq('id', currentUser.id);
+
+      if (error) throw error;
+
+      setE2eePrivateKey(keyPair.privateKey);
+      setIsE2EESetupRequired(false);
+      
+      setCurrentUser(prev => ({
+        ...prev,
+        has_e2ee: true,
+        public_key: pubKeyStr,
+        encrypted_private_key: encryptedPrivKeyStr
+      }));
+      return true;
+    } catch (e) {
+      console.error("E2EE Setup failed:", e);
+      alert("Не удалось настроить шифрование: " + e.message);
+      return false;
+    }
+  }, [currentUser]);
+
+  const unlockE2EE = useCallback(async (password) => {
+    if (!currentUser || !isSupabaseConfigured || !currentUser.encrypted_private_key) return false;
+    try {
+      const decryptedKey = await restorePrivateKey(currentUser.encrypted_private_key, password);
+      setE2eePrivateKey(decryptedKey);
+      return true;
+    } catch (e) {
+      console.error("E2EE Unlock failed (wrong password?):", e);
+      return false;
+    }
+  }, [currentUser]);
 
   // Sync offline queue messages when we return online
   const syncOfflineMessages = useCallback(async () => {
@@ -370,13 +440,41 @@ export const ChatProvider = ({ children }) => {
           await deleteOfflineAttachment(item.optimisticId);
         }
 
+        const chat = chats.find(c => c.id === item.chatId);
+        let textToSend = item.text;
+        let mediaToSend = finalMediaUrl;
+
+        if (chat && chat.type === 'personal') {
+          const otherMember = chat.members?.find(m => m.id !== currentUser.id);
+          let sharedKey = sharedKeysCache[chat.id];
+          if (!sharedKey && e2eePrivateKey && otherMember?.publicKey) {
+            try {
+              const otherPublicKeyObj = await importPublicKey(otherMember.publicKey);
+              sharedKey = await deriveSymmetricKey(e2eePrivateKey, otherPublicKeyObj);
+              setSharedKeysCache(prev => ({ ...prev, [chat.id]: sharedKey }));
+            } catch (err) {
+              console.error("Failed to derive shared key in syncOfflineMessages:", err);
+            }
+          }
+          if (sharedKey) {
+            if (item.text) {
+              const encryptedText = await encryptMessage(item.text, sharedKey);
+              textToSend = `e2ee:aes-gcm:${encryptedText.ciphertext}:${encryptedText.iv}`;
+            }
+            if (finalMediaUrl) {
+              const encryptedMedia = await encryptMessage(finalMediaUrl, sharedKey);
+              mediaToSend = `e2ee:aes-gcm:${encryptedMedia.ciphertext}:${encryptedMedia.iv}`;
+            }
+          }
+        }
+
         const { data, error } = await supabase
           .from('messages')
           .insert({
             chat_id: item.chatId,
             sender_id: item.senderId,
-            text: item.text,
-            media: finalMediaUrl,
+            text: textToSend,
+            media: mediaToSend,
             reply_to: item.replyToId
           })
           .select()
@@ -422,7 +520,7 @@ export const ChatProvider = ({ children }) => {
         }
       }
     }
-  }, [offlineQueue, markMessageAsFailed]);
+  }, [offlineQueue, markMessageAsFailed, chats, sharedKeysCache, e2eePrivateKey, currentUser]);
 
   const retrySendMessage = useCallback(async (optimisticId) => {
     const item = offlineQueue.find(q => q.optimisticId === optimisticId);
@@ -637,7 +735,7 @@ export const ChatProvider = ({ children }) => {
               .eq('id', session.user.id)
               .single();
             
-            if (profile && !error) {
+             if (profile && !error) {
               setCurrentUser({
                 id: profile.id,
                 name: profile.display_name,
@@ -646,7 +744,10 @@ export const ChatProvider = ({ children }) => {
                 bio: profile.bio,
                 theme: profile.theme,
                 wallpaper: profile.wallpaper,
-                avatar: profile.avatar
+                avatar: profile.avatar,
+                has_e2ee: profile.has_e2ee,
+                public_key: profile.public_key,
+                encrypted_private_key: profile.encrypted_private_key
               });
               setTheme(profile.theme || 'telegram-blue');
               setWallpaper(profile.wallpaper || 'classic');
@@ -679,7 +780,10 @@ export const ChatProvider = ({ children }) => {
               bio: profile.bio,
               theme: profile.theme,
               wallpaper: profile.wallpaper,
-              avatar: profile.avatar
+              avatar: profile.avatar,
+              has_e2ee: profile.has_e2ee,
+              public_key: profile.public_key,
+              encrypted_private_key: profile.encrypted_private_key
             });
             setTheme(profile.theme || 'telegram-blue');
             setWallpaper(profile.wallpaper || 'classic');
@@ -744,7 +848,7 @@ export const ChatProvider = ({ children }) => {
         // Fetch chat members profile details
         const { data: membersRaw } = await supabase
           .from('chat_members')
-          .select('profile_id, role, profiles(display_name, username, avatar, avatar_color, bio, last_seen)')
+          .select('profile_id, role, profiles(display_name, username, avatar, avatar_color, bio, last_seen, public_key, has_e2ee)')
           .eq('chat_id', chat.id);
 
         // Fetch messages for this chat
@@ -764,12 +868,28 @@ export const ChatProvider = ({ children }) => {
           avatarColor: m.profiles?.avatar_color || '#ccc',
           bio: m.profiles?.bio || '',
           role: m.role || 'member',
-          lastSeen: m.profiles?.last_seen || null
+          lastSeen: m.profiles?.last_seen || null,
+          publicKey: m.profiles?.public_key || null,
+          hasE2ee: m.profiles?.has_e2ee || false
         }));
 
         const otherMember = chat.type === 'personal'
           ? formattedMembers.find(m => m.id !== currentUser.id)
           : null;
+
+        let sharedKey = null;
+        if (chat.type === 'personal' && otherMember && e2eePrivateKey) {
+          sharedKey = sharedKeysCache[chat.id];
+          if (!sharedKey && otherMember.publicKey) {
+            try {
+              const otherPublicKeyObj = await importPublicKey(otherMember.publicKey);
+              sharedKey = await deriveSymmetricKey(e2eePrivateKey, otherPublicKeyObj);
+              setSharedKeysCache(prev => ({ ...prev, [chat.id]: sharedKey }));
+            } catch (err) {
+              console.error("Failed to derive shared key for chat:", chat.id, err);
+            }
+          }
+        }
 
         const defaultSettings = {
           only_admins_can_post: chat.type === 'channel',
@@ -777,6 +897,54 @@ export const ChatProvider = ({ children }) => {
           allow_add_members: true,
           allow_pin_messages: true
         };
+
+        const decryptedMessages = await Promise.all((messagesRaw || []).map(async (m) => {
+          let decryptedText = m.text;
+          let decryptedMedia = m.media;
+          let isDecrypted = true;
+
+          if (chat.type === 'personal') {
+            if (m.text && m.text.startsWith('e2ee:aes-gcm:')) {
+              if (sharedKey) {
+                try {
+                  const parts = m.text.replace('e2ee:aes-gcm:', '').split(':');
+                  decryptedText = await decryptMessage(parts[0], parts[1], sharedKey);
+                } catch (e) {
+                  decryptedText = '🔒 Зашифрованное сообщение';
+                  isDecrypted = false;
+                }
+              } else {
+                decryptedText = '🔒 Зашифрованное сообщение';
+                isDecrypted = false;
+              }
+            }
+
+            if (m.media && m.media.startsWith('e2ee:aes-gcm:')) {
+              if (sharedKey && isDecrypted) {
+                try {
+                  const parts = m.media.replace('e2ee:aes-gcm:', '').split(':');
+                  decryptedMedia = await decryptMessage(parts[0], parts[1], sharedKey);
+                } catch (e) {
+                  decryptedMedia = null;
+                }
+              } else {
+                decryptedMedia = null;
+              }
+            }
+          }
+
+          return {
+            id: m.id,
+            senderId: m.sender_id,
+            senderName: formattedMembers.find(member => member.id === m.sender_id)?.name || 'Пользователь',
+            text: decryptedText,
+            media: decryptedMedia,
+            replyTo: m.reply_to,
+            read: m.read,
+            reactions: m.reactions || [],
+            timestamp: new Date(m.created_at)
+          };
+        }));
 
         return {
           id: chat.id,
@@ -792,17 +960,7 @@ export const ChatProvider = ({ children }) => {
           members: formattedMembers,
           settings: chat.settings ? { ...defaultSettings, ...chat.settings } : defaultSettings,
           lastSeen: otherMember ? otherMember.lastSeen : null,
-          messages: (messagesRaw || []).map(m => ({
-            id: m.id,
-            senderId: m.sender_id,
-            senderName: formattedMembers.find(member => member.id === m.sender_id)?.name || 'Пользователь',
-            text: m.text,
-            media: m.media,
-            replyTo: m.reply_to,
-            read: m.read,
-            reactions: m.reactions || [],
-            timestamp: new Date(m.created_at)
-          }))
+          messages: decryptedMessages
         };
       }));
 
@@ -1213,6 +1371,54 @@ export const ChatProvider = ({ children }) => {
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
             const newMsg = payload.new;
             
+            let decryptedText = newMsg.text;
+            let decryptedMedia = newMsg.media;
+
+            if (newMsg.text?.startsWith('e2ee:aes-gcm:') || newMsg.media?.startsWith('e2ee:aes-gcm:')) {
+              let sharedKey = sharedKeysCache[newMsg.chat_id];
+              if (!sharedKey && e2eePrivateKey) {
+                try {
+                  const { data: membersRaw } = await supabase
+                    .from('chat_members')
+                    .select('profile_id, profiles(public_key, has_e2ee)')
+                    .eq('chat_id', newMsg.chat_id);
+                  
+                  const otherMember = membersRaw?.find(m => m.profile_id !== currentUser.id);
+                  if (otherMember?.profiles?.public_key) {
+                    const otherPublicKeyObj = await importPublicKey(otherMember.profiles.public_key);
+                    sharedKey = await deriveSymmetricKey(e2eePrivateKey, otherPublicKeyObj);
+                    setSharedKeysCache(prev => ({ ...prev, [newMsg.chat_id]: sharedKey }));
+                  }
+                } catch (err) {
+                  console.error("Failed to derive shared key for real-time message:", err);
+                }
+              }
+
+              if (sharedKey) {
+                let isDecrypted = true;
+                if (newMsg.text?.startsWith('e2ee:aes-gcm:')) {
+                  try {
+                    const parts = newMsg.text.replace('e2ee:aes-gcm:', '').split(':');
+                    decryptedText = await decryptMessage(parts[0], parts[1], sharedKey);
+                  } catch (e) {
+                    decryptedText = '🔒 Зашифрованное сообщение';
+                    isDecrypted = false;
+                  }
+                }
+                if (newMsg.media?.startsWith('e2ee:aes-gcm:') && isDecrypted) {
+                  try {
+                    const parts = newMsg.media.replace('e2ee:aes-gcm:', '').split(':');
+                    decryptedMedia = await decryptMessage(parts[0], parts[1], sharedKey);
+                  } catch (e) {
+                    decryptedMedia = null;
+                  }
+                }
+              } else {
+                decryptedText = '🔒 Зашифрованное сообщение';
+                decryptedMedia = null;
+              }
+            }
+
             // Only update if it belongs to one of our loaded chats
             setChats(prevChats => {
               const chatExists = prevChats.some(c => c.id === newMsg.chat_id);
@@ -1239,8 +1445,8 @@ export const ChatProvider = ({ children }) => {
                 id: newMsg.id,
                 senderId: newMsg.sender_id,
                 senderName,
-                text: newMsg.text,
-                media: newMsg.media,
+                text: decryptedText,
+                media: decryptedMedia,
                 replyTo: newMsg.reply_to,
                 read: newMsg.read,
                 reactions: newMsg.reactions || [],
@@ -1250,7 +1456,7 @@ export const ChatProvider = ({ children }) => {
               // Check if we can replace an optimistic message
               let replacedOptimistic = false;
               const nextMessages = chat.messages.map(m => {
-                if (isMe && m.isOptimistic && (m.text === newMsg.text || (m.media && m.media === newMsg.media)) && !replacedOptimistic) {
+                if (isMe && m.isOptimistic && (m.text === decryptedText || (m.media && m.media === decryptedMedia)) && !replacedOptimistic) {
                   replacedOptimistic = true;
                   return formattedMsg;
                 }
@@ -1426,7 +1632,7 @@ export const ChatProvider = ({ children }) => {
         }
       }
     }
-  }, [currentUser, fetchChats, markMessagesAsRead]);
+  }, [currentUser, fetchChats, markMessagesAsRead, e2eePrivateKey, sharedKeysCache]);
 
   // Save Mock Chats state to localStorage
   useEffect(() => {
@@ -3257,62 +3463,90 @@ export const ChatProvider = ({ children }) => {
       }
 
       // 3. Send in background
-      supabase
-        .from('messages')
-        .insert({
-          chat_id: activeChatId,
-          sender_id: currentUser.id,
-          text: text,
-          media: media,
-          reply_to: replyToId
-        })
-        .then(({ error }) => {
-          if (error) {
-            console.error("Message send failed:", error);
-            
-            // Check if it's a network/offline error
-            const isNetworkError = !navigator.onLine || error.message?.includes('FetchError') || error.message?.includes('failed to fetch');
-            
-            if (isNetworkError) {
-              // Mark as pending and put in queue
-              setChats(prevChats => prevChats.map(c => {
-                if (c.id === activeChatId) {
-                  return {
-                    ...c,
-                    messages: c.messages.map(m => m.id === optimisticMsg.id ? { ...m, isPending: true } : m)
-                  };
-                }
-                return c;
-              }));
+      (async () => {
+        let textToSend = text;
+        let mediaToSend = media;
 
-              const offlineItem = {
-                queueId: `queue-${Date.now()}`,
-                chatId: activeChatId,
-                senderId: currentUser.id,
-                text: text,
-                replyToId: replyToId,
-                media: media,
-                optimisticId: optimisticMsg.id,
-                hasOfflineMedia: false,
-                isPending: true,
-                isFailed: false
-              };
-              setOfflineQueue(prev => [...prev, offlineItem]);
-            } else {
-              // Real DB error, remove optimistic message
-              setChats(prevChats => prevChats.map(c => {
-                if (c.id === activeChatId) {
-                  return {
-                    ...c,
-                    messages: c.messages.filter(m => m.id !== optimisticMsg.id)
-                  };
-                }
-                return c;
-              }));
-              alert("Не удалось отправить сообщение: " + error.message);
+        if (activeChat?.type === 'personal') {
+          const otherMember = activeChat.members?.find(m => m.id !== currentUser.id);
+          let sharedKey = sharedKeysCache[activeChatId];
+          if (!sharedKey && e2eePrivateKey && otherMember?.publicKey) {
+            try {
+              const otherPublicKeyObj = await importPublicKey(otherMember.publicKey);
+              sharedKey = await deriveSymmetricKey(e2eePrivateKey, otherPublicKeyObj);
+              setSharedKeysCache(prev => ({ ...prev, [activeChatId]: sharedKey }));
+            } catch (err) {
+              console.error("Failed to derive shared key in sendMessage:", err);
             }
           }
-        });
+          if (sharedKey) {
+            if (text) {
+              const encryptedText = await encryptMessage(text, sharedKey);
+              textToSend = `e2ee:aes-gcm:${encryptedText.ciphertext}:${encryptedText.iv}`;
+            }
+            if (media) {
+              const encryptedMedia = await encryptMessage(media, sharedKey);
+              mediaToSend = `e2ee:aes-gcm:${encryptedMedia.ciphertext}:${encryptedMedia.iv}`;
+            }
+          }
+        }
+
+        const { error } = await supabase
+          .from('messages')
+          .insert({
+            chat_id: activeChatId,
+            sender_id: currentUser.id,
+            text: textToSend,
+            media: mediaToSend,
+            reply_to: replyToId
+          });
+
+        if (error) {
+          console.error("Message send failed:", error);
+          
+          // Check if it's a network/offline error
+          const isNetworkError = !navigator.onLine || error.message?.includes('FetchError') || error.message?.includes('failed to fetch');
+          
+          if (isNetworkError) {
+            // Mark as pending and put in queue
+            setChats(prevChats => prevChats.map(c => {
+              if (c.id === activeChatId) {
+                return {
+                  ...c,
+                  messages: c.messages.map(m => m.id === optimisticMsg.id ? { ...m, isPending: true } : m)
+                };
+              }
+              return c;
+            }));
+
+            const offlineItem = {
+              queueId: `queue-${Date.now()}`,
+              chatId: activeChatId,
+              senderId: currentUser.id,
+              text: text,
+              replyToId: replyToId,
+              media: media,
+              optimisticId: optimisticMsg.id,
+              hasOfflineMedia: false,
+              isPending: true,
+              isFailed: false
+            };
+            setOfflineQueue(prev => [...prev, offlineItem]);
+          } else {
+            // Real DB error, remove optimistic message
+            setChats(prevChats => prevChats.map(c => {
+              if (c.id === activeChatId) {
+                return {
+                  ...c,
+                  messages: c.messages.filter(m => m.id !== optimisticMsg.id)
+                };
+              }
+              return c;
+            }));
+            alert("Не удалось отправить сообщение: " + error.message);
+          }
+        }
+      })();
     } else {
       // Mock Send message logic
       const newMessage = {
@@ -3864,7 +4098,12 @@ export const ChatProvider = ({ children }) => {
       setGroupCallParticipants,
       isOnline,
       retrySendMessage,
-      deleteFailedMessage
+      deleteFailedMessage,
+      e2eePrivateKey,
+      sharedKeysCache,
+      isE2EESetupRequired,
+      setupE2EE,
+      unlockE2EE
     }}>
       {children}
     </ChatContext.Provider>

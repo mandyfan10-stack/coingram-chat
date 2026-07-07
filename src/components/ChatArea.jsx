@@ -342,7 +342,10 @@ export default function ChatArea() {
     setActiveChatId,
     isOnline,
     retrySendMessage,
-    deleteFailedMessage
+    deleteFailedMessage,
+    e2eePrivateKey,
+    sharedKeysCache,
+    isE2EESetupRequired
   } = useChat();
 
   const isOwner = activeChat && currentUser && (
@@ -359,6 +362,11 @@ export default function ChatArea() {
     activeChat.type === 'personal' ||
     isOwner ||
     activeChat.settings?.allow_media !== false;
+
+  const otherMember = activeChat?.type === 'personal'
+    ? activeChat.members?.find(m => m.id !== currentUser?.id)
+    : null;
+  const recipientMissingE2EE = activeChat?.type === 'personal' && otherMember && !otherMember.hasE2ee;
 
   const isCustomWallpaper = wallpaper && !['classic', 'sunset', 'space', 'mint', 'cyber'].includes(wallpaper);
   const chatBodyStyle = isCustomWallpaper ? {
@@ -1075,7 +1083,12 @@ export default function ChatArea() {
             {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥')}
           </div>
           <div className="chat-header-meta">
-            <h4 className="chat-header-name">{activeChat.name}</h4>
+            <h4 className="chat-header-name">
+              {activeChat.name}
+              {activeChat.type === 'personal' && (
+                <span className="e2ee-header-lock" title="Сквозное шифрование включено">🔒</span>
+              )}
+            </h4>
             <span className={`chat-header-status ${isTypingText ? 'typing' : ''}`}>
               {isTypingText || getChatStatus(activeChat)}
             </span>
@@ -1381,6 +1394,12 @@ export default function ChatArea() {
         </footer>
       ) : (
         <footer className="chat-footer-input">
+        {recipientMissingE2EE && (
+          <div className="e2ee-waiting-banner">
+            <span>📡 Ожидание настройки ключей шифрования собеседником...</span>
+          </div>
+        )}
+
         {/* Reply Bar Overlay */}
         {replyingTo && (
           <div className="reply-indicator-bar">
@@ -1451,7 +1470,7 @@ export default function ChatArea() {
           ) : (
             <>
               {/* Attachment button */}
-              {canSendMedia && (
+              {canSendMedia && !recipientMissingE2EE && (
                 <div className="attach-wrapper">
                   <input
                     type="file"
@@ -1479,12 +1498,13 @@ export default function ChatArea() {
               {/* Text Area */}
               <div className="input-textarea-wrapper">
                 <textarea
-                  placeholder="Напишите сообщение..."
+                  placeholder={recipientMissingE2EE ? "Шифрование недоступно..." : "Напишите сообщение..."}
                   value={inputVal}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyPress}
                   onPaste={handlePaste}
                   rows={1}
+                  disabled={recipientMissingE2EE}
                 />
 
                 {/* Emoji picker button */}
@@ -1620,7 +1640,7 @@ export default function ChatArea() {
           )}
 
           {/* Send Action */}
-          {inputVal.trim() ? (
+          {inputVal.trim() && !recipientMissingE2EE ? (
             <button
               className="send-message-btn"
               onClick={handleSend}
@@ -1628,7 +1648,7 @@ export default function ChatArea() {
             >
               <Send size={20} />
             </button>
-          ) : canSendMedia ? (
+          ) : canSendMedia && !recipientMissingE2EE ? (
             <div style={{ position: 'relative' }}>
               {isRecording && !isRecordingLocked && (
                 <div className={`recording-lock-indicator ${isLockActive ? 'active' : ''}`}>
@@ -1665,7 +1685,7 @@ export default function ChatArea() {
             <button
               className="send-message-btn"
               disabled
-              title="Отправка медиа ограничена"
+              title={recipientMissingE2EE ? "Ожидание настройки собеседником" : "Отправка медиа ограничена"}
               style={{ opacity: 0.4, cursor: 'not-allowed' }}
             >
               <Send size={20} />

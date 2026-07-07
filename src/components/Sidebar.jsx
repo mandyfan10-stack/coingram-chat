@@ -325,7 +325,12 @@ export default function Sidebar() {
                 {/* Info info */}
                 <div className="chat-info-block">
                   <div className="chat-info-header">
-                    <span className="chat-name">{chat.name}</span>
+                    <span className="chat-name">
+                      {chat.name}
+                      {chat.type === 'personal' && (
+                        <span className="e2ee-sidebar-lock" title="Сквозное шифрование">🔒</span>
+                      )}
+                    </span>
                     <span className="chat-time">
                       {lastMsg ? getFormatTime(lastMsg.timestamp) : ''}
                     </span>

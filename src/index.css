@@ -5921,3 +5921,229 @@ html.theme-light .empty-state p {
   50% { opacity: 1; }
   100% { opacity: 0.7; }
 }
+
+/* --- End-to-End Encryption (E2EE) Styles --- */
+
+.e2ee-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.e2ee-modal-content {
+  background: var(--bg-primary, #17212b);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 16px;
+  width: 90%;
+  max-width: 440px;
+  padding: 32px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  box-sizing: border-box;
+  animation: scaleUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.e2ee-modal-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.e2ee-icon-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(82, 136, 193, 0.15);
+  margin-bottom: 16px;
+  box-shadow: 0 0 15px rgba(82, 136, 193, 0.1);
+}
+
+.e2ee-header-icon {
+  width: 32px;
+  height: 32px;
+}
+
+.e2ee-header-icon.setup-icon {
+  color: #f59e0b; /* Amber */
+}
+
+.e2ee-header-icon.unlock-icon {
+  color: #3b82f6; /* Blue */
+}
+
+.e2ee-modal-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: var(--text-primary, #ffffff);
+}
+
+.e2ee-subtitle {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--text-secondary, #7f91a4);
+  margin: 0;
+}
+
+.e2ee-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.e2ee-error-banner {
+  background-color: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+  font-size: 13px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.e2ee-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.e2ee-input-group label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary, #7f91a4);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.password-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrapper input {
+  width: 100%;
+  padding: 12px 48px 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.15));
+  background: var(--bg-secondary, #0e1621);
+  color: var(--text-primary, #ffffff);
+  font-size: 14.5px;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.password-input-wrapper input:focus {
+  border-color: var(--accent-color, #5288c1);
+  box-shadow: 0 0 0 2px rgba(82, 136, 193, 0.2);
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #7f91a4);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.password-toggle-btn:hover {
+  color: var(--text-primary, #ffffff);
+}
+
+.e2ee-warning-notice {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-left: 4px solid #d97706;
+  padding: 12px 14px;
+  border-radius: 0 8px 8px 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #f59e0b;
+}
+
+.e2ee-submit-btn {
+  background: var(--accent-gradient, linear-gradient(135deg, #5288c1, #3b82f6));
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.1s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+.e2ee-submit-btn:hover:not(:disabled) {
+  opacity: 0.95;
+}
+
+.e2ee-submit-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.e2ee-submit-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Waiting banner in ChatArea footer */
+.e2ee-waiting-banner {
+  background: rgba(245, 158, 11, 0.08);
+  border-bottom: 1px solid rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  font-size: 13px;
+  padding: 8px 16px;
+  text-align: center;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Padlock Badges next to names */
+.e2ee-header-lock {
+  font-size: 13px;
+  margin-left: 6px;
+  vertical-align: middle;
+  display: inline-flex;
+  align-items: center;
+}
+
+.e2ee-sidebar-lock {
+  font-size: 11px;
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleUp {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

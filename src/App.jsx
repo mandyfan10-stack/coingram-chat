@@ -10,6 +10,7 @@ import NewChatModal from './components/NewChatModal';
 import CreateStoryModal from './components/CreateStoryModal';
 import MainMenuDrawer from './components/MainMenuDrawer';
 import CallOverlay from './components/CallOverlay';
+import E2EESetupModal from './components/E2EESetupModal';
 import { X } from 'lucide-react';
 
 const CURRENT_VERSION = import.meta.env.APP_VERSION || '0.0.0';
@@ -231,6 +232,7 @@ function MainLayout() {
       <CreateStoryModal />
       <MainMenuDrawer />
       <CallOverlay />
+      <E2EESetupModal />
       <UpdateModal show={showUpdate} releaseInfo={releaseInfo} onClose={() => setShowUpdate(false)} />
     </div>
   );
