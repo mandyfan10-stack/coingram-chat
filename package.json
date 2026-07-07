@@ -1,7 +1,7 @@
 {
   "name": "telegram-clone",
   "private": true,
-  "version": "1.10.9",
+  "version": "1.20.0",
   "type": "module",
   "main": "electron-main.cjs",
   "scripts": {
@@ -14,7 +14,7 @@
     "cap:sync": "npx cap sync",
     "cap:open": "npx cap open android",
     "electron:dev": "electron .",
-    "electron:build": "npm run build && electron-packager . CoinGram --platform=win32 --arch=x64 --out=dist-electron --overwrite",
+    "electron:build": "npm run build && electron-packager . CoinGram --platform=win32 --arch=x64 --out=dist-electron --overwrite --ignore=\"android\" --ignore=\"dist-electron\" --ignore=\"supabase\"",
     "electron:pack": "npm run build && electron-builder --win"
   },
   "dependencies": {
