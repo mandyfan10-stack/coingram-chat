@@ -1499,6 +1499,7 @@ export const ChatProvider = ({ children }) => {
             
             let decryptedText = newMsg.text;
             let decryptedMedia = newMsg.media;
+            let isDecrypted = true;
 
             if (newMsg.text?.startsWith('e2ee:aes-gcm:') || newMsg.media?.startsWith('e2ee:aes-gcm:')) {
               let sharedKey = sharedKeysCache[newMsg.chat_id];
@@ -1520,7 +1521,6 @@ export const ChatProvider = ({ children }) => {
                 }
               }
 
-              let isDecrypted = true;
               if (sharedKey) {
                 if (newMsg.text?.startsWith('e2ee:aes-gcm:')) {
                   try {

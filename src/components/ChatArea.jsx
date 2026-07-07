@@ -1252,12 +1252,12 @@ export default function ChatArea() {
                     <div className="bubble-content">
                       {isVoice ? (
                         <VoiceMessagePlayer audioUrl={msg.media} />
-                      ) : msg.text.startsWith('```') ? (
+                      ) : (msg.text && msg.text.startsWith('```')) ? (
                         <pre className="code-block">
                           <code>{msg.text.replace(/```/g, '')}</code>
                         </pre>
                       ) : (
-                        (msg.text !== '🖼️ [Изображение]' && msg.text !== 'Изображение') && (
+                        (!msg.text || (msg.text !== '🖼️ [Изображение]' && msg.text !== 'Изображение')) && (
                           <p className="message-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                             {msg.isLocked && <Lock size={13} style={{ color: 'var(--text-secondary)', opacity: 0.8, flexShrink: 0 }} />}
                             <span>{renderMessageTextWithLinks(msg.text)}</span>
