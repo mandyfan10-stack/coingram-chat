@@ -34,6 +34,13 @@ const DoubleCheck = ({ className }) => (
   </svg>
 );
 
+const PendingClock = ({ className }) => (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className} style={{ width: '10px', height: '10px' }}>
+    <circle cx="12" cy="12" r="10" />
+    <polyline points="12 6 12 12 16 14" />
+  </svg>
+);
+
 function renderMessageTextWithLinks(text) {
   if (!text) return null;
   const urlRegex = /(https?:\/\/[^\s]+)/g;
@@ -331,7 +338,8 @@ export default function ChatArea() {
     wallpaper,
     renderAvatar,
     installedStickers,
-    setActiveChatId
+    setActiveChatId,
+    isOnline
   } = useChat();
 
   const isOwner = activeChat && currentUser && (
@@ -1028,6 +1036,12 @@ export default function ChatArea() {
           </button>
         </div>
       </header>
+      {!isOnline && (
+        <div className="offline-banner" style={{ padding: '6px 12px', fontSize: '12px' }}>
+          <span className="offline-banner-icon">📡</span>
+          <span>Соединение потеряно. Переподключение...</span>
+        </div>
+      )}
 
       {/* Messages Window */}
       <div
@@ -1106,7 +1120,9 @@ export default function ChatArea() {
                         </span>
                         {isMe && (
                           <span className="check-icons" style={{ color: 'white' }}>
-                            {activeChat.type === 'channel' ? (
+                            {msg.isPending ? (
+                              <PendingClock className="seen-check pending" style={{ width: '10px', height: '10px' }} />
+                            ) : activeChat.type === 'channel' ? (
                               <SingleCheck className="seen-check" style={{ width: '10px', height: '10px' }} />
                             ) : msg.read ? (
                               <DoubleCheck className="seen-check blue" style={{ width: '10px', height: '10px' }} />
@@ -1135,7 +1151,9 @@ export default function ChatArea() {
                         </span>
                         {isMe && (
                           <span className="check-icons" style={{ color: 'white' }}>
-                            {activeChat.type === 'channel' ? (
+                            {msg.isPending ? (
+                              <PendingClock className="seen-check pending" />
+                            ) : activeChat.type === 'channel' ? (
                               <SingleCheck className="seen-check" />
                             ) : msg.read ? (
                               <DoubleCheck className="seen-check blue" />
@@ -1166,7 +1184,9 @@ export default function ChatArea() {
                         <span className="message-time">{getFormatTime(msg.timestamp)}</span>
                         {isMe && (
                           <span className="check-icons">
-                            {activeChat.type === 'channel' ? (
+                            {msg.isPending ? (
+                              <PendingClock className="seen-check pending" />
+                            ) : activeChat.type === 'channel' ? (
                               <SingleCheck className="seen-check" />
                             ) : msg.read ? (
                               <DoubleCheck className="seen-check blue" />

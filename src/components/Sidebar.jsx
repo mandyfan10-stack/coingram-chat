@@ -23,7 +23,8 @@ export default function Sidebar() {
     setIsDrawerOpen,
     setNewChatModalTab,
     renderAvatar,
-    createChat
+    createChat,
+    isOnline
   } = useChat();
 
   const [globalResults, setGlobalResults] = useState([]);
@@ -188,6 +189,12 @@ export default function Sidebar() {
           <MessageSquarePlus size={22} />
         </button>
       </div>
+      {!isOnline && (
+        <div className="offline-banner" style={{ padding: '6px 12px', fontSize: '12px' }}>
+          <span className="offline-banner-icon">📡</span>
+          <span>Соединение потеряно...</span>
+        </div>
+      )}
 
       {/* Folders Navigation */}
       <div className="folders-nav">

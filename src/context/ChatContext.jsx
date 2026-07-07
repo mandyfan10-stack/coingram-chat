@@ -288,6 +288,95 @@ export const ChatProvider = ({ children }) => {
     return localStorage.getItem('coingram-dark-mode') !== 'false';
   });
 
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [offlineQueue, setOfflineQueue] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('tg-offline-queue') || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  // Track online/offline status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Save offlineQueue changes to localStorage
+  useEffect(() => {
+    localStorage.setItem('tg-offline-queue', JSON.stringify(offlineQueue));
+  }, [offlineQueue]);
+
+  // Sync offline queue messages when we return online
+  const syncOfflineMessages = useCallback(async () => {
+    if (!isSupabaseConfigured || offlineQueue.length === 0) return;
+    
+    const queueToProcess = [...offlineQueue];
+    
+    for (const item of queueToProcess) {
+      try {
+        const { data, error } = await supabase
+          .from('messages')
+          .insert({
+            chat_id: item.chatId,
+            sender_id: item.senderId,
+            text: item.text,
+            media: item.media,
+            reply_to: item.replyToId
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        if (data) {
+          // Update the message in the local chats state
+          setChats(prevChats => prevChats.map(c => {
+            if (c.id === item.chatId) {
+              return {
+                ...c,
+                messages: c.messages.map(m => {
+                  if (m.id === item.optimisticId) {
+                    return {
+                      ...m,
+                      id: data.id,
+                      isPending: false,
+                      isOptimistic: false
+                    };
+                  }
+                  return m;
+                })
+              };
+            }
+            return c;
+          }));
+
+          // Remove item from the offline queue in state
+          setOfflineQueue(prev => prev.filter(q => q.queueId !== item.queueId));
+        }
+      } catch (err) {
+        console.error("Failed to sync offline message:", err);
+        if (!navigator.onLine) {
+          setIsOnline(false);
+          break;
+        }
+      }
+    }
+  }, [offlineQueue]);
+
+  useEffect(() => {
+    if (isOnline && offlineQueue.length > 0) {
+      syncOfflineMessages();
+    }
+  }, [isOnline, offlineQueue.length, syncOfflineMessages]);
+
   // Dark mode effect merged into theme sync effect below
 
   const [settingsTab, setSettingsTab] = useState('profile');
@@ -614,7 +703,38 @@ export const ChatProvider = ({ children }) => {
         };
       }));
 
-      setChats(formattedChats);
+      // Overlay any offline pending messages
+      let localQueue = [];
+      try {
+        localQueue = JSON.parse(localStorage.getItem('tg-offline-queue') || '[]');
+      } catch {}
+
+      const updatedChats = formattedChats.map(c => {
+        const pendingMsgs = localQueue
+          .filter(q => q.chatId === c.id)
+          .map(q => ({
+            id: q.optimisticId,
+            senderId: currentUser.id,
+            senderName: currentUser.name || 'Вы',
+            text: q.text,
+            media: q.media,
+            replyTo: q.replyToId,
+            read: false,
+            timestamp: new Date(),
+            isPending: true,
+            isOptimistic: true
+          }));
+
+        if (pendingMsgs.length > 0) {
+          return {
+            ...c,
+            messages: [...c.messages, ...pendingMsgs]
+          };
+        }
+        return c;
+      });
+
+      setChats(updatedChats);
     } catch (e) {
       console.error("Failed to fetch chats from Supabase:", e);
     }
@@ -2965,7 +3085,8 @@ export const ChatProvider = ({ children }) => {
         replyTo: replyToId,
         read: false,
         timestamp: new Date(),
-        isOptimistic: true
+        isOptimistic: true,
+        isPending: !navigator.onLine
       };
 
       // 2. Add to local state immediately
@@ -2981,6 +3102,21 @@ export const ChatProvider = ({ children }) => {
 
       playSound('outgoing');
 
+      // If we are currently offline, queue it immediately
+      if (!navigator.onLine) {
+        const offlineItem = {
+          queueId: `queue-${Date.now()}`,
+          chatId: activeChatId,
+          senderId: currentUser.id,
+          text: text,
+          replyToId: replyToId,
+          media: media,
+          optimisticId: optimisticMsg.id
+        };
+        setOfflineQueue(prev => [...prev, offlineItem]);
+        return;
+      }
+
       // 3. Send in background
       supabase
         .from('messages')
@@ -2994,17 +3130,45 @@ export const ChatProvider = ({ children }) => {
         .then(({ error }) => {
           if (error) {
             console.error("Message send failed:", error);
-            // Remove optimistic message on error
-            setChats(prevChats => prevChats.map(c => {
-              if (c.id === activeChatId) {
-                return {
-                  ...c,
-                  messages: c.messages.filter(m => m.id !== optimisticMsg.id)
-                };
-              }
-              return c;
-            }));
-            alert("Не удалось отправить сообщение: " + error.message);
+            
+            // Check if it's a network/offline error
+            const isNetworkError = !navigator.onLine || error.message?.includes('FetchError') || error.message?.includes('failed to fetch');
+            
+            if (isNetworkError) {
+              // Mark as pending and put in queue
+              setChats(prevChats => prevChats.map(c => {
+                if (c.id === activeChatId) {
+                  return {
+                    ...c,
+                    messages: c.messages.map(m => m.id === optimisticMsg.id ? { ...m, isPending: true } : m)
+                  };
+                }
+                return c;
+              }));
+
+              const offlineItem = {
+                queueId: `queue-${Date.now()}`,
+                chatId: activeChatId,
+                senderId: currentUser.id,
+                text: text,
+                replyToId: replyToId,
+                media: media,
+                optimisticId: optimisticMsg.id
+              };
+              setOfflineQueue(prev => [...prev, offlineItem]);
+            } else {
+              // Real DB error, remove optimistic message
+              setChats(prevChats => prevChats.map(c => {
+                if (c.id === activeChatId) {
+                  return {
+                    ...c,
+                    messages: c.messages.filter(m => m.id !== optimisticMsg.id)
+                  };
+                }
+                return c;
+              }));
+              alert("Не удалось отправить сообщение: " + error.message);
+            }
           }
         });
     } else {
@@ -3555,7 +3719,8 @@ export const ChatProvider = ({ children }) => {
       addMemberToChat,
       toggleMemberRole,
       groupCallParticipants,
-      setGroupCallParticipants
+      setGroupCallParticipants,
+      isOnline
     }}>
       {children}
     </ChatContext.Provider>
