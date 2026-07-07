@@ -1,0 +1,10 @@
+node_modules
+dist-electron
+android
+jdk17
+jdk21
+*.apk
+*.exe
+*.zip
+.git
+.github

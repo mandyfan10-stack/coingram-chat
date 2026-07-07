@@ -273,6 +273,24 @@ export const formatLastSeen = (lastSeenStr, isOnline) => {
 export const ChatProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+
+  const clearE2EECache = useCallback(() => {
+    // Remove all cached E2EE private keys
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith('coingram-e2ee-key-')) {
+        localStorage.removeItem(key);
+        i--;
+      }
+    }
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith('coingram-e2ee-key-')) {
+        sessionStorage.removeItem(key);
+        i--;
+      }
+    }
+  }, []);
   const [chats, setChats] = useState([]);
   const [onlineUsers, setOnlineUsers] = useState(new Set());
   const [installedStickers, setInstalledStickers] = useState([]);
@@ -337,6 +355,55 @@ export const ChatProvider = ({ children }) => {
       setSharedKeysCache({});
     }
   }, [currentUser]);
+
+  // Load cached E2EE private key on startup/profile update
+  useEffect(() => {
+    const tryRestoreFromCache = async () => {
+      if (currentUser && currentUser.has_e2ee && !e2eePrivateKey) {
+        const cacheKey = `coingram-e2ee-key-${currentUser.id}`;
+        let cachedJwk = sessionStorage.getItem(cacheKey);
+        if (!cachedJwk) {
+          cachedJwk = localStorage.getItem(cacheKey);
+        }
+
+        if (cachedJwk) {
+          try {
+            const restoredKey = await importPrivateKey(cachedJwk);
+            setE2eePrivateKey(restoredKey);
+            console.log("E2EE Private Key successfully restored from cache.");
+          } catch (e) {
+            console.warn("Failed to restore E2EE key from cache:", e);
+            sessionStorage.removeItem(cacheKey);
+            localStorage.removeItem(cacheKey);
+          }
+        }
+      }
+    };
+    tryRestoreFromCache();
+  }, [currentUser, e2eePrivateKey]);
+
+  // Cache E2EE private key when it changes
+  useEffect(() => {
+    if (currentUser) {
+      const cacheKey = `coingram-e2ee-key-${currentUser.id}`;
+      if (e2eePrivateKey) {
+        const saveToCache = async () => {
+          try {
+            const jwk = await exportPrivateKey(e2eePrivateKey);
+            sessionStorage.setItem(cacheKey, jwk);
+            localStorage.setItem(cacheKey, jwk);
+            console.log("E2EE Private Key successfully cached locally.");
+          } catch (e) {
+            console.error("Failed to cache E2EE Private Key:", e);
+          }
+        };
+        saveToCache();
+      } else {
+        sessionStorage.removeItem(cacheKey);
+        localStorage.removeItem(cacheKey);
+      }
+    }
+  }, [e2eePrivateKey, currentUser]);
 
   const markMessageAsFailed = useCallback((chatId, optimisticId) => {
     setChats(prevChats => prevChats.map(c => {
@@ -846,6 +913,7 @@ export const ChatProvider = ({ children }) => {
             setWallpaper(profile.wallpaper || 'classic');
           }
         } else {
+          clearE2EECache();
           setCurrentUser(null);
           setChats([]);
           setActiveChatId(null);
@@ -2463,6 +2531,7 @@ export const ChatProvider = ({ children }) => {
 
   // Sign Out
   const logOut = async () => {
+    clearE2EECache();
     if (isSupabaseConfigured) {
       await supabase.auth.signOut();
     } else {
