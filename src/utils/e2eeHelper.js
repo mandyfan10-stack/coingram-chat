@@ -1,3 +1,7 @@
+if (typeof window === 'undefined') {
+  globalThis.window = { crypto: globalThis.crypto };
+}
+
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
@@ -83,7 +87,7 @@ async function derivePasswordKey(password, salt) {
     {
       name: 'PBKDF2',
       salt: salt,
-      iterations: 100000,
+      iterations: 600000,
       hash: 'SHA-256'
     },
     passwordKeyMaterial,
@@ -213,7 +217,7 @@ export async function deriveSymmetricKey(privateKey, otherPublicKey) {
       name: 'AES-GCM',
       length: 256
     },
-    true, // extractable (so we can debug/log if necessary, or check it)
+    false, // extractable (disabled for security)
     ['encrypt', 'decrypt']
   );
 }
@@ -252,3 +256,34 @@ export async function decryptMessage(ciphertextHex, ivHex, aesKey) {
 
   return decoder.decode(decryptedContent);
 }
+
+// 10. Encrypt File Blob using AES-GCM Key
+export async function encryptFile(fileBlob, aesKey) {
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const arrayBuffer = await fileBlob.arrayBuffer();
+  const encryptedContent = await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv },
+    aesKey,
+    arrayBuffer
+  );
+
+  // Combine IV and ciphertext into a single binary blob
+  const resultBuffer = new Uint8Array(iv.length + encryptedContent.byteLength);
+  resultBuffer.set(iv, 0);
+  resultBuffer.set(new Uint8Array(encryptedContent), iv.length);
+  return new Blob([resultBuffer], { type: 'application/octet-stream' });
+}
+
+// 11. Decrypt File Blob using AES-GCM Key
+export async function decryptFile(encryptedBlob, aesKey) {
+  const arrayBuffer = await encryptedBlob.arrayBuffer();
+  const iv = new Uint8Array(arrayBuffer, 0, 12);
+  const ciphertext = new Uint8Array(arrayBuffer, 12);
+  const decryptedContent = await window.crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: iv },
+    aesKey,
+    ciphertext
+  );
+  return new Blob([decryptedContent]);
+}
+

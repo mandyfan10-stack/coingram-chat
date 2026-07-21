@@ -1,5 +1,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
+import { useCalls } from '../context/CallContext';
+import { useAuth } from '../context/AuthContext';
+import './CallOverlay.css';
 import { Mic, MicOff, PhoneOff, Phone, Video, VideoOff, Monitor, Minimize2, Maximize2 } from 'lucide-react';
 
 export default function CallOverlay() {
@@ -10,16 +13,16 @@ export default function CallOverlay() {
     toggleCallMute, 
     acceptCall, 
     rejectCall, 
-    chats, 
-    renderAvatar, 
-    currentUser,
     localVideoStream,
     remoteVideoStream,
     toggleCallVideo,
     isScreenSharing,
     toggleCallScreenShare,
     groupCallParticipants
-  } = useChat();
+  } = useCalls();
+
+  const { chats, renderAvatar } = useChat();
+  const { currentUser } = useAuth();
 
   const [pulseScale, setPulseScale] = useState(1);
   const ringRef = useRef(null);

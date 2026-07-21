@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
 import StickerMessage from './StickerMessage';
+import './ChatArea.css';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import {
   Send,
@@ -77,6 +78,119 @@ function renderMessageTextWithLinks(text) {
     }
     return part;
   });
+}
+
+import { useAuth } from '../context/AuthContext';
+import { useE2EE } from '../context/E2EEContext';
+import { encryptFile, decryptFile } from '../utils/e2eeHelper';
+
+function useDecryptedAttachment(mediaUrl, chatId) {
+  const [url, setUrl] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const { sharedKeysCache } = useE2EE();
+  const { chats } = useChat();
+
+  useEffect(() => {
+    if (!mediaUrl) {
+      setUrl(null);
+      return;
+    }
+
+    if (mediaUrl.startsWith('data:') || mediaUrl.startsWith('blob:')) {
+      setUrl(mediaUrl);
+      return;
+    }
+
+    let isMounted = true;
+    const loadAttachment = async () => {
+      setLoading(true);
+      try {
+        const parts = mediaUrl.split('chat-attachments/');
+        if (parts.length < 2) {
+          if (isMounted) setUrl(mediaUrl);
+          return;
+        }
+        
+        const filePath = decodeURIComponent(parts[1].split('?')[0]);
+        
+        const { data: encryptedBlob, error } = await supabase.storage
+          .from('chat-attachments')
+          .download(filePath);
+          
+        if (error) throw error;
+        
+        const chat = chats.find(c => c.id === chatId);
+        const sharedKey = chat?.type === 'personal' ? sharedKeysCache[chatId] : null;
+        
+        let finalBlob = encryptedBlob;
+        if (sharedKey) {
+          try {
+            finalBlob = await decryptFile(encryptedBlob, sharedKey);
+          } catch (decryptErr) {
+            console.error("Failed to decrypt attachment blob:", decryptErr);
+          }
+        }
+        
+        const localUrl = URL.createObjectURL(finalBlob);
+        if (isMounted) {
+          setUrl(localUrl);
+        }
+      } catch (err) {
+        console.error("Failed to load attachment from private storage:", err);
+        if (isMounted) setUrl(mediaUrl);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+    };
+
+    loadAttachment();
+
+    return () => {
+      isMounted = false;
+      if (url && url.startsWith('blob:')) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [mediaUrl, chatId, sharedKeysCache, chats]);
+
+  return { url, loading };
+}
+
+function DecryptedImage({ mediaUrl, chatId }) {
+  const { url, loading } = useDecryptedAttachment(mediaUrl, chatId);
+  if (loading) {
+    return (
+      <div className="bubble-media-loading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '150px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px' }}>
+        <div className="spinner" style={{ border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', width: '20px', height: '20px' }}></div>
+      </div>
+    );
+  }
+  return <img src={url || mediaUrl} alt="Изображение" className="bubble-media" />;
+}
+
+function DecryptedVideoPlayer({ mediaUrl, chatId }) {
+  const { url, loading } = useDecryptedAttachment(mediaUrl, chatId);
+  if (loading) {
+    return (
+      <div className="bubble-media-loading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '120px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px' }}>
+        <div className="spinner" style={{ border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', width: '20px', height: '20px' }}></div>
+      </div>
+    );
+  }
+  return <VideoMessagePlayer videoUrl={url || mediaUrl} />;
+}
+
+function DecryptedVoicePlayer({ mediaUrl, chatId }) {
+  const { url, loading } = useDecryptedAttachment(mediaUrl, chatId);
+  if (loading) {
+    return (
+      <div className="voice-player-bubble-loading" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '16px' }}>
+        <div className="spinner" style={{ border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', width: '12px', height: '12px' }}></div>
+        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Загрузка голосового сообщения...</span>
+      </div>
+    );
+  }
+  return <VoiceMessagePlayer audioUrl={url || mediaUrl} />;
 }
 
 function VoiceMessagePlayer({ audioUrl, duration }) {
@@ -334,7 +448,6 @@ export default function ChatArea() {
     toggleReaction,
     isInfoOpen,
     setIsInfoOpen,
-    currentUser,
     typingStatuses,
     sendTypingStatus,
     wallpaper,
@@ -343,11 +456,11 @@ export default function ChatArea() {
     setActiveChatId,
     isOnline,
     retrySendMessage,
-    deleteFailedMessage,
-    e2eePrivateKey,
-    sharedKeysCache,
-    isE2EESetupRequired
+    deleteFailedMessage
   } = useChat();
+
+  const { currentUser } = useAuth();
+  const { e2eePrivateKey, sharedKeysCache, isE2EESetupRequired } = useE2EE();
 
   const isOwner = activeChat && currentUser && (
     activeChat.createdBy === currentUser.id ||
@@ -436,13 +549,24 @@ export default function ChatArea() {
         }
 
         const fileExt = file.name ? file.name.split('.').pop() : (isAudio ? 'webm' : 'png');
-        const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
         const filePath = `${currentUser.id}/${fileName}`;
+
+        // Encrypt file blob before upload if in E2EE chat
+        let blobToUpload = file;
+        const sharedKey = activeChat?.type === 'personal' ? sharedKeysCache[activeChat.id] : null;
+        if (sharedKey) {
+          try {
+            blobToUpload = await encryptFile(file, sharedKey);
+          } catch (cryptErr) {
+            console.error("Failed to encrypt attachment before upload:", cryptErr);
+          }
+        }
 
         const { error } = await supabase.storage
           .from('chat-attachments')
-          .upload(filePath, file, {
-            contentType: file.type || (isAudio ? 'audio/webm' : 'image/png')
+          .upload(filePath, blobToUpload, {
+            contentType: blobToUpload.type || file.type || (isAudio ? 'audio/webm' : 'image/png')
           });
 
         if (error) throw error;
@@ -807,13 +931,24 @@ export default function ChatArea() {
         }
 
         const fileExt = 'webm';
-        const fileName = `record_${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
+        const fileName = `record_${crypto.randomUUID()}.${fileExt}`;
         const filePath = `${currentUser.id}/${fileName}`;
+
+        // Encrypt record blob before upload if in E2EE chat
+        let blobToUpload = blob;
+        const sharedKey = activeChat?.type === 'personal' ? sharedKeysCache[activeChat.id] : null;
+        if (sharedKey) {
+          try {
+            blobToUpload = await encryptFile(blob, sharedKey);
+          } catch (cryptErr) {
+            console.error("Failed to encrypt recording before upload:", cryptErr);
+          }
+        }
 
         const { error } = await supabase.storage
           .from('chat-attachments')
-          .upload(filePath, blob, {
-            contentType: isVoice ? 'audio/webm' : 'video/webm'
+          .upload(filePath, blobToUpload, {
+            contentType: blobToUpload.type || (isVoice ? 'audio/webm' : 'video/webm')
           });
 
         if (error) throw error;
@@ -1158,7 +1293,7 @@ export default function ChatArea() {
                   {/* Media attachment if any */}
                   {msg.media && !isVoice && !isVideo && !isSticker && (
                     <div className="bubble-media-wrapper">
-                      <img src={msg.media} alt="Вложение" className="bubble-media" />
+                      <DecryptedImage mediaUrl={msg.media} chatId={activeChat.id} />
                     </div>
                   )}
 
@@ -1209,7 +1344,7 @@ export default function ChatArea() {
                     </div>
                   ) : isVideo ? (
                     <div style={{ position: 'relative' }}>
-                      <VideoMessagePlayer videoUrl={msg.media} />
+                      <DecryptedVideoPlayer mediaUrl={msg.media} chatId={activeChat.id} />
                       <div className="bubble-metadata" style={{
                         position: 'absolute',
                         bottom: '8px',
@@ -1251,7 +1386,7 @@ export default function ChatArea() {
                     /* Message content */
                     <div className="bubble-content">
                       {isVoice ? (
-                        <VoiceMessagePlayer audioUrl={msg.media} />
+                        <DecryptedVoicePlayer mediaUrl={msg.media} chatId={activeChat.id} />
                       ) : (msg.text && msg.text.startsWith('```')) ? (
                         <pre className="code-block">
                           <code>{msg.text.replace(/```/g, '')}</code>

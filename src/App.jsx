@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { E2EEProvider, useE2EE } from './context/E2EEContext';
 import { ChatProvider, useChat } from './context/ChatContext';
+import { CallProvider, useCalls } from './context/CallContext';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import ChatInfo from './components/ChatInfo';
@@ -13,7 +16,7 @@ import CallOverlay from './components/CallOverlay';
 import E2EESetupModal from './components/E2EESetupModal';
 import { X } from 'lucide-react';
 
-const CURRENT_VERSION = import.meta.env.APP_VERSION || '0.0.0';
+const CURRENT_VERSION = import.meta.env.APP_VERSION || '1.20.0';
 
 function UpdateModal({ show, releaseInfo, onClose }) {
   if (!show || !releaseInfo) return null;
@@ -106,8 +109,10 @@ const isNewerVersion = (latest, current) => {
 };
 
 function MainLayout() {
-  const { currentUser, authLoading, activeChatId, isDrawerOpen, setIsDrawerOpen } = useChat();
+  const { currentUser, authLoading } = useAuth();
+  const { activeChatId, isDrawerOpen, setIsDrawerOpen } = useChat();
   const [showUpdate, setShowUpdate] = useState(false);
+  const [releaseInfo, setReleaseInfo] = useState(null);
 
   // Swipe from edge to open MainMenuDrawer
   const touchStartRef = React.useRef({ x: 0, y: 0 });
@@ -159,7 +164,6 @@ function MainLayout() {
     isDrawerGestureRef.current = false;
     touchStartRef.current = { x: 0, y: 0 };
   };
-  const [releaseInfo, setReleaseInfo] = useState(null);
 
   useEffect(() => {
     const checkUpdates = async () => {
@@ -173,19 +177,8 @@ function MainLayout() {
         const cleanTagName = tagName.replace(/^v/, '');
 
         if (isNewerVersion(cleanTagName, CURRENT_VERSION)) {
-          let downloadUrl = data.html_url;
-          if (data.assets && data.assets.length > 0) {
-            const isAndroid = /Android/i.test(navigator.userAgent) || window.Capacitor;
-            const isWindows = /Windows/i.test(navigator.userAgent) || (window.process && window.process.type);
-            
-            if (isAndroid) {
-              const apkAsset = data.assets.find(asset => asset.name.endsWith('.apk'));
-              if (apkAsset) downloadUrl = apkAsset.browser_download_url;
-            } else if (isWindows) {
-              const exeAsset = data.assets.find(asset => asset.name.endsWith('.exe'));
-              if (exeAsset) downloadUrl = exeAsset.browser_download_url;
-            }
-          }
+          // Open releases HTML URL in browser instead of direct .exe download for security
+          const downloadUrl = data.html_url;
 
           setReleaseInfo({
             tagName,
@@ -240,9 +233,15 @@ function MainLayout() {
 
 function App() {
   return (
-    <ChatProvider>
-      <MainLayout />
-    </ChatProvider>
+    <AuthProvider>
+      <E2EEProvider>
+        <ChatProvider>
+          <CallProvider>
+            <MainLayout />
+          </CallProvider>
+        </ChatProvider>
+      </E2EEProvider>
+    </AuthProvider>
   );
 }
 

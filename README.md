@@ -1,16 +1,104 @@
-# React + Vite
+# CoinGram Chat 🚀
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+CoinGram — это высокозащищенный, быстрый кроссплатформенный клиент для обмена сообщениями (на базе веб, Electron и Capacitor для мобильных платформ), созданный с использованием React, Vite и Supabase.
 
-Currently, two official plugins are available:
+Приложение спроектировано с акцентом на приватность (сквозное шифрование E2EE) и оптимизированную архитектуру для работы в условиях нестабильного интернет-соединения (Offline-first).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## 🔒 Безопасность и Сквозное Шифрование (E2EE)
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+В CoinGram реализовано полноценное сквозное шифрование для личных переписок и отправляемых медиа-файлов на базе Web Crypto API (алгоритмы ECDH P-256 и AES-GCM 256 бит):
 
-## Expanding the Oxlint configuration
+1. **Ключевой обмен (ECDH)**: Каждое устройство генерирует ключевую пару ECDH. Публичный ключ публикуется в профиле, а приватный ключ шифруется на основе пароля пользователя (PBKDF2 с **600 000 итерациями** и SHA-256) и сохраняется в защищенной таблице `user_private_keys` (защищена RLS `auth.uid() = id`).
+2. **Локальное хранение**: Расшифрованный приватный ключ хранится в памяти приложения и в локальной базе данных **IndexedDB** в виде неэкстрагируемого (`extractable: false`) объекта `CryptoKey`. plaintext-ключи никогда не попадают в `localStorage`.
+3. **E2EE для медиафайлов**: Все вложения (изображения, аудиозаписи, видеосообщения) шифруются симметричным AES-GCM ключом на клиенте *перед загрузкой* в облачное хранилище. В бакет Supabase `chat-attachments` (который настроен как приватный) попадает только зашифрованный бинарный blob. При получении файл скачивается через сессию Supabase и расшифровывается на устройстве получателя.
+4. **Защита от MITM**: Интегрировано отображение хэша публичных ключей ("Safety Numbers") для ручной сверки подлинности сессии собеседников вне сети.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+---
+
+## 📁 Структура Проекта и Архитектура
+
+Приложение использует модульное разделение зон ответственности для предотвращения монолитного скопления логики:
+
+- `/src/context/AuthContext.jsx` — управление авторизацией пользователей, сессиями Supabase и локальным кэшированием.
+- `/src/context/E2EEContext.jsx` — генерация ключевых пар, создание и расшифровка резервных копий приватных ключей, вычисление общих секретов ECDH.
+- `/src/context/ChatContext.jsx` — реактивное обновление списка чатов, распределение по папкам, отправка и оптимистичное добавление сообщений, отслеживание статусов набора текста (Typing).
+- `/src/context/CallContext.jsx` — организация голосовых и видеозвонков, WebRTC P2P/Mesh сигнальный слой, трансляция экрана.
+- `/src/services/dataLayer.js` — абстрактный интерфейс взаимодействия с данными, объединяющий логику `SupabaseDataService` и локальную `MockDataService`.
+- `/src/utils/e2eeHelper.js` — низкоуровневые криптографические операции (генерация, шифрование, дешифрование, экспорт/импорт).
+- `/src/utils/indexedDbHelper.js` — работа с базой данных IndexedDB для оффлайн-вложений и ключей.
+
+---
+
+## 🛠️ Требования к окружению и `.env`
+
+Для запуска приложения в Supabase-режиме создайте файл `.env` в корневом каталоге проекта:
+
+```env
+VITE_SUPABASE_URL=https://your-project-id.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key-here
+VITE_GITHUB_REPO=mandyfan10-stack/coingram-chat
+```
+
+*Примечание: Если переменные окружения отсутствуют, приложение автоматически переключается в интерактивный демонстрационный оффлайн-режим (Mock Mode).*
+
+---
+
+## 🚀 Запуск и Разработка
+
+### Установка зависимостей:
+```bash
+npm install
+```
+
+### Запуск веб-версии в режиме разработки:
+```bash
+npm run dev
+```
+
+### Сборка веб-версии для продакшена:
+```bash
+npm run build
+```
+
+---
+
+## 🧪 Запуск Юнит-Тестов
+
+Для проверки криптографического слоя (`e2eeHelper.js`) в проекте развернут изолированный тестовый фреймворк, проверяющий генерацию ключей, шифрование сообщений, шифрование файлов, бекапы по паролям и кодам восстановления:
+
+```bash
+npm test
+```
+
+---
+
+## 💻 Сборка Electron приложения
+
+Приложение подготовлено для упаковки в нативный десктоп-клиент.
+
+### Запуск Electron в режиме разработки:
+```bash
+npm run electron:dev
+```
+
+### Сборка десктопного дистрибутива (Windows):
+```bash
+npm run electron:build
+```
+*Собранные инсталляторы будут сохранены в каталоге `dist-electron/`.*
+
+---
+
+## 📱 Сборка под Android (Capacitor)
+
+1. Синхронизируйте веб-ресурсы с нативным проектом:
+   ```bash
+   npm run build
+   npx cap sync
+   ```
+2. Откройте Android Studio для компиляции APK/AAB:
+   ```bash
+   npx cap open android
+   ```

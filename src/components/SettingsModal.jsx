@@ -1,27 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useChat } from '../context/ChatContext';
+import { useAuth } from '../context/AuthContext';
+import { useE2EE } from '../context/E2EEContext';
+import './SettingsModal.css';
 import { isSupabaseConfigured, supabase } from '../supabaseClient';
 import { X, Check, Bell, Palette, Image as ImageIcon, UserCircle, LogOut, Copy, Info, Lock, Trash2, Upload, Package, Sparkles, Film, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function SettingsModal() {
   const {
-    currentUser,
     isSettingsOpen,
     setIsSettingsOpen,
     theme,
     setTheme,
     wallpaper,
     setWallpaper,
-    updateProfile,
-    logOut,
     settingsTab,
     setSettingsTab,
     renderAvatar,
     installedStickers,
-    importStickerPack,
-    e2eePrivateKey,
-    resetE2EE
+    importStickerPack
   } = useChat();
+
+  const { currentUser, updateProfile, logOut } = useAuth();
+  const { e2eePrivateKey, resetE2EE } = useE2EE();
 
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');

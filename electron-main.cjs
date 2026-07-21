@@ -32,10 +32,10 @@ function createWindow() {
 
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
     console.log(`Permission request: ${permission}`);
-    if (['media', 'display-capture', 'notifications'].includes(permission)) {
+    if (['media', 'display-capture', 'notifications', 'audioCapture', 'videoCapture'].includes(permission)) {
       callback(true);
     } else {
-      callback(true);
+      callback(false);
     }
   });
 

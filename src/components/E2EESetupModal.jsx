@@ -1,18 +1,33 @@
 import React, { useState } from 'react';
 import { useChat } from '../context/ChatContext';
-import { LockKeyhole, ShieldAlert, Eye, EyeOff, Copy, Check, AlertTriangle, KeyRound, Info } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { useE2EE } from '../context/E2EEContext';
+import { LockKeyhole, ShieldAlert, Eye, EyeOff, Copy, Check, AlertTriangle, KeyRound, Info, Lock } from 'lucide-react';
+
+const getPasswordStrength = (pass) => {
+  if (!pass) return { text: '', color: '', width: '0%' };
+  let score = 0;
+  if (pass.length >= 12) score += 1;
+  if (/[A-Z]/.test(pass)) score += 1;
+  if (/[a-z]/.test(pass)) score += 1;
+  if (/[0-9]/.test(pass)) score += 1;
+  if (/[^A-Za-z0-9]/.test(pass)) score += 1;
+  
+  if (score <= 2) return { text: 'Слабый', color: '#ff4d4f', width: '33%' };
+  if (score <= 4) return { text: 'Средний', color: '#faad14', width: '66%' };
+  return { text: 'Надежный', color: '#52c41a', width: '100%' };
+};
 
 export default function E2EESetupModal() {
-  const { 
-    currentUser, 
-    authLoading, 
+  const { currentUser, authLoading } = useAuth();
+  const {
     isE2EESetupRequired, 
     e2eePrivateKey, 
     setupE2EE, 
     unlockE2EE,
     changePasswordAfterRecovery,
     resetE2EE
-  } = useChat();
+  } = useE2EE();
 
   // Setup states
   const [setupStep, setSetupStep] = useState(1); // 1: Enter password, 2: Show recovery code
@@ -35,7 +50,7 @@ export default function E2EESetupModal() {
   if (authLoading || !currentUser) return null;
 
   const needsSetup = isE2EESetupRequired;
-  const needsUnlock = currentUser.encrypted_private_key && !e2eePrivateKey;
+  const needsUnlock = currentUser.has_e2ee && !e2eePrivateKey;
 
   if (!needsSetup && !needsUnlock) return null;
 
@@ -53,8 +68,8 @@ export default function E2EESetupModal() {
       setError('Пожалуйста, введите пароль.');
       return;
     }
-    if (password.length < 6) {
-      setError('Пароль должен содержать не менее 6 символов.');
+    if (password.length < 12) {
+      setError('Пароль должен содержать не менее 12 символов.');
       return;
     }
     if (password !== confirmPassword) {
@@ -132,8 +147,8 @@ export default function E2EESetupModal() {
       setError('Пожалуйста, введите новый пароль.');
       return;
     }
-    if (password.length < 6) {
-      setError('Пароль должен содержать не менее 6 символов.');
+    if (password.length < 12) {
+      setError('Пароль должен содержать не менее 12 символов.');
       return;
     }
     if (password !== confirmPassword) {
@@ -243,6 +258,16 @@ export default function E2EESetupModal() {
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
+                  {password && (
+                    <div className="password-strength-meter" style={{ marginTop: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px', color: 'var(--text-secondary)' }}>
+                        <span>Стойкость: <strong style={{ color: getPasswordStrength(password).color }}>{getPasswordStrength(password).text}</strong></span>
+                      </div>
+                      <div style={{ height: '4px', width: '100%', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: getPasswordStrength(password).width, backgroundColor: getPasswordStrength(password).color, transition: 'width 0.3s' }}></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="e2ee-input-group">
@@ -470,6 +495,16 @@ export default function E2EESetupModal() {
                       {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                     </button>
                   </div>
+                  {password && (
+                    <div className="password-strength-meter" style={{ marginTop: '8px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '4px', color: 'var(--text-secondary)' }}>
+                        <span>Стойкость: <strong style={{ color: getPasswordStrength(password).color }}>{getPasswordStrength(password).text}</strong></span>
+                      </div>
+                      <div style={{ height: '4px', width: '100%', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: getPasswordStrength(password).width, backgroundColor: getPasswordStrength(password).color, transition: 'width 0.3s' }}></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="e2ee-input-group">

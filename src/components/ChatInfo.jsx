@@ -1,6 +1,30 @@
 import React, { useState, useRef } from 'react';
 import { useChat, formatLastSeen } from '../context/ChatContext';
-import { X, Phone, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut, Camera } from 'lucide-react';
+import { useCalls } from '../context/CallContext';
+import { useAuth } from '../context/AuthContext';
+import { X, Phone, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut, Camera, Lock } from 'lucide-react';
+
+const computeSafetyNumber = (keyA, keyB) => {
+  if (!keyA || !keyB) return '';
+  const sorted = [keyA, keyB].sort();
+  const joined = sorted.join('|');
+  
+  let hash = 0;
+  for (let i = 0; i < joined.length; i++) {
+    const char = joined.charCodeAt(i);
+    hash = (hash << 5) - hash + char;
+    hash = hash & hash;
+  }
+  
+  const absHash = Math.abs(hash);
+  const segment1 = String((absHash * 3) % 100000).padStart(5, '0');
+  const segment2 = String((absHash * 7) % 100000).padStart(5, '0');
+  const segment3 = String((absHash * 11) % 100000).padStart(5, '0');
+  const segment4 = String((absHash * 13) % 100000).padStart(5, '0');
+  const segment5 = String((absHash * 17) % 100000).padStart(5, '0');
+  
+  return `${segment1} ${segment2} ${segment3} ${segment4} ${segment5}`;
+};
 
 export default function ChatInfo() {
   const {
@@ -11,15 +35,16 @@ export default function ChatInfo() {
     setIsInfoOpen,
     setActiveChatId,
     renderAvatar,
-    currentUser,
     deleteChat,
     clearChatMessages,
     updateChatAvatar,
     updateChatSettings,
-    startCall,
     addMemberToChat,
     toggleMemberRole
   } = useChat();
+
+  const { startCall } = useCalls();
+  const { currentUser } = useAuth();
 
   const [activeTab, setActiveTab] = useState('media');
   const [copied, setCopied] = useState(false);
@@ -264,6 +289,31 @@ export default function ChatInfo() {
             <span className="meta-label">Участники</span>
             <span className="meta-value">{activeChat.members.length} человек</span>
           </div>
+        )}
+        {activeChat.type === 'personal' && (
+          (() => {
+            const otherMember = activeChat.members?.find(m => m.id !== currentUser.id);
+            const keyA = currentUser?.public_key;
+            const keyB = otherMember?.publicKey;
+            if (keyA && keyB) {
+              const safetyNumber = computeSafetyNumber(keyA, keyB);
+              return (
+                <div className="meta-row safety-number-row" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                    <Lock size={14} style={{ color: 'var(--accent-color)' }} />
+                    <span className="meta-label" style={{ fontWeight: '600', color: 'var(--accent-color)' }}>Код безопасности (Safety Number)</span>
+                  </div>
+                  <span className="meta-value" style={{ fontFamily: 'monospace', fontSize: '13px', letterSpacing: '0.5px', background: 'rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: '6px', display: 'block', wordBreak: 'break-all' }}>
+                    {safetyNumber}
+                  </span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px', display: 'inline-block', lineHeight: '1.4' }}>
+                    Сравните этот код с кодом в приложении вашего собеседника для подтверждения сквозного шифрования.
+                  </span>
+                </div>
+              );
+            }
+            return null;
+          })()
         )}
       </div>
 

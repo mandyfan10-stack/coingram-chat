@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useChat } from '../context/ChatContext';
+import { useAuth } from '../context/AuthContext';
 import { isSupabaseConfigured } from '../supabaseClient';
 import { Lock, User, UserPlus, LogIn, AlertCircle, Sparkles } from 'lucide-react';
 
 export default function AuthScreen() {
-  const { signInWithUsername, signUpWithUsername } = useChat();
+  const { signInWithUsername, signUpWithUsername } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
