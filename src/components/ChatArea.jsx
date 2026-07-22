@@ -86,129 +86,9 @@ import {
   importPublicKey,
   deriveSymmetricKey,
   encryptFileForE2EE,
-  requireE2EEKey,
-  decryptFile
+  requireE2EEKey
 } from '../utils/e2eeHelper';
-
-function getAttachmentMimeType(mediaUrl, fallbackMimeType) {
-  const extension = mediaUrl?.split('?')[0].split('.').pop()?.toLowerCase();
-  const mimeTypes = {
-    avif: 'image/avif',
-    gif: 'image/gif',
-    jpeg: 'image/jpeg',
-    jpg: 'image/jpeg',
-    mp3: 'audio/mpeg',
-    mp4: fallbackMimeType?.startsWith('audio/') ? 'audio/mp4' : 'video/mp4',
-    ogg: fallbackMimeType?.startsWith('video/') ? 'video/ogg' : 'audio/ogg',
-    png: 'image/png',
-    wav: 'audio/wav',
-    webm: fallbackMimeType || 'video/webm',
-    webp: 'image/webp'
-  };
-
-  return mimeTypes[extension] || fallbackMimeType || 'application/octet-stream';
-}
-
-function useDecryptedAttachment(mediaUrl, chatId, fallbackMimeType) {
-  const [attachment, setAttachment] = useState({
-    mediaUrl: null,
-    url: null,
-    loading: false,
-    error: null
-  });
-  const { sharedKeysCache } = useE2EE();
-  const { chats } = useChat();
-  const chatType = chats.find(chat => chat.id === chatId)?.type;
-  const sharedKey = chatType === 'personal' ? sharedKeysCache[chatId] : null;
-
-  useEffect(() => {
-    if (!mediaUrl) {
-      setAttachment({ mediaUrl, url: null, loading: false, error: null });
-      return;
-    }
-
-    if (mediaUrl.startsWith('data:') || mediaUrl.startsWith('blob:')) {
-      setAttachment({ mediaUrl, url: mediaUrl, loading: false, error: null });
-      return;
-    }
-
-    let isMounted = true;
-    let objectUrl = null;
-    setAttachment({ mediaUrl, url: null, loading: true, error: null });
-
-    const loadAttachment = async () => {
-      try {
-        const parts = mediaUrl.split('chat-attachments/');
-        if (parts.length < 2) {
-          if (isMounted) {
-            setAttachment({ mediaUrl, url: mediaUrl, loading: false, error: null });
-          }
-          return;
-        }
-
-        const filePath = decodeURIComponent(parts[1].split('?')[0]);
-
-        const { data: encryptedBlob, error } = await supabase.storage
-          .from('chat-attachments')
-          .download(filePath);
-
-        if (error) throw error;
-
-        let finalBlob = encryptedBlob;
-        const isEncrypted = encryptedBlob.type.split(';')[0] === 'application/octet-stream';
-
-        if (isEncrypted) {
-          if (!sharedKey) {
-            throw new Error('Encryption key is unavailable for this attachment.');
-          }
-
-          try {
-            finalBlob = await decryptFile(
-              encryptedBlob,
-              sharedKey,
-              getAttachmentMimeType(mediaUrl, fallbackMimeType)
-            );
-          } catch (decryptErr) {
-            throw new Error('Unable to decrypt this attachment.', { cause: decryptErr });
-          }
-        }
-
-        const localUrl = URL.createObjectURL(finalBlob);
-        if (isMounted) {
-          objectUrl = localUrl;
-          setAttachment({ mediaUrl, url: localUrl, loading: false, error: null });
-        } else {
-          URL.revokeObjectURL(localUrl);
-        }
-      } catch (err) {
-        if (import.meta.env.DEV) console.warn('Attachment is unavailable:', err);
-        if (isMounted) {
-          setAttachment({
-            mediaUrl,
-            url: null,
-            loading: false,
-            error: 'Вложение недоступно'
-          });
-        }
-      }
-    };
-
-    loadAttachment();
-
-    return () => {
-      isMounted = false;
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [mediaUrl, chatId, sharedKey, fallbackMimeType]);
-
-  if (attachment.mediaUrl !== mediaUrl) {
-    return { url: null, loading: Boolean(mediaUrl), error: null };
-  }
-
-  return attachment;
-}
+import useResolvedMedia from '../hooks/useResolvedMedia';
 
 function AttachmentUnavailable({ compact = false }) {
   return (
@@ -219,7 +99,7 @@ function AttachmentUnavailable({ compact = false }) {
 }
 
 function DecryptedImage({ mediaUrl, chatId }) {
-  const { url, loading, error } = useDecryptedAttachment(mediaUrl, chatId, 'image/png');
+  const { url, loading, error } = useResolvedMedia(mediaUrl, chatId, 'image/png');
   if (loading) {
     return (
       <div className="bubble-media-loading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '150px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px' }}>
@@ -232,7 +112,7 @@ function DecryptedImage({ mediaUrl, chatId }) {
 }
 
 function DecryptedVideoPlayer({ mediaUrl, chatId }) {
-  const { url, loading, error } = useDecryptedAttachment(mediaUrl, chatId, 'video/webm');
+  const { url, loading, error } = useResolvedMedia(mediaUrl, chatId, 'video/webm');
   if (loading) {
     return (
       <div className="bubble-media-loading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '120px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px' }}>
@@ -245,7 +125,7 @@ function DecryptedVideoPlayer({ mediaUrl, chatId }) {
 }
 
 function DecryptedVoicePlayer({ mediaUrl, chatId }) {
-  const { url, loading, error } = useDecryptedAttachment(mediaUrl, chatId, 'audio/webm');
+  const { url, loading, error } = useResolvedMedia(mediaUrl, chatId, 'audio/webm');
   if (loading) {
     return (
       <div className="voice-player-bubble-loading" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '16px' }}>
@@ -259,7 +139,7 @@ function DecryptedVoicePlayer({ mediaUrl, chatId }) {
 }
 
 function DecryptedSticker({ mediaUrl, chatId }) {
-  const { url, loading, error } = useDecryptedAttachment(mediaUrl, chatId);
+  const { url, loading, error } = useResolvedMedia(mediaUrl, chatId);
   if (loading) {
     return (
       <div

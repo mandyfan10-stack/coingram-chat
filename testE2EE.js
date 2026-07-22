@@ -12,6 +12,7 @@ import {
   requireE2EEKey,
   decryptFile 
 } from './src/utils/e2eeHelper.js';
+import { getAttachmentMimeType, getPrivateAttachmentPath } from './src/utils/storageMedia.js';
 
 async function runTests() {
   console.log("=== STARTING E2EE CRYPTOGRAPHIC UNIT TESTS ===");
@@ -27,6 +28,19 @@ async function runTests() {
   };
 
   try {
+    assert(
+      getPrivateAttachmentPath('https://example.test/storage/v1/object/public/chat-attachments/chat/user/file%20name.png?x=1') === 'chat/user/file name.png',
+      "Private attachment paths are extracted and decoded"
+    );
+    assert(
+      getPrivateAttachmentPath('https://example.test/storage/v1/object/public/public-media/user/story.png') === null,
+      "Public media URLs bypass private attachment loading"
+    );
+    assert(
+      getAttachmentMimeType('https://example.test/file.webp') === 'image/webp',
+      "Attachment MIME type is inferred from its extension"
+    );
+
     // Test 1: Key Generation
     const aliceKeys = await generateE2EEKeyPair();
     const bobKeys = await generateE2EEKeyPair();

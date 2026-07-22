@@ -701,6 +701,25 @@ export const ChatProvider = ({ children }) => {
     }
   }, [currentUser, fetchStories]);
 
+  const viewStory = useCallback((storyId) => {
+    if (currentUser) {
+      const viewedKey = 'tg-viewed-stories-' + currentUser.id;
+      try {
+        const stored = localStorage.getItem(viewedKey);
+        const viewedSaved = stored ? JSON.parse(stored) : [];
+        if (!viewedSaved.includes(storyId)) {
+          viewedSaved.push(storyId);
+          localStorage.setItem(viewedKey, JSON.stringify(viewedSaved));
+        }
+      } catch {}
+    }
+
+    setStories(previous => previous.map(story => (
+      story.id === storyId && !story.viewed ? { ...story, viewed: true } : story
+    )));
+    setActiveStoryId(storyId);
+  }, [currentUser]);
+
   const markMessagesAsRead = useCallback(async (chatId) => {
     if (!currentUser || !chatId) return;
     try {
@@ -1504,21 +1523,7 @@ export const ChatProvider = ({ children }) => {
       stories,
       activeStoryId,
       setActiveStoryId,
-      viewStory: (storyId) => {
-        if (currentUser) {
-          const viewedKey = `tg-viewed-stories-${currentUser.id}`;
-          try {
-            const stored = localStorage.getItem(viewedKey);
-            let viewedSaved = stored ? JSON.parse(stored) : [];
-            if (!viewedSaved.includes(storyId)) {
-              viewedSaved.push(storyId);
-              localStorage.setItem(viewedKey, JSON.stringify(viewedSaved));
-            }
-          } catch {}
-        }
-        setStories(prev => prev.map(s => s.id === storyId ? { ...s, viewed: true } : s));
-        setActiveStoryId(storyId);
-      },
+      viewStory,
       publishStory,
       searchQuery,
       setSearchQuery,

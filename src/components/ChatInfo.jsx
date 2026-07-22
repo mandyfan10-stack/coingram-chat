@@ -3,6 +3,7 @@ import { useChat, formatLastSeen } from '../context/ChatContext';
 import { useCalls } from '../context/CallContext';
 import { useAuth } from '../context/AuthContext';
 import { X, Phone, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut, Camera, Lock } from 'lucide-react';
+import useResolvedMedia from '../hooks/useResolvedMedia';
 
 const computeSafetyNumber = async (keyA, keyB) => {
   if (!keyA || !keyB) return '';
@@ -22,6 +23,32 @@ const computeSafetyNumber = async (keyA, keyB) => {
   
   return `${segment1} ${segment2} ${segment3} ${segment4} ${segment5}`;
 };
+
+function MediaGridItem({ sourceUrl, index, chatId }) {
+  const { url, loading, error } = useResolvedMedia(sourceUrl, chatId, 'image/png');
+
+  if (loading) {
+    return (
+      <div className="media-grid-item media-grid-status" aria-label="Загрузка вложения">
+        <div className="spinner media-grid-spinner" />
+      </div>
+    );
+  }
+
+  if (error || !url) {
+    return (
+      <div className="media-grid-item media-grid-status media-grid-error">
+        Медиа недоступно
+      </div>
+    );
+  }
+
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className="media-grid-item">
+      <img src={url} alt={'Вложение ' + (index + 1)} />
+    </a>
+  );
+}
 
 export default function ChatInfo() {
   const {
@@ -367,9 +394,12 @@ export default function ChatInfo() {
         {activeTab === 'media' && (
           <div className="media-grid">
             {mediaFiles.map((url, idx) => (
-              <a href={url} target="_blank" rel="noreferrer" key={idx} className="media-grid-item">
-                <img src={url} alt={`Вложение ${idx + 1}`} />
-              </a>
+              <MediaGridItem
+                key={url + idx}
+                sourceUrl={url}
+                index={idx}
+                chatId={activeChat.id}
+              />
             ))}
           </div>
         )}

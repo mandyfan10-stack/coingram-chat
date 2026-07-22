@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
 import { X, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
+import useResolvedMedia from '../hooks/useResolvedMedia';
 
 export default function StoryViewer() {
   const {
@@ -13,6 +14,8 @@ export default function StoryViewer() {
 
   const [isPaused, setIsPaused] = useState(false);
   const [lastActiveStoryId, setLastActiveStoryId] = useState(null);
+  const [mediaRetryKey, setMediaRetryKey] = useState(0);
+  const [imageRenderError, setImageRenderError] = useState(false);
 
   useEffect(() => {
     if (activeStoryId) {
@@ -24,6 +27,21 @@ export default function StoryViewer() {
   const displayStory = stories.find(s => s.id === displayStoryId);
   const userStories = displayStory ? stories.filter(s => s.userId === displayStory.userId) : [];
   const activeIndexInUserStories = userStories.findIndex(s => s.id === displayStoryId);
+  const {
+    url: storyMediaUrl,
+    loading: storyMediaLoading,
+    error: storyMediaError
+  } = useResolvedMedia(displayStory?.media, null, 'image/jpeg', mediaRetryKey);
+
+  useEffect(() => {
+    setMediaRetryKey(0);
+    setImageRenderError(false);
+  }, [displayStoryId]);
+
+  const retryMedia = () => {
+    setImageRenderError(false);
+    setMediaRetryKey(key => key + 1);
+  };
 
   const DURATION = 5000; // 5 seconds per story
   const timeoutRef = useRef(null);
@@ -69,7 +87,7 @@ export default function StoryViewer() {
 
   // Timer Effect for automated story playback
   useEffect(() => {
-    if (!activeStoryId) return;
+    if (!activeStoryId || storyMediaLoading || storyMediaError || imageRenderError || !storyMediaUrl) return;
 
     if (isPaused) {
       if (timeoutRef.current) {
@@ -92,7 +110,7 @@ export default function StoryViewer() {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [activeStoryId, isPaused]);
+  }, [activeStoryId, isPaused, storyMediaLoading, storyMediaError, imageRenderError, storyMediaUrl]);
 
   // Automatically mark the current story as viewed when activeStoryId changes
   useEffect(() => {
@@ -146,7 +164,10 @@ export default function StoryViewer() {
       onTouchCancel={handleMouseUp}
     >
       {/* Background glass blur */}
-      <div className="story-viewer-blur-bg" style={{ backgroundImage: `url(${displayStory.media})` }} />
+      <div
+        className="story-viewer-blur-bg"
+        style={{ backgroundImage: storyMediaUrl ? 'url(' + storyMediaUrl + ')' : 'none' }}
+      />
 
       {/* Story Window */}
       <div
@@ -204,14 +225,27 @@ export default function StoryViewer() {
 
         {/* Story Image Content */}
         <div className="story-media-wrapper">
-          <img 
-            key={displayStoryId} 
-            src={displayStory.media} 
-            alt={displayStory.caption} 
-            className="story-img" 
-            draggable="false" 
-            onDragStart={(e) => e.preventDefault()} 
-          />
+          {storyMediaLoading ? (
+            <div className="story-media-status">
+              <div className="spinner story-media-spinner" />
+              <span>Загрузка истории...</span>
+            </div>
+          ) : storyMediaError || imageRenderError || !storyMediaUrl ? (
+            <div className="story-media-status story-media-error">
+              <span>История недоступна</span>
+              <button type="button" onClick={retryMedia}>Повторить</button>
+            </div>
+          ) : (
+            <img
+              key={displayStoryId}
+              src={storyMediaUrl}
+              alt={displayStory.caption}
+              className="story-img"
+              draggable="false"
+              onDragStart={(e) => e.preventDefault()}
+              onError={() => setImageRenderError(true)}
+            />
+          )}
         </div>
 
         {/* Story Caption */}

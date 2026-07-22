@@ -1114,6 +1114,27 @@ body {
   transform: scale(1.08);
 }
 
+.media-grid-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: var(--text-secondary);
+  text-align: center;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.media-grid-error {
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.media-grid-spinner {
+  width: 18px;
+  height: 18px;
+  border-width: 2px;
+}
+
 /* Docs files list */
 .docs-list {
   display: flex;
@@ -1555,6 +1576,32 @@ body {
   align-items: center;
   justify-content: center;
   background-color: black;
+}
+
+.story-media-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  z-index: 2;
+}
+
+.story-media-spinner {
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+}
+
+.story-media-error button {
+  padding: 8px 14px;
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .story-img {
