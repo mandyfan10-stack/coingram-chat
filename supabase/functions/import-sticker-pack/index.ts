@@ -1,6 +1,5 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.11.0"
-import pako from "https://esm.sh/pako@2.1.0"
+import { createClient } from "npm:@supabase/supabase-js@2.110.0"
+import pako from "npm:pako@2.1.0"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,16 +7,46 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { packName, userId } = await req.json();
-    if (!packName) {
-      return new Response(JSON.stringify({ error: "Missing packName" }), {
+    const { packName } = await req.json();
+    const normalizedPackName = typeof packName === 'string' ? packName.trim() : '';
+    if (!/^[A-Za-z0-9_]{1,64}$/.test(normalizedPackName)) {
+      return new Response(JSON.stringify({ error: "Invalid packName" }), {
         status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const authorization = req.headers.get('Authorization');
+
+    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceKey) {
+      throw new Error('Required Supabase secrets are not configured');
+    }
+
+    if (!authorization?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Resolve identity from the signed JWT. Never trust a user id supplied by the client.
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    const { data: { user }, error: authError } = await authClient.auth.getUser();
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
@@ -30,14 +59,12 @@ serve(async (req) => {
       });
     }
 
-    // Initialize Supabase Client
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    // Admin access is used only after the caller has been authenticated.
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // 1. Fetch metadata from Telegram Bot API
-    console.log(`Fetching sticker set info for: ${packName}...`);
-    const res = await fetch(`https://api.telegram.org/bot${botToken}/getStickerSet?name=${packName}`);
+    console.log(`Fetching sticker set info for: ${normalizedPackName}...`);
+    const res = await fetch(`https://api.telegram.org/bot${botToken}/getStickerSet?name=${encodeURIComponent(normalizedPackName)}`);
     const data = await res.json();
     
     if (!data.ok) {
@@ -173,18 +200,16 @@ serve(async (req) => {
       }
     }
 
-    // 4. Link user to pack if userId is provided
-    if (userId) {
-      const { error: userPackErr } = await supabase
-        .from("user_sticker_packs")
-        .insert({
-          user_id: userId,
-          pack_id: packId
-        });
-      
-      if (userPackErr && userPackErr.code !== '23505') { // Ignore unique constraint conflict
-        console.error(`Failed to link user ${userId} to pack ${packId}:`, userPackErr);
-      }
+    // 4. Link the authenticated caller to the pack.
+    const { error: userPackErr } = await supabase
+      .from("user_sticker_packs")
+      .upsert({
+        user_id: user.id,
+        pack_id: packId
+      }, { onConflict: 'user_id,pack_id' });
+
+    if (userPackErr) {
+      throw userPackErr;
     }
 
     return new Response(JSON.stringify({ success: true, packId, title: set.title }), {
@@ -193,7 +218,8 @@ serve(async (req) => {
 
   } catch (error) {
     console.error("Function error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const message = error instanceof Error ? error.message : "Unexpected error";
+    return new Response(JSON.stringify({ error: message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

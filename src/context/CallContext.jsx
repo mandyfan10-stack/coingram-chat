@@ -90,6 +90,12 @@ export const CallProvider = ({ children }) => {
   const activeCallChannelRef = useRef(null);
 
   const activeChat = chats.find(c => c.id === activeChatId);
+  const currentUserRef = useRef(currentUser);
+  const activeChatRef = useRef(activeChat);
+  const callStateRef = useRef(callState);
+  currentUserRef.current = currentUser;
+  activeChatRef.current = activeChat;
+  callStateRef.current = callState;
 
   const endCallLocally = useCallback(() => {
     setCallState(prev => ({
@@ -221,7 +227,7 @@ export const CallProvider = ({ children }) => {
     };
 
     const initWebRTC = async () => {
-      if (callState.status !== 'connected') return;
+      if (callStateRef.current.status !== 'connected') return;
 
       console.log("Initializing WebRTC call...");
 
@@ -241,7 +247,7 @@ export const CallProvider = ({ children }) => {
             return prev;
           });
           setGroupCallParticipants(prev => prev.map(p => {
-            const isMe = p.id === (currentUser?.id || 'current');
+            const isMe = p.id === (currentUserRef.current?.id || 'current');
             if (isMe) {
               return { ...p, speaking: isSpeaking };
             }
@@ -259,7 +265,9 @@ export const CallProvider = ({ children }) => {
       pc = new RTCPeerConnection({
         iceServers: [
           { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:stun1.l.google.com:19302' }
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'stun:stun2.l.google.com:19302' },
+          { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'], username: 'openrelay', credential: 'openrelay' }
         ]
       });
       pcRef.current = pc;
@@ -333,10 +341,10 @@ export const CallProvider = ({ children }) => {
       });
 
       if (dataService.isLive()) {
-        const isGroup = activeChat?.type === 'group';
+        const isGroup = activeChatRef.current?.type === 'group';
 
         if (isGroup) {
-          activeCallChannel = supabase.channel(`call-signals-webrtc-${callState.chatId}`);
+          activeCallChannel = supabase.channel(`call-signals-webrtc-${callStateRef.current.chatId}`);
           activeCallChannelRef.current = activeCallChannel;
 
           const processPeerCandidateQueue = async (peerId, pcInstance) => {
@@ -359,7 +367,9 @@ export const CallProvider = ({ children }) => {
             const pcInstance = new RTCPeerConnection({
               iceServers: [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' }
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' },
+                { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443'], username: 'openrelay', credential: 'openrelay' }
               ]
             });
 
@@ -377,7 +387,7 @@ export const CallProvider = ({ children }) => {
                   payload: {
                     type: 'candidate',
                     candidate: event.candidate,
-                    senderId: currentUser.id,
+                    senderId: currentUserRef.current.id,
                     targetId: peerId
                   }
                 });
@@ -436,9 +446,9 @@ export const CallProvider = ({ children }) => {
           activeCallChannel
             .on('broadcast', { event: 'join-group-call' }, async (payload) => {
               const { senderId } = payload.payload;
-              if (senderId === currentUser.id) return;
+              if (senderId === currentUserRef.current.id) return;
 
-              const memberInfo = activeChat?.members?.find(m => m.id === senderId);
+              const memberInfo = activeChatRef.current?.members?.find(m => m.id === senderId);
               setGroupCallParticipants(prev => {
                 if (prev.some(p => p.id === senderId)) {
                   return prev.map(p => p.id === senderId ? { ...p, isReal: true } : p);
@@ -472,7 +482,7 @@ export const CallProvider = ({ children }) => {
                   payload: {
                     type: 'offer',
                     sdp: offer.sdp,
-                    senderId: currentUser.id,
+                    senderId: currentUserRef.current.id,
                     targetId: senderId
                   }
                 });
@@ -482,7 +492,7 @@ export const CallProvider = ({ children }) => {
             })
             .on('broadcast', { event: 'signal' }, async (payload) => {
               const signal = payload.payload;
-              if (signal.targetId !== currentUser.id) return;
+              if (signal.targetId !== currentUserRef.current.id) return;
               const senderId = signal.senderId;
               if (!senderId) return;
 
@@ -499,7 +509,7 @@ export const CallProvider = ({ children }) => {
                     payload: {
                       type: 'answer',
                       sdp: answer.sdp,
-                      senderId: currentUser.id,
+                      senderId: currentUserRef.current.id,
                       targetId: senderId
                     }
                   });
@@ -548,12 +558,12 @@ export const CallProvider = ({ children }) => {
                 activeCallChannel.send({
                   type: 'broadcast',
                   event: 'join-group-call',
-                  payload: { senderId: currentUser.id }
+                  payload: { senderId: currentUserRef.current.id }
                 });
               }
             });
         } else {
-          activeCallChannel = supabase.channel(`call-signals-webrtc-${callState.chatId}`);
+          activeCallChannel = supabase.channel(`call-signals-webrtc-${callStateRef.current.chatId}`);
           activeCallChannelRef.current = activeCallChannel;
 
           const sendOffer = async () => {
@@ -590,9 +600,9 @@ export const CallProvider = ({ children }) => {
                 return;
               }
 
-              if (signal.type === 'ready' && callState.isOutgoing) {
+              if (signal.type === 'ready' && callStateRef.current.isOutgoing) {
                 await sendOffer();
-              } else if (signal.type === 'offer' && !callState.isOutgoing) {
+              } else if (signal.type === 'offer' && !callStateRef.current.isOutgoing) {
                 try {
                   if (pc && pc.remoteDescription) return;
                   if (pc && pc.signalingState !== 'stable') return;
@@ -608,7 +618,7 @@ export const CallProvider = ({ children }) => {
                 } catch (e) {
                   console.error("Error setting offer/creating answer:", e);
                 }
-              } else if (signal.type === 'answer' && callState.isOutgoing) {
+              } else if (signal.type === 'answer' && callStateRef.current.isOutgoing) {
                 try {
                   if (pc && pc.remoteDescription) return;
                   if (pc && pc.signalingState !== 'have-local-offer') return;
@@ -658,7 +668,7 @@ export const CallProvider = ({ children }) => {
             })
             .subscribe(async (status) => {
               if (status === 'SUBSCRIBED') {
-                if (callState.isOutgoing) {
+                if (callStateRef.current.isOutgoing) {
                   await sendOffer();
                 } else {
                   activeCallChannel.send({
@@ -706,7 +716,7 @@ export const CallProvider = ({ children }) => {
         el.remove();
       });
     };
-  }, [callState.status]);
+  }, [callState.status, endCallLocally]);
 
   const sendSignalingMessage = useCallback((targetUserId, event, payload) => {
     if (!dataService.isLive()) return;
@@ -871,7 +881,7 @@ export const CallProvider = ({ children }) => {
       }
     }
     endCallLocally();
-  }, [callState.otherUserId, endCallLocally, currentUser]);
+  }, [callState.otherUserId, endCallLocally, currentUser, sendSignalingMessage]);
 
   const toggleCallMute = useCallback(() => {
     const nextMuted = !callState.muted;

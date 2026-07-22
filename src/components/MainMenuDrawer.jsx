@@ -99,13 +99,13 @@ export default function MainMenuDrawer() {
           const fileExt = file.name.split('.').pop() || 'jpg';
           const fileName = `${currentUser.id}/avatar_${Date.now()}.${fileExt}`;
           const { data, error } = await supabase.storage
-            .from('chat-attachments')
+            .from('public-media')
             .upload(fileName, file);
 
           if (error) throw error;
 
           const { data: { publicUrl } } = supabase.storage
-            .from('chat-attachments')
+            .from('public-media')
             .getPublicUrl(fileName);
 
           await updateProfile({ avatar: publicUrl });

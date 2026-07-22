@@ -54,11 +54,26 @@ export const dataService = {
       if (error) return { error };
       return { data: { id: data.user.id } };
     } else {
-      const mockUsers = JSON.parse(localStorage.getItem('tg-mock-users') || '[]');
-      const user = mockUsers.find(u => u.username === username && u.password === password);
+      let mockUsers = JSON.parse(localStorage.getItem('tg-mock-users') || '[]');
+      let user = mockUsers.find(u => u.username === username && u.password === password);
+      
       if (!user) {
-        return { error: new Error('Неправильный логин или пароль') };
+        const newUser = {
+          id: `user-mock-${Date.now()}`,
+          username,
+          name: username,
+          password: password,
+          avatarColor: 'linear-gradient(135deg, #12c2e9 0%, #c471ed 50%, #f64f59 100%)',
+          bio: '',
+          theme: 'telegram-blue',
+          wallpaper: 'classic',
+          avatar: '🪙'
+        };
+        mockUsers.push(newUser);
+        localStorage.setItem('tg-mock-users', JSON.stringify(mockUsers));
+        user = newUser;
       }
+      
       const { password: _, ...cleanUser } = user;
       localStorage.setItem('tg-user-mock', JSON.stringify(cleanUser));
       return { data: cleanUser };
@@ -177,15 +192,34 @@ export const dataService = {
 
       if (chatErr) throw chatErr;
 
-      return await Promise.all((chatList || []).map(async (chat) => {
-        const { data: membersRaw } = await supabase
-          .from('chat_members')
-          .select('profile_id, role, profiles(display_name, username, avatar, avatar_color, bio, last_seen, public_key, has_e2ee)')
-          .eq('chat_id', chat.id);
+      // Fetch all members for these chats in one query
+      const { data: allMembersRaw } = await supabase
+        .from('chat_members')
+        .select('chat_id, profile_id, role, profiles(display_name, username, avatar, avatar_color, bio, last_seen, public_key, has_e2ee)')
+        .in('chat_id', chatIds);
 
+      // Fetch latest messages efficiently using a batched Promise.all
+      const latestMsgPromises = chatIds.map(id =>
+        supabase
+          .from('messages')
+          .select('*')
+          .eq('chat_id', id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+      );
+      const latestMsgResponses = await Promise.all(latestMsgPromises);
+      const latestMessagesMap = {};
+      latestMsgResponses.forEach((res, idx) => {
+        if (res.data && res.data.length > 0) {
+          latestMessagesMap[chatIds[idx]] = res.data[0];
+        }
+      });
+
+      return (chatList || []).map((chat) => {
+        const membersRaw = (allMembersRaw || []).filter(m => m.chat_id === chat.id);
         const membership = memberships.find(m => m.chat_id === chat.id);
 
-        const formattedMembers = (membersRaw || []).map(m => ({
+        const formattedMembers = membersRaw.map(m => ({
           id: m.profile_id,
           name: m.profiles?.display_name || m.profiles?.username || 'Пользователь',
           username: m.profiles?.username || '',
@@ -202,15 +236,7 @@ export const dataService = {
           ? formattedMembers.find(m => m.id !== userId)
           : null;
 
-        // Fetch ONLY the latest message to avoid loading full history
-        const { data: latestMsgRaw } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('chat_id', chat.id)
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        const latestMsg = latestMsgRaw && latestMsgRaw.length > 0 ? latestMsgRaw[0] : null;
+        const latestMsg = latestMessagesMap[chat.id] || null;
         let messages = [];
         if (latestMsg) {
           messages = [{
@@ -249,21 +275,122 @@ export const dataService = {
           lastSeen: otherMember ? otherMember.lastSeen : null,
           messages
         };
-      }));
+      });
     } else {
       // Mock mode
       const saved = localStorage.getItem('tg-chats-mock');
-      if (saved) {
-        try {
-          return JSON.parse(saved).map(chat => ({
-            ...chat,
-            messages: chat.messages.map(m => ({ ...m, timestamp: new Date(m.timestamp) }))
-          }));
-        } catch (e) {
-          return [];
-        }
+      let chats = saved ? JSON.parse(saved) : [];
+      
+      if (!chats || chats.length === 0) {
+        chats = [
+          {
+            id: 'mock-saved-messages',
+            name: 'Saved Messages 🔖',
+            type: 'personal',
+            avatar: '🔖',
+            avatarColor: '#5a9ae6',
+            bio: 'Ваши сохраненные сообщения',
+            username: 'saved_messages',
+            createdBy: 'system',
+            pinned: true,
+            notifications: false,
+            members: [],
+            settings: { only_admins_can_post: false, allow_media: true, allow_add_members: false, allow_pin_messages: true },
+            lastSeen: null,
+            messages: []
+          },
+          {
+            id: 'mock-echo-bot',
+            name: 'Echo Bot 🤖',
+            type: 'personal',
+            avatar: '🤖',
+            avatarColor: '#6cc452',
+            bio: 'Я эхо-бот. Отправь мне сообщение.',
+            username: 'echo_bot',
+            createdBy: 'system',
+            pinned: false,
+            notifications: true,
+            members: [],
+            settings: { only_admins_can_post: false, allow_media: true, allow_add_members: false, allow_pin_messages: true },
+            lastSeen: null,
+            messages: []
+          },
+          {
+            id: 'mock-quiz-bot',
+            name: 'Quiz Master 🧠',
+            type: 'personal',
+            avatar: '🧠',
+            avatarColor: '#e6905a',
+            bio: 'Отвечай на вопросы.',
+            username: 'quiz_bot',
+            createdBy: 'system',
+            pinned: false,
+            notifications: true,
+            members: [],
+            settings: { only_admins_can_post: false, allow_media: true, allow_add_members: false, allow_pin_messages: true },
+            lastSeen: null,
+            messages: []
+          },
+          {
+            id: 'mock-weather-bot',
+            name: 'Weather Bot 🌤️',
+            type: 'personal',
+            avatar: '🌤️',
+            avatarColor: '#5ad8e6',
+            bio: 'Узнай погоду.',
+            username: 'weather_bot',
+            createdBy: 'system',
+            pinned: false,
+            notifications: true,
+            members: [],
+            settings: { only_admins_can_post: false, allow_media: true, allow_add_members: false, allow_pin_messages: true },
+            lastSeen: null,
+            messages: []
+          },
+          {
+            id: 'mock-coingram-news',
+            name: 'CoinGram News 🚀',
+            type: 'channel',
+            avatar: '🚀',
+            avatarColor: 'linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)',
+            bio: 'Официальные новости.',
+            username: 'coingram_news',
+            createdBy: 'system',
+            pinned: false,
+            notifications: true,
+            members: [],
+            settings: { only_admins_can_post: true, allow_media: true, allow_add_members: true, allow_pin_messages: true },
+            lastSeen: null,
+            messages: [{ id: 'msg-news-1', senderId: 'system', senderName: 'CoinGram News 🚀', text: 'Добро пожаловать в CoinGram!', timestamp: new Date().toISOString(), read: true, reactions: [] }]
+          },
+          {
+            id: 'mock-coingram-community',
+            name: 'CoinGram Community 👥',
+            type: 'group',
+            avatar: '👥',
+            avatarColor: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
+            bio: 'Общение пользователей.',
+            username: '',
+            createdBy: 'system',
+            pinned: false,
+            notifications: true,
+            members: [],
+            settings: { only_admins_can_post: false, allow_media: true, allow_add_members: true, allow_pin_messages: true },
+            lastSeen: null,
+            messages: []
+          }
+        ];
+        localStorage.setItem('tg-chats-mock', JSON.stringify(chats));
       }
-      return [];
+      
+      try {
+        return chats.map(chat => ({
+          ...chat,
+          messages: chat.messages.map(m => ({ ...m, timestamp: new Date(m.timestamp) }))
+        }));
+      } catch (e) {
+        return [];
+      }
     }
   },
 
@@ -642,7 +769,34 @@ export const dataService = {
       if (error) throw error;
       return data;
     } else {
-      return [];
+      let savedStories = [];
+      try {
+        const stored = localStorage.getItem('tg-stories-mock');
+        if (stored) savedStories = JSON.parse(stored);
+      } catch (e) {}
+
+      if (savedStories.length === 0) {
+        savedStories = [
+          {
+            id: 'demo-story-1',
+            user_id: 'system',
+            profiles: { display_name: 'Команда CoinGram', avatar: '📢', avatar_color: '#3b82f6' },
+            media: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop',
+            caption: 'Обновление CoinGram 1.20.0! 🚀',
+            created_at: new Date(Date.now() - 3600000).toISOString()
+          },
+          {
+            id: 'demo-story-2',
+            user_id: 'system',
+            profiles: { display_name: 'Демо Бот', avatar: '🤖', avatar_color: '#ef4444' },
+            media: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?q=80&w=2000&auto=format&fit=crop',
+            caption: 'Привет из Демо-режима 🪙',
+            created_at: new Date(Date.now() - 7200000).toISOString()
+          }
+        ];
+        localStorage.setItem('tg-stories-mock', JSON.stringify(savedStories));
+      }
+      return savedStories;
     }
   },
 
@@ -660,13 +814,31 @@ export const dataService = {
       if (error) throw error;
       return data;
     } else {
-      return {
+      const savedUser = JSON.parse(localStorage.getItem('tg-user-mock') || '{}');
+      const newStory = {
         id: `story-mock-${Date.now()}`,
-        userId,
+        user_id: userId,
+        profiles: {
+          display_name: savedUser.name || 'Вы',
+          username: savedUser.username || '',
+          avatar: savedUser.avatar || '🪙',
+          avatar_color: savedUser.avatarColor || '#ccc'
+        },
         media,
         caption,
         created_at: new Date().toISOString()
       };
+      
+      let savedStories = [];
+      try {
+        const stored = localStorage.getItem('tg-stories-mock');
+        if (stored) savedStories = JSON.parse(stored);
+      } catch (e) {}
+      
+      savedStories.push(newStory);
+      localStorage.setItem('tg-stories-mock', JSON.stringify(savedStories));
+      
+      return newStory;
     }
   },
 
@@ -711,10 +883,10 @@ export const dataService = {
     }
   },
 
-  importStickerPack: async (userId, packName) => {
+  importStickerPack: async (_userId, packName) => {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase.functions.invoke('import-sticker-pack', {
-        body: { packName, userId }
+        body: { packName }
       });
       if (error) throw error;
       return data;

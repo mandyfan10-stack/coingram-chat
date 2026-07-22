@@ -188,10 +188,12 @@ export const ChatProvider = ({ children }) => {
   const [wallpaper, setWallpaper] = useState('classic');
 
   // Refs for realtime channels to prevent rebuild loops on key updates
+  const chatsRef = useRef(chats);
   const sharedKeysCacheRef = useRef(sharedKeysCache);
   const e2eePrivateKeyRef = useRef(e2eePrivateKey);
   const activeChatIdRef = useRef(activeChatId);
 
+  useEffect(() => { chatsRef.current = chats; }, [chats]);
   useEffect(() => { sharedKeysCacheRef.current = sharedKeysCache; }, [sharedKeysCache]);
   useEffect(() => { e2eePrivateKeyRef.current = e2eePrivateKey; }, [e2eePrivateKey]);
   useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
@@ -261,7 +263,7 @@ export const ChatProvider = ({ children }) => {
 
           const fileExt = item.mediaType === 'audio' ? 'webm' : (item.mediaType === 'video' ? 'webm' : 'png');
           const fileName = `${crypto.randomUUID()}.${fileExt}`;
-          const filePath = `${item.senderId}/${fileName}`;
+          const filePath = `${item.chatId}/${item.senderId}/${fileName}`;
 
           // Encrypt file blob before upload if in E2EE chat
           const chat = chats.find(c => c.id === item.chatId);
@@ -516,7 +518,7 @@ export const ChatProvider = ({ children }) => {
     if (!chatId || !currentUser) return;
     try {
       const msgs = await dataService.loadChatMessages(chatId, 30);
-      const chat = chats.find(c => c.id === chatId);
+      const chat = chatsRef.current.find(c => c.id === chatId);
       if (!chat) return;
 
       let sharedKey = null;
@@ -577,14 +579,14 @@ export const ChatProvider = ({ children }) => {
     } catch (e) {
       console.error(e);
     }
-  }, [currentUser, chats, setSharedKeysCache]);
+  }, [currentUser, setSharedKeysCache]);
 
   // Load chat messages when activeChatId changes
   useEffect(() => {
     if (activeChatId) {
       loadActiveChatMessages(activeChatId);
     }
-  }, [activeChatId]);
+  }, [activeChatId, loadActiveChatMessages]);
 
   const fetchStickers = useCallback(async () => {
     if (!currentUser) return;
@@ -1044,7 +1046,7 @@ export const ChatProvider = ({ children }) => {
         }
       }
     }
-  }, [currentUser, fetchChats, markMessagesAsRead]);
+  }, [currentUser, fetchChats, fetchStories, markMessagesAsRead, setSharedKeysCache]);
 
   // Save Mock Chats state to localStorage
   useEffect(() => {
@@ -1146,6 +1148,49 @@ export const ChatProvider = ({ children }) => {
     }));
 
     playSound('outgoing');
+
+    if (!dataService.isLive() && activeChat) {
+      const isEchoBot = activeChat.id === 'echo_bot' || activeChat.username === 'echo_bot' || activeChat.name === 'echo_bot';
+      const isWeatherBot = activeChat.id === 'weather_bot' || activeChat.username === 'weather_bot' || activeChat.name === 'weather_bot';
+      const isQuizBot = activeChat.id === 'quiz_bot' || activeChat.username === 'quiz_bot' || activeChat.name === 'quiz_bot';
+      
+      let botResponse = '';
+      let botId = '';
+      let botName = '';
+
+      if (isEchoBot) {
+        botResponse = "🤖 Эхо: " + (text || "Медиа") + " ✨";
+        botId = 'echo_bot';
+        botName = 'Эхо Бот';
+      } else if (isWeatherBot) {
+        botResponse = "🌤️ Прогноз погоды для " + (text || "города") + ": +22°C, Ясно, ветер 4 м/с. Влажность 52%.";
+        botId = 'weather_bot';
+        botName = 'Погода Бот';
+      } else if (isQuizBot) {
+        botResponse = "🧠 Викторина: Отличный выбор! Вопрос 1/5: Какая криптовалюта была создана первой?\n1. Ethereum\n2. Bitcoin\n3. Solana";
+        botId = 'quiz_bot';
+        botName = 'Викторина Бот';
+      }
+
+      if (botResponse) {
+        setTimeout(() => {
+          const botMsg = {
+            id: crypto.randomUUID(),
+            senderId: botId,
+            senderName: botName,
+            text: botResponse,
+            media: null,
+            replyTo: replyToId,
+            read: false,
+            timestamp: new Date(),
+            isOptimistic: false,
+            isPending: false
+          };
+          setChats(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: [...c.messages, botMsg] } : c));
+          playSound('incoming');
+        }, 1000);
+      }
+    }
 
     if (!navigator.onLine || hasOfflineMedia) {
       const offlineItem = {

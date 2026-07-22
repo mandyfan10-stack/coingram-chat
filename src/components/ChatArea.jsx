@@ -132,6 +132,7 @@ function useDecryptedAttachment(mediaUrl, chatId) {
         }
         
         const localUrl = URL.createObjectURL(finalBlob);
+        objectUrl = localUrl;
         if (isMounted) {
           setUrl(localUrl);
         }
@@ -147,8 +148,8 @@ function useDecryptedAttachment(mediaUrl, chatId) {
 
     return () => {
       isMounted = false;
-      if (url && url.startsWith('blob:')) {
-        URL.revokeObjectURL(url);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
       }
     };
   }, [mediaUrl, chatId, sharedKeysCache, chats]);
@@ -460,7 +461,7 @@ export default function ChatArea() {
   } = useChat();
 
   const { currentUser } = useAuth();
-  const { e2eePrivateKey, sharedKeysCache, isE2EESetupRequired } = useE2EE();
+  const { sharedKeysCache } = useE2EE();
 
   const isOwner = activeChat && currentUser && (
     activeChat.createdBy === currentUser.id ||
@@ -506,9 +507,16 @@ export default function ChatArea() {
   const [showScrollBottom, setShowScrollBottom] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [isCurrentlyTyping, setIsCurrentlyTyping] = useState(false);
+  const isCurrentlyTypingRef = useRef(isCurrentlyTyping);
+  const isRecordingRef = useRef(false);
+  const sendTypingStatusRef = useRef(sendTypingStatus);
+  const stopRecordingAndSendRef = useRef(null);
+  isCurrentlyTypingRef.current = isCurrentlyTyping;
+  sendTypingStatusRef.current = sendTypingStatus;
 
   const [recordMode, setRecordMode] = useState('voice'); // 'voice' or 'video'
   const [isRecording, setIsRecording] = useState(false);
+  isRecordingRef.current = isRecording;
   const [isRecordingLocked, setIsRecordingLocked] = useState(false);
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [recordDuration, setRecordDuration] = useState(0);
@@ -550,7 +558,7 @@ export default function ChatArea() {
 
         const fileExt = file.name ? file.name.split('.').pop() : (isAudio ? 'webm' : 'png');
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
-        const filePath = `${currentUser.id}/${fileName}`;
+        const filePath = `${activeChat.id}/${currentUser.id}/${fileName}`;
 
         // Encrypt file blob before upload if in E2EE chat
         let blobToUpload = file;
@@ -658,15 +666,15 @@ export default function ChatArea() {
     setReplyingTo(null);
     setInputVal('');
 
-    if (isCurrentlyTyping) {
+    if (isCurrentlyTypingRef.current) {
       setIsCurrentlyTyping(false);
-      sendTypingStatus(activeChat?.id, false);
+      sendTypingStatusRef.current(activeChat?.id, false);
     }
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-    if (isRecording) {
-      stopRecordingAndSend(true);
+    if (isRecordingRef.current) {
+      stopRecordingAndSendRef.current?.(true);
     }
   }, [activeChat?.id]);
 
@@ -841,11 +849,15 @@ export default function ChatArea() {
       if (streamRef.current) {
         try {
           streamRef.current.getTracks().forEach(track => track.stop());
-        } catch (e2) {}
+        } catch (e2) {
+          console.error("Error stopping tracks in fallback:", e2);
+        }
       }
       cleanupRecordingState();
     }
   };
+
+  stopRecordingAndSendRef.current = stopRecordingAndSend;
 
   const pauseRecording = () => {
     try {
@@ -867,7 +879,9 @@ export default function ChatArea() {
     if (recordMode === 'video' && videoPreviewRef.current) {
       try {
         videoPreviewRef.current.pause();
-      } catch (e) {}
+      } catch (e) {
+        console.error("Preview pause failed", e);
+      }
     }
   };
 
@@ -905,8 +919,14 @@ export default function ChatArea() {
     setRecordDuration(0);
     if (videoPreviewRef.current) {
       try {
+        if (videoPreviewRef.current.src) {
+          URL.revokeObjectURL(videoPreviewRef.current.src);
+          videoPreviewRef.current.src = '';
+        }
         videoPreviewRef.current.srcObject = null;
-      } catch (e) {}
+      } catch (e) {
+        console.error("Failed to clean up video preview:", e);
+      }
     }
   };
 
@@ -932,7 +952,7 @@ export default function ChatArea() {
 
         const fileExt = 'webm';
         const fileName = `record_${crypto.randomUUID()}.${fileExt}`;
-        const filePath = `${currentUser.id}/${fileName}`;
+        const filePath = `${activeChat.id}/${currentUser.id}/${fileName}`;
 
         // Encrypt record blob before upload if in E2EE chat
         let blobToUpload = blob;

@@ -68,7 +68,7 @@ export default function CreateStoryModal() {
       const fileExt = file.name.split('.').pop() || 'png';
       const fileName = `${currentUser.id}/story_${Date.now()}.${fileExt}`;
       const { data, error } = await supabase.storage
-        .from('chat-attachments')
+        .from('public-media')
         .upload(fileName, file);
 
       if (error) {
@@ -76,7 +76,7 @@ export default function CreateStoryModal() {
       }
 
       const { data: { publicUrl } } = supabase.storage
-        .from('chat-attachments')
+        .from('public-media')
         .getPublicUrl(fileName);
 
       return publicUrl;

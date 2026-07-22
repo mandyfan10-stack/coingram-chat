@@ -264,7 +264,7 @@ export default function CallOverlay() {
     } else {
       setCardPos(null);
     }
-  }, [callState.status]);
+  }, [callState.status, setCallState]);
 
   // Window resize handler to keep components within viewport bounds
   useEffect(() => {
@@ -471,7 +471,7 @@ export default function CallOverlay() {
     return () => {
       // General cleanup
     };
-  }, [callState.status, callState.webrtcState]);
+  }, [callState.status, callState.webrtcState, setCallState]);
 
   // Bind local and remote video streams to refs
   useEffect(() => {

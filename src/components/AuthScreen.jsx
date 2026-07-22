@@ -90,12 +90,35 @@ export default function AuthScreen() {
           </div>
 
           {!isSupabaseConfigured && (
-            <div className="auth-warning-alert">
-              <AlertCircle size={18} className="warning-icon" />
-              <div>
-                <strong>Режим Демонстрации</strong>
-                <p>База данных Supabase не подключена. Данные будут храниться локально в браузере.</p>
+            <div className="auth-warning-alert" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <AlertCircle size={18} className="warning-icon" />
+                <div>
+                  <strong>Режим Демонстрации</strong>
+                  <p>База данных Supabase не подключена. Данные будут храниться локально в браузере.</p>
+                </div>
               </div>
+              <button 
+                type="button" 
+                style={{ marginTop: '12px', padding: '10px', backgroundColor: '#FFC107', color: '#17212b', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', width: '100%', transition: 'opacity 0.2s' }}
+                onMouseOver={(e) => e.target.style.opacity = '0.9'}
+                onMouseOut={(e) => e.target.style.opacity = '1'}
+                onClick={async () => {
+                  setUsername('alex_dev');
+                  setPassword('123456');
+                  setIsLogin(true);
+                  setLoading(true);
+                  setErrorMsg('');
+                  try {
+                    const { error } = await signInWithUsername('alex_dev', '123456');
+                    if (error) setErrorMsg(error.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                🚀 Быстрый вход в Демо-режим
+              </button>
             </div>
           )}
 

@@ -4,24 +4,21 @@ import { useCalls } from '../context/CallContext';
 import { useAuth } from '../context/AuthContext';
 import { X, Phone, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut, Camera, Lock } from 'lucide-react';
 
-const computeSafetyNumber = (keyA, keyB) => {
+const computeSafetyNumber = async (keyA, keyB) => {
   if (!keyA || !keyB) return '';
   const sorted = [keyA, keyB].sort();
   const joined = sorted.join('|');
   
-  let hash = 0;
-  for (let i = 0; i < joined.length; i++) {
-    const char = joined.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
+  const encoder = new TextEncoder();
+  const data = encoder.encode(joined);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+  const view = new DataView(hashBuffer);
   
-  const absHash = Math.abs(hash);
-  const segment1 = String((absHash * 3) % 100000).padStart(5, '0');
-  const segment2 = String((absHash * 7) % 100000).padStart(5, '0');
-  const segment3 = String((absHash * 11) % 100000).padStart(5, '0');
-  const segment4 = String((absHash * 13) % 100000).padStart(5, '0');
-  const segment5 = String((absHash * 17) % 100000).padStart(5, '0');
+  const segment1 = String(Math.abs(view.getInt32(0)) % 100000).padStart(5, '0');
+  const segment2 = String(Math.abs(view.getInt32(4)) % 100000).padStart(5, '0');
+  const segment3 = String(Math.abs(view.getInt32(8)) % 100000).padStart(5, '0');
+  const segment4 = String(Math.abs(view.getInt32(12)) % 100000).padStart(5, '0');
+  const segment5 = String(Math.abs(view.getInt32(16)) % 100000).padStart(5, '0');
   
   return `${segment1} ${segment2} ${segment3} ${segment4} ${segment5}`;
 };
@@ -55,6 +52,18 @@ export default function ChatInfo() {
   const [newMemberUsername, setNewMemberUsername] = useState('');
   const [addingMember, setAddingMember] = useState(false);
   const [addMemberError, setAddMemberError] = useState('');
+  const [safetyNumber, setSafetyNumber] = useState('');
+
+  React.useEffect(() => {
+    if (activeChat?.type === 'personal') {
+      const otherMember = activeChat.members?.find(m => m.id !== currentUser?.id);
+      const keyA = currentUser?.public_key;
+      const keyB = otherMember?.publicKey;
+      if (keyA && keyB) {
+        computeSafetyNumber(keyA, keyB).then(setSafetyNumber).catch(console.error);
+      }
+    }
+  }, [activeChat, currentUser]);
 
   const handleAddMemberSubmit = async (e) => {
     e.preventDefault();
@@ -110,52 +119,54 @@ export default function ChatInfo() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  if (!activeChat) return null;
-
   // Extract files, media, and links dynamically from messages
-  const mediaFiles = [];
-  const docFiles = [];
-  const linksList = [];
-
-  if (activeChat && activeChat.messages) {
-    activeChat.messages.forEach(m => {
-      if (m.media) {
-        // Simple check if it's an image
-        const isImage = /\.(jpeg|jpg|gif|png|webp|svg)/i.test(m.media) || m.media.startsWith('data:image');
-        if (isImage) {
-          mediaFiles.push(m.media);
-        } else {
-          // Document file
-          const filename = m.media.split('/').pop().split('_').slice(1).join('_') || 'Вложенный файл';
-          docFiles.push({
-            name: filename,
-            size: 'Вложение',
-            date: new Date(m.timestamp).toLocaleDateString([], { day: '2-digit', month: 'short' })
-          });
+  const { mediaFiles, docFiles, linksList } = React.useMemo(() => {
+    const mFiles = [];
+    const dFiles = [];
+    const lList = [];
+    if (activeChat && activeChat.messages) {
+      activeChat.messages.forEach(m => {
+        if (m.media) {
+          // Simple check if it's an image
+          const isImage = /\.(jpeg|jpg|gif|png|webp|svg)/i.test(m.media) || m.media.startsWith('data:image');
+          if (isImage) {
+            mFiles.push(m.media);
+          } else {
+            // Document file
+            const filename = m.media.split('/').pop().split('_').slice(1).join('_') || 'Вложенный файл';
+            dFiles.push({
+              name: filename,
+              size: 'Вложение',
+              date: new Date(m.timestamp).toLocaleDateString([], { day: '2-digit', month: 'short' })
+            });
+          }
         }
-      }
 
-      // Extract URLs from text
-      if (m.text) {
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        const matches = m.text.match(urlRegex);
-        if (matches) {
-          matches.forEach(url => {
-            try {
-              const parsed = new URL(url);
-              linksList.push({
-                title: url,
-                url: url,
-                host: parsed.hostname
-              });
-            } catch (e) {
-              // ignore
-            }
-          });
+        // Extract URLs from text
+        if (m.text) {
+          const urlRegex = /(https?:\/\/[^\s]+)/g;
+          const matches = m.text.match(urlRegex);
+          if (matches) {
+            matches.forEach(url => {
+              try {
+                const parsed = new URL(url);
+                lList.push({
+                  title: url,
+                  url: url,
+                  host: parsed.hostname
+                });
+              } catch (e) {
+                // ignore
+              }
+            });
+          }
         }
-      }
-    });
-  }
+      });
+    }
+    return { mediaFiles: mFiles, docFiles: dFiles, linksList: lList };
+  }, [activeChat]);
+
+  if (!activeChat) return null;
 
   // Preseeded mock data fallback only for demo chats to keep initial UI engaging
   const isPreseededMock = activeChat && ['chat-1', 'chat-2', 'chat-6'].includes(activeChat.id);
@@ -292,11 +303,7 @@ export default function ChatInfo() {
         )}
         {activeChat.type === 'personal' && (
           (() => {
-            const otherMember = activeChat.members?.find(m => m.id !== currentUser.id);
-            const keyA = currentUser?.public_key;
-            const keyB = otherMember?.publicKey;
-            if (keyA && keyB) {
-              const safetyNumber = computeSafetyNumber(keyA, keyB);
+            if (safetyNumber) {
               return (
                 <div className="meta-row safety-number-row" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '12px', marginTop: '12px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>

@@ -20,7 +20,6 @@ export default function StoryViewer() {
     }
   }, [activeStoryId]);
 
-  const activeStory = stories.find(s => s.id === activeStoryId);
   const displayStoryId = activeStoryId || lastActiveStoryId;
   const displayStory = stories.find(s => s.id === displayStoryId);
   const userStories = displayStory ? stories.filter(s => s.userId === displayStory.userId) : [];
@@ -28,6 +27,7 @@ export default function StoryViewer() {
 
   const DURATION = 5000; // 5 seconds per story
   const timeoutRef = useRef(null);
+  const handleNextRef = useRef(null);
   const startTimeRef = useRef(null);
   const remainingTimeRef = useRef(DURATION);
   const touchStartXRef = useRef(0);
@@ -57,6 +57,8 @@ export default function StoryViewer() {
     }
   };
 
+  handleNextRef.current = handleNext;
+
   const handlePrev = () => {
     if (activeIndexInUserStories > 0) {
       resetTimer();
@@ -82,7 +84,7 @@ export default function StoryViewer() {
 
     startTimeRef.current = Date.now();
     timeoutRef.current = setTimeout(() => {
-      handleNext();
+      handleNextRef.current?.();
     }, remainingTimeRef.current);
 
     return () => {
@@ -127,7 +129,7 @@ export default function StoryViewer() {
         if (dx > 0) {
           handlePrev();
         } else {
-          handleNext();
+          handleNextRef.current?.();
         }
       }
     }

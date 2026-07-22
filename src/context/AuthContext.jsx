@@ -71,10 +71,12 @@ export const AuthProvider = ({ children }) => {
             });
           }
         } else {
-          if (currentUser) {
-            await clearE2EECache(currentUser.id);
-          }
-          setCurrentUser(null);
+          setCurrentUser(previousUser => {
+            if (previousUser?.id) {
+              void clearE2EECache(previousUser.id);
+            }
+            return null;
+          });
         }
         setAuthLoading(false);
       });
@@ -94,7 +96,7 @@ export const AuthProvider = ({ children }) => {
       }
       setAuthLoading(false);
     }
-  }, []);
+  }, [clearE2EECache]);
 
   const signUpWithUsername = async (username, password, displayName) => {
     return await dataService.signUp(username, password, displayName);

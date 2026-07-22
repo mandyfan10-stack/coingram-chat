@@ -3,8 +3,12 @@ const DB_VERSION = 2;
 const STORE_NAME = 'offline-attachments';
 const KEY_STORE_NAME = 'e2ee-keys';
 
+let dbPromise = null;
+
 export function initOfflineDB() {
-  return new Promise((resolve, reject) => {
+  if (dbPromise) return dbPromise;
+
+  dbPromise = new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
     request.onupgradeneeded = (event) => {
@@ -18,13 +22,24 @@ export function initOfflineDB() {
     };
 
     request.onsuccess = (event) => {
-      resolve(event.target.result);
+      const db = event.target.result;
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      db.onclose = () => {
+        dbPromise = null;
+      };
+      resolve(db);
     };
 
     request.onerror = (event) => {
+      dbPromise = null;
       reject(event.target.error);
     };
   });
+
+  return dbPromise;
 }
 
 export function saveOfflineAttachment(optimisticId, blob) {

@@ -32,6 +32,13 @@ function createWindow() {
 
   mainWindow.webContents.session.setPermissionRequestHandler((webContents, permission, callback) => {
     console.log(`Permission request: ${permission}`);
+    const url = webContents.getURL();
+    const isAppUrl = url.startsWith('file://') || url.startsWith('http://localhost');
+    if (!isAppUrl) {
+      console.warn('Denied permission for external URL:', url);
+      return callback(false);
+    }
+    
     if (['media', 'display-capture', 'notifications', 'audioCapture', 'videoCapture'].includes(permission)) {
       callback(true);
     } else {
