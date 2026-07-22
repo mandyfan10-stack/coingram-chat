@@ -176,21 +176,76 @@ export const dataService = {
   // 4. Chat Management
   fetchChats: async (userId) => {
     if (isSupabaseConfigured) {
-      const { data: memberships, error: memberErr } = await supabase
+      // 1. Query all chats accessible via Supabase RLS (includes member chats + public channels/groups)
+      let { data: rawChats, error: chatErr } = await supabase
+        .from('chats')
+        .select('*');
+
+      if (chatErr) throw chatErr;
+      if (!rawChats) rawChats = [];
+
+      // 2. Ensure "Избранное" (Saved Messages) exists for userId in Supabase
+      const hasSaved = rawChats.some(c => c.name === 'Избранное' && (c.created_by === userId || c.type === 'personal'));
+      if (!hasSaved) {
+        try {
+          const { data: newSaved } = await supabase
+            .from('chats')
+            .insert({
+              name: 'Избранное',
+              type: 'personal',
+              avatar: '🔖',
+              avatar_color: 'linear-gradient(135deg, #3a7bd5 0%, #3a6073 100%)',
+              created_by: userId
+            })
+            .select()
+            .single();
+
+          if (newSaved) {
+            await supabase.from('chat_members').insert({
+              chat_id: newSaved.id,
+              profile_id: userId,
+              role: 'owner'
+            });
+            await supabase.from('messages').insert({
+              chat_id: newSaved.id,
+              sender_id: userId,
+              text: 'Добро пожаловать в Избранное! 🔖 Сохраняйте здесь нужные сообщения и файлы.'
+            });
+            rawChats.unshift(newSaved);
+          }
+        } catch (e) {
+          console.warn("Failed to auto-create Saved Messages:", e);
+        }
+      }
+
+      // 3. Fetch user memberships
+      let { data: memberships } = await supabase
         .from('chat_members')
         .select('chat_id, notifications, pinned')
         .eq('profile_id', userId);
 
-      if (memberErr) throw memberErr;
-      if (!memberships || memberships.length === 0) return [];
+      const memberChatIds = new Set((memberships || []).map(m => m.chat_id));
 
-      const chatIds = memberships.map(m => m.chat_id);
-      const { data: chatList, error: chatErr } = await supabase
-        .from('chats')
-        .select('*')
-        .in('id', chatIds);
+      // 4. Auto-join user to public channels/groups if not already in chat_members
+      for (const chat of rawChats) {
+        if (!memberChatIds.has(chat.id) && (chat.type === 'channel' || chat.type === 'group')) {
+          try {
+            await supabase.from('chat_members').insert({
+              chat_id: chat.id,
+              profile_id: userId,
+              role: 'member'
+            });
+            memberChatIds.add(chat.id);
+          } catch (e) {
+            console.warn("Failed to auto-join public chat:", e);
+          }
+        }
+      }
 
-      if (chatErr) throw chatErr;
+      const chatList = rawChats;
+      const chatIds = chatList.map(c => c.id);
+
+      if (chatIds.length === 0) return [];
 
       // Fetch all members for these chats in one query
       const { data: allMembersRaw } = await supabase
@@ -217,7 +272,7 @@ export const dataService = {
 
       return (chatList || []).map((chat) => {
         const membersRaw = (allMembersRaw || []).filter(m => m.chat_id === chat.id);
-        const membership = memberships.find(m => m.chat_id === chat.id);
+        const membership = (memberships || []).find(m => m.chat_id === chat.id);
 
         const formattedMembers = membersRaw.map(m => ({
           id: m.profile_id,
