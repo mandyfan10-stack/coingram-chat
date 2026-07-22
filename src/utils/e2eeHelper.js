@@ -275,7 +275,7 @@ export async function encryptFile(fileBlob, aesKey) {
 }
 
 // 11. Decrypt File Blob using AES-GCM Key
-export async function decryptFile(encryptedBlob, aesKey) {
+export async function decryptFile(encryptedBlob, aesKey, outputType = '') {
   const arrayBuffer = await encryptedBlob.arrayBuffer();
   const iv = new Uint8Array(arrayBuffer, 0, 12);
   const ciphertext = new Uint8Array(arrayBuffer, 12);
@@ -284,6 +284,6 @@ export async function decryptFile(encryptedBlob, aesKey) {
     aesKey,
     ciphertext
   );
-  return new Blob([decryptedContent]);
+  return new Blob([decryptedContent], outputType ? { type: outputType } : undefined);
 }
 

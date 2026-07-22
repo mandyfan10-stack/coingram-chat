@@ -80,7 +80,8 @@ async function runTests() {
     const encryptedFileBlob = await encryptFile(simulatedFile, aliceSharedKey);
     assert(encryptedFileBlob && encryptedFileBlob.size > simulatedFile.size, "File encrypted successfully (ciphertext size is larger due to IV)");
     
-    const decryptedFileBlob = await decryptFile(encryptedFileBlob, bobSharedKey);
+    const decryptedFileBlob = await decryptFile(encryptedFileBlob, bobSharedKey, simulatedFile.type);
+    assert(decryptedFileBlob.type === simulatedFile.type, "Decrypted file restores its media type");
     const decryptedArrayBuffer = await decryptedFileBlob.arrayBuffer();
     const decryptedBytes = new Uint8Array(decryptedArrayBuffer);
     

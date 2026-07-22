@@ -719,11 +719,13 @@ export const dataService = {
   markMessagesAsRead: async (chatId, userId) => {
     if (isSupabaseConfigured) {
       // 1. Fetch unread messages in the chat not sent by current user
-      const { data: unreadMsgs } = await supabase
+      const { data: unreadMsgs, error: messagesError } = await supabase
         .from('messages')
         .select('id')
         .eq('chat_id', chatId)
         .neq('sender_id', userId);
+
+      if (messagesError) throw messagesError;
 
       if (unreadMsgs && unreadMsgs.length > 0) {
         const readRows = unreadMsgs.map(m => ({
@@ -731,10 +733,15 @@ export const dataService = {
           profile_id: userId
         }));
 
-        // Insert into message_reads ignoring duplicates
-        await supabase
+        // Upsert makes repeated read receipts idempotent and avoids 409 conflicts.
+        const { error: readsError } = await supabase
           .from('message_reads')
-          .insert(readRows);
+          .upsert(readRows, {
+            onConflict: 'message_id,profile_id',
+            ignoreDuplicates: true
+          });
+
+        if (readsError) throw readsError;
       }
     }
   },

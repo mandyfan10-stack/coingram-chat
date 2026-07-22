@@ -1,3 +1,22 @@
+.bubble-media-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 96px;
+  padding: 16px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.12);
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: center;
+}
+
+.bubble-media-error-compact {
+  min-height: 0;
+  padding: 8px 12px;
+  border-radius: 16px;
+}
+
 /* --- Wallpaper Configs --- */
 [data-wallpaper="classic"] .chat-body {
   background-color: #0b141a;
