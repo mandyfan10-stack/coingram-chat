@@ -252,6 +252,20 @@ function DecryptedVoicePlayer({ mediaUrl, chatId }) {
   return <VoiceMessagePlayer audioUrl={url} />;
 }
 
+function DecryptedSticker({ mediaUrl, chatId }) {
+  const { url, loading, error } = useDecryptedAttachment(mediaUrl, chatId);
+  if (loading) {
+    return (
+      <div
+        className="bubble-media-loading"
+        style={{ width: '130px', height: '130px', borderRadius: '12px' }}
+      />
+    );
+  }
+  if (error || !url) return <AttachmentUnavailable />;
+  return <StickerMessage mediaUrl={url} sourceUrl={mediaUrl} />;
+}
+
 function VoiceMessagePlayer({ audioUrl, duration }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -1377,7 +1391,7 @@ export default function ChatArea() {
 
                   {isSticker ? (
                     <div style={{ position: 'relative', display: 'inline-block' }}>
-                      <StickerMessage mediaUrl={msg.media} />
+                      <DecryptedSticker mediaUrl={msg.media} chatId={activeChat.id} />
                       <div className="bubble-metadata sticker-metadata" style={{
                         position: 'absolute',
                         bottom: '4px',

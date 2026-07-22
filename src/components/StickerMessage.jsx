@@ -26,13 +26,13 @@ const loadLottie = () => {
   });
 };
 
-export default function StickerMessage({ mediaUrl }) {
+export default function StickerMessage({ mediaUrl, sourceUrl = mediaUrl }) {
   const containerRef = useRef(null);
   const [error, setError] = useState(false);
 
   // Parse file extension to identify format
-  const isLottie = mediaUrl && (mediaUrl.endsWith('.json') || mediaUrl.includes('.json?'));
-  const isVideo = mediaUrl && (mediaUrl.endsWith('.webm') || mediaUrl.includes('.webm?'));
+  const isLottie = sourceUrl && (sourceUrl.endsWith('.json') || sourceUrl.includes('.json?'));
+  const isVideo = sourceUrl && (sourceUrl.endsWith('.webm') || sourceUrl.includes('.webm?'));
 
   useEffect(() => {
     if (!isLottie || !containerRef.current) return;

@@ -6,6 +6,7 @@ import { dataService } from '../services/dataLayer';
 import { importPublicKey, deriveSymmetricKey, encryptMessage, decryptMessage, encryptFile, decryptFile } from '../utils/e2eeHelper';
 import { getOfflineAttachment, deleteOfflineAttachment, saveOfflineAttachment } from '../utils/indexedDbHelper';
 import { Users, Megaphone, Bookmark, User, Bot, CloudSun, Brain, Zap } from 'lucide-react';
+import PrivateStorageImage from '../components/PrivateStorageImage';
 
 const ChatContext = createContext();
 
@@ -1426,10 +1427,11 @@ export const ChatProvider = ({ children }) => {
     const isUrl = avatar && (avatar.startsWith('http') || avatar.startsWith('data:image'));
     if (isUrl) {
       return (
-        <img 
-          src={avatar} 
-          alt="avatar" 
-          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', display: 'block' }} 
+        <PrivateStorageImage
+          src={avatar}
+          alt="avatar"
+          fallback={fallback}
+          style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', display: 'block' }}
         />
       );
     }
