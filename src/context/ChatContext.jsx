@@ -3,7 +3,14 @@ import { useAuth } from './AuthContext';
 import { useE2EE } from './E2EEContext';
 import { supabase } from '../supabaseClient';
 import { dataService } from '../services/dataLayer';
-import { importPublicKey, deriveSymmetricKey, encryptMessage, decryptMessage, encryptFile, decryptFile } from '../utils/e2eeHelper';
+import {
+  importPublicKey,
+  deriveSymmetricKey,
+  encryptMessage,
+  decryptMessage,
+  encryptFileForE2EE,
+  requireE2EEKey
+} from '../utils/e2eeHelper';
 import { getOfflineAttachment, deleteOfflineAttachment, saveOfflineAttachment } from '../utils/indexedDbHelper';
 import { Users, Megaphone, Bookmark, User, Bot, CloudSun, Brain, Zap } from 'lucide-react';
 import PrivateStorageImage from '../components/PrivateStorageImage';
@@ -257,25 +264,32 @@ export const ChatProvider = ({ children }) => {
     for (const item of queueToProcess) {
       try {
         let finalMediaUrl = item.media;
+        const chat = chats.find(c => c.id === item.chatId);
+        const requiresE2EE = chat?.type === 'personal' && chat.name !== 'Избранное';
+        const otherMember = requiresE2EE
+          ? chat.members?.find(m => m.id !== currentUser.id)
+          : null;
+        let sharedKey = requiresE2EE ? sharedKeysCacheRef.current[item.chatId] : null;
+
+        if (requiresE2EE && !sharedKey) {
+          if (!e2eePrivateKeyRef.current || !otherMember?.publicKey) {
+            requireE2EEKey(null);
+          }
+          const otherPublicKeyObj = await importPublicKey(otherMember.publicKey);
+          sharedKey = await deriveSymmetricKey(e2eePrivateKeyRef.current, otherPublicKeyObj);
+          setSharedKeysCache(prev => ({ ...prev, [chat.id]: sharedKey }));
+        }
 
         if (item.hasOfflineMedia) {
           const blob = await getOfflineAttachment(item.optimisticId);
           if (!blob) throw new Error("Файл вложения не найден в локальном хранилище.");
 
           const fileExt = item.mediaType === 'audio' ? 'webm' : (item.mediaType === 'video' ? 'webm' : 'png');
-          const fileName = `${crypto.randomUUID()}.${fileExt}`;
-          const filePath = `${item.chatId}/${item.senderId}/${fileName}`;
-
-          // Encrypt file blob before upload if in E2EE chat
-          const chat = chats.find(c => c.id === item.chatId);
-          let blobToUpload = blob;
-          let sharedKey = sharedKeysCacheRef.current[item.chatId];
-          
-          if (chat && chat.type === 'personal') {
-            if (sharedKey) {
-              blobToUpload = await encryptFile(blob, sharedKey);
-            }
-          }
+          const fileName = crypto.randomUUID() + '.' + fileExt;
+          const filePath = item.chatId + '/' + item.senderId + '/' + fileName;
+          const blobToUpload = requiresE2EE
+            ? await encryptFileForE2EE(blob, sharedKey)
+            : blob;
 
           const { error: uploadError } = await supabase.storage
             .from('chat-attachments')
@@ -289,31 +303,18 @@ export const ChatProvider = ({ children }) => {
           await deleteOfflineAttachment(item.optimisticId);
         }
 
-        const chat = chats.find(c => c.id === item.chatId);
         let textToSend = item.text;
         let mediaToSend = finalMediaUrl;
 
-        if (chat && chat.type === 'personal') {
-          const otherMember = chat.members?.find(m => m.id !== currentUser.id);
-          let sharedKey = sharedKeysCacheRef.current[chat.id];
-          if (!sharedKey && e2eePrivateKeyRef.current && otherMember?.publicKey) {
-            try {
-              const otherPublicKeyObj = await importPublicKey(otherMember.publicKey);
-              sharedKey = await deriveSymmetricKey(e2eePrivateKeyRef.current, otherPublicKeyObj);
-              setSharedKeysCache(prev => ({ ...prev, [chat.id]: sharedKey }));
-            } catch (err) {
-              console.error("Failed to derive key in sync:", err);
-            }
+        if (requiresE2EE) {
+          requireE2EEKey(sharedKey);
+          if (item.text) {
+            const encryptedText = await encryptMessage(item.text, sharedKey);
+            textToSend = 'e2ee:aes-gcm:' + encryptedText.ciphertext + ':' + encryptedText.iv;
           }
-          if (sharedKey) {
-            if (item.text) {
-              const encryptedText = await encryptMessage(item.text, sharedKey);
-              textToSend = `e2ee:aes-gcm:${encryptedText.ciphertext}:${encryptedText.iv}`;
-            }
-            if (finalMediaUrl) {
-              const encryptedMedia = await encryptMessage(finalMediaUrl, sharedKey);
-              mediaToSend = `e2ee:aes-gcm:${encryptedMedia.ciphertext}:${encryptedMedia.iv}`;
-            }
+          if (finalMediaUrl) {
+            const encryptedMedia = await encryptMessage(finalMediaUrl, sharedKey);
+            mediaToSend = 'e2ee:aes-gcm:' + encryptedMedia.ciphertext + ':' + encryptedMedia.iv;
           }
         }
 
@@ -1217,27 +1218,28 @@ export const ChatProvider = ({ children }) => {
         let textToSend = text;
         let mediaToSend = media;
 
-        if (activeChat?.type === 'personal') {
+        const requiresE2EE = activeChat?.type === 'personal' && activeChat.name !== 'Избранное';
+        if (requiresE2EE) {
           const otherMember = activeChat.members?.find(m => m.id !== currentUser.id);
           let sharedKey = sharedKeysCacheRef.current[activeChatId];
-          if (!sharedKey && e2eePrivateKeyRef.current && otherMember?.publicKey) {
-            try {
-              const otherPublicKeyObj = await importPublicKey(otherMember.publicKey);
-              sharedKey = await deriveSymmetricKey(e2eePrivateKeyRef.current, otherPublicKeyObj);
-              setSharedKeysCache(prev => ({ ...prev, [activeChatId]: sharedKey }));
-            } catch (err) {
-              console.error(err);
+
+          if (!sharedKey) {
+            if (!e2eePrivateKeyRef.current || !otherMember?.publicKey) {
+              requireE2EEKey(null);
             }
+            const otherPublicKeyObj = await importPublicKey(otherMember.publicKey);
+            sharedKey = await deriveSymmetricKey(e2eePrivateKeyRef.current, otherPublicKeyObj);
+            setSharedKeysCache(prev => ({ ...prev, [activeChatId]: sharedKey }));
           }
-          if (sharedKey) {
-            if (text) {
-              const encryptedText = await encryptMessage(text, sharedKey);
-              textToSend = `e2ee:aes-gcm:${encryptedText.ciphertext}:${encryptedText.iv}`;
-            }
-            if (media) {
-              const encryptedMedia = await encryptMessage(media, sharedKey);
-              mediaToSend = `e2ee:aes-gcm:${encryptedMedia.ciphertext}:${encryptedMedia.iv}`;
-            }
+
+          requireE2EEKey(sharedKey);
+          if (text) {
+            const encryptedText = await encryptMessage(text, sharedKey);
+            textToSend = 'e2ee:aes-gcm:' + encryptedText.ciphertext + ':' + encryptedText.iv;
+          }
+          if (media) {
+            const encryptedMedia = await encryptMessage(media, sharedKey);
+            mediaToSend = 'e2ee:aes-gcm:' + encryptedMedia.ciphertext + ':' + encryptedMedia.iv;
           }
         }
 

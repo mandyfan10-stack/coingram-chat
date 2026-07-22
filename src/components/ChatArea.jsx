@@ -82,7 +82,13 @@ function renderMessageTextWithLinks(text) {
 
 import { useAuth } from '../context/AuthContext';
 import { useE2EE } from '../context/E2EEContext';
-import { encryptFile, decryptFile } from '../utils/e2eeHelper';
+import {
+  importPublicKey,
+  deriveSymmetricKey,
+  encryptFileForE2EE,
+  requireE2EEKey,
+  decryptFile
+} from '../utils/e2eeHelper';
 
 function getAttachmentMimeType(mediaUrl, fallbackMimeType) {
   const extension = mediaUrl?.split('?')[0].split('.').pop()?.toLowerCase();
@@ -533,7 +539,7 @@ export default function ChatArea() {
   } = useChat();
 
   const { currentUser } = useAuth();
-  const { sharedKeysCache } = useE2EE();
+  const { sharedKeysCache, setSharedKeysCache, e2eePrivateKey } = useE2EE();
 
   const isOwner = activeChat && currentUser && (
     activeChat.createdBy === currentUser.id ||
@@ -553,7 +559,25 @@ export default function ChatArea() {
   const otherMember = activeChat?.type === 'personal'
     ? activeChat.members?.find(m => m.id !== currentUser?.id)
     : null;
-  const recipientMissingE2EE = activeChat?.type === 'personal' && otherMember && !otherMember.hasE2ee;
+  const requiresE2EE = activeChat?.type === 'personal' && activeChat.name !== 'Избранное';
+  const recipientMissingE2EE = requiresE2EE && (!otherMember || !otherMember.hasE2ee);
+
+  const resolveSharedKeyForUpload = async () => {
+    if (!requiresE2EE) return null;
+
+    let sharedKey = sharedKeysCache[activeChat.id];
+    if (!sharedKey && e2eePrivateKey && otherMember?.publicKey) {
+      try {
+        const publicKey = await importPublicKey(otherMember.publicKey);
+        sharedKey = await deriveSymmetricKey(e2eePrivateKey, publicKey);
+        setSharedKeysCache(previous => ({ ...previous, [activeChat.id]: sharedKey }));
+      } catch (cause) {
+        throw new Error('Не удалось подготовить ключ шифрования. Файл не был загружен.', { cause });
+      }
+    }
+
+    return requireE2EEKey(sharedKey);
+  };
 
   const isCustomWallpaper = wallpaper && !['classic', 'sunset', 'space', 'mint', 'cyber'].includes(wallpaper);
   const chatBodyStyle = isCustomWallpaper ? {
@@ -632,16 +656,10 @@ export default function ChatArea() {
         const fileName = `${crypto.randomUUID()}.${fileExt}`;
         const filePath = `${activeChat.id}/${currentUser.id}/${fileName}`;
 
-        // Encrypt file blob before upload if in E2EE chat
-        let blobToUpload = file;
-        const sharedKey = activeChat?.type === 'personal' ? sharedKeysCache[activeChat.id] : null;
-        if (sharedKey) {
-          try {
-            blobToUpload = await encryptFile(file, sharedKey);
-          } catch (cryptErr) {
-            console.error("Failed to encrypt attachment before upload:", cryptErr);
-          }
-        }
+        // E2EE chats must never fall back to uploading plaintext.
+        const blobToUpload = requiresE2EE
+          ? await encryptFileForE2EE(file, await resolveSharedKeyForUpload())
+          : file;
 
         const { error } = await supabase.storage
           .from('chat-attachments')
@@ -1026,16 +1044,10 @@ export default function ChatArea() {
         const fileName = `record_${crypto.randomUUID()}.${fileExt}`;
         const filePath = `${activeChat.id}/${currentUser.id}/${fileName}`;
 
-        // Encrypt record blob before upload if in E2EE chat
-        let blobToUpload = blob;
-        const sharedKey = activeChat?.type === 'personal' ? sharedKeysCache[activeChat.id] : null;
-        if (sharedKey) {
-          try {
-            blobToUpload = await encryptFile(blob, sharedKey);
-          } catch (cryptErr) {
-            console.error("Failed to encrypt recording before upload:", cryptErr);
-          }
-        }
+        // E2EE chats must never fall back to uploading plaintext.
+        const blobToUpload = requiresE2EE
+          ? await encryptFileForE2EE(blob, await resolveSharedKeyForUpload())
+          : blob;
 
         const { error } = await supabase.storage
           .from('chat-attachments')

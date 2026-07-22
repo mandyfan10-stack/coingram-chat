@@ -274,6 +274,26 @@ export async function encryptFile(fileBlob, aesKey) {
   return new Blob([resultBuffer], { type: 'application/octet-stream' });
 }
 
+export function requireE2EEKey(aesKey) {
+  if (!aesKey) {
+    const error = new Error('Ключ сквозного шифрования недоступен. Повторите попытку после синхронизации ключей.');
+    error.code = 'E2EE_KEY_UNAVAILABLE';
+    throw error;
+  }
+  return aesKey;
+}
+
+export async function encryptFileForE2EE(fileBlob, aesKey) {
+  try {
+    return await encryptFile(fileBlob, requireE2EEKey(aesKey));
+  } catch (cause) {
+    if (cause?.code === 'E2EE_KEY_UNAVAILABLE') throw cause;
+    const error = new Error('Не удалось зашифровать вложение. Файл не был загружен.', { cause });
+    error.code = 'E2EE_ENCRYPTION_FAILED';
+    throw error;
+  }
+}
+
 // 11. Decrypt File Blob using AES-GCM Key
 export async function decryptFile(encryptedBlob, aesKey, outputType = '') {
   const arrayBuffer = await encryptedBlob.arrayBuffer();

@@ -4296,3 +4296,75 @@ body {
   25% { transform: translateX(-4px); }
   75% { transform: translateX(4px); }
 }
+.app-error-boundary {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--text-primary, #eef4fb);
+  background: var(--bg-primary, #0c1722);
+}
+
+.app-error-card {
+  width: min(440px, 100%);
+  padding: 32px;
+  text-align: center;
+  border: 1px solid var(--border-color, #294158);
+  border-radius: 18px;
+  background: var(--bg-secondary, #152534);
+  box-shadow: 0 20px 60px rgb(0 0 0 / 30%);
+}
+
+.app-error-card h1 {
+  margin: 16px 0 8px;
+  font-size: 24px;
+}
+
+.app-error-card p {
+  margin: 0;
+  color: var(--text-secondary, #91a9bd);
+  line-height: 1.5;
+}
+
+.app-error-icon {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  margin: 0 auto;
+  color: #fff;
+  font-size: 28px;
+  font-weight: 700;
+  border-radius: 50%;
+  background: #d94c59;
+}
+
+.app-error-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.app-error-actions button {
+  padding: 10px 16px;
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent-color, #2f8fd7);
+}
+
+.app-error-actions button.secondary {
+  color: var(--text-primary, #eef4fb);
+  border: 1px solid var(--border-color, #294158);
+  background: transparent;
+}
+
+@media (max-width: 520px) {
+  .app-error-actions {
+    flex-direction: column;
+  }
+}

@@ -7,7 +7,9 @@ import {
   deriveSymmetricKey, 
   encryptMessage, 
   decryptMessage, 
-  encryptFile, 
+  encryptFile,
+  encryptFileForE2EE,
+  requireE2EEKey,
   decryptFile 
 } from './src/utils/e2eeHelper.js';
 
@@ -79,6 +81,18 @@ async function runTests() {
     
     const encryptedFileBlob = await encryptFile(simulatedFile, aliceSharedKey);
     assert(encryptedFileBlob && encryptedFileBlob.size > simulatedFile.size, "File encrypted successfully (ciphertext size is larger due to IV)");
+
+    let missingKeyWasBlocked = false;
+    try {
+      await encryptFileForE2EE(simulatedFile, null);
+    } catch (error) {
+      missingKeyWasBlocked = error.code === 'E2EE_KEY_UNAVAILABLE';
+    }
+    assert(missingKeyWasBlocked, "E2EE file upload is blocked when the shared key is unavailable");
+    assert(requireE2EEKey(aliceSharedKey) === aliceSharedKey, "Available E2EE key passes the upload guard");
+
+    const guardedEncryptedBlob = await encryptFileForE2EE(simulatedFile, aliceSharedKey);
+    assert(guardedEncryptedBlob.type === 'application/octet-stream', "E2EE upload guard encrypts files with the shared key");
     
     const decryptedFileBlob = await decryptFile(encryptedFileBlob, bobSharedKey, simulatedFile.type);
     assert(decryptedFileBlob.type === simulatedFile.type, "Decrypted file restores its media type");
