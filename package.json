@@ -1,7 +1,7 @@
 {
   "name": "coingram-chat",
   "private": true,
-  "version": "1.20.5",
+  "version": "1.20.6",
   "type": "module",
   "main": "electron-main.cjs",
   "scripts": {
@@ -9,6 +9,7 @@
     "build": "vite build",
     "test": "node testE2EE.js",
     "lint": "oxlint",
+    "release:verify": "node scripts/verify-release-version.mjs",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -t -d dist",

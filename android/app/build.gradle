@@ -1,14 +1,60 @@
+import groovy.json.JsonSlurper
+import java.util.Properties
+
 apply plugin: 'com.android.application'
+
+def packageJsonFile = rootProject.file('../package.json')
+def packageVersion = new JsonSlurper().parse(packageJsonFile).version.toString()
+def versionParts = packageVersion.tokenize('.')
+if (versionParts.size() != 3 || !versionParts.every { it.isInteger() }) {
+    throw new GradleException("package.json version must use major.minor.patch format: ${packageVersion}")
+}
+
+def appVersionCode = versionParts[0].toInteger() * 1_000_000 +
+        versionParts[1].toInteger() * 1_000 +
+        versionParts[2].toInteger()
+
+def signingPropertiesFile = rootProject.file('keystores/signing.properties')
+def signingProperties = new Properties()
+if (signingPropertiesFile.exists()) {
+    signingPropertiesFile.withInputStream { signingProperties.load(it) }
+}
+
+def releaseKeystorePath = System.getenv('ANDROID_KEYSTORE_PATH') ?: signingProperties.getProperty('storeFile')
+def releaseStorePassword = System.getenv('ANDROID_KEYSTORE_PASSWORD') ?: signingProperties.getProperty('storePassword')
+def releaseKeyAlias = System.getenv('ANDROID_KEY_ALIAS') ?: signingProperties.getProperty('keyAlias')
+def releaseKeyPassword = System.getenv('ANDROID_KEY_PASSWORD') ?: signingProperties.getProperty('keyPassword')
+def releaseKeystoreFile = releaseKeystorePath ? new File(releaseKeystorePath) : null
+
+if (releaseKeystoreFile != null && !releaseKeystoreFile.isAbsolute()) {
+    releaseKeystoreFile = new File(signingPropertiesFile.parentFile, releaseKeystorePath)
+}
+
+def hasReleaseSigning = releaseKeystoreFile != null &&
+        releaseStorePassword && releaseKeyAlias && releaseKeyPassword
+
+def releaseBuildRequested = gradle.startParameter.taskNames.any {
+    it.toLowerCase().contains('release')
+}
+
+if (releaseBuildRequested && !hasReleaseSigning) {
+    throw new GradleException('Release signing is required. Configure android/keystores/signing.properties or Android signing environment variables.')
+}
+
+if (hasReleaseSigning && !releaseKeystoreFile.exists()) {
+    throw new GradleException("Android release keystore not found: ${releaseKeystoreFile}")
+}
 
 android {
     namespace = "com.coingram.chat"
     compileSdk = rootProject.ext.compileSdkVersion
+
     defaultConfig {
         applicationId "com.coingram.chat"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 21
-        versionName "1.20.5"
+        versionCode appVersionCode
+        versionName packageVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +62,24 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+
+    signingConfigs {
+        release {
+            if (hasReleaseSigning) {
+                storeFile releaseKeystoreFile
+                storePassword releaseStorePassword
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPassword
+                storeType 'PKCS12'
+            }
+        }
+    }
+
     buildTypes {
         release {
+            if (hasReleaseSigning) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

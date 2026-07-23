@@ -33,6 +33,9 @@ jdk21/
 # Built APKs
 *.apk
 
+# Android release signing secrets
+android/keystores/
+
 # Electron build artifacts
 dist-electron/
 

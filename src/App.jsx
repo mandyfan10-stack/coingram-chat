@@ -16,7 +16,7 @@ import CallOverlay from './components/CallOverlay';
 import E2EESetupModal from './components/E2EESetupModal';
 import { X } from 'lucide-react';
 
-const CURRENT_VERSION = import.meta.env.APP_VERSION || '1.20.5';
+const CURRENT_VERSION = import.meta.env.APP_VERSION || '1.20.6';
 
 function UpdateModal({ show, releaseInfo, onClose }) {
   if (!show || !releaseInfo) return null;
