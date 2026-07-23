@@ -1,7 +1,7 @@
 {
   "name": "coingram-chat",
   "private": true,
-  "version": "1.20.6",
+  "version": "1.20.7",
   "type": "module",
   "main": "electron-main.cjs",
   "scripts": {
@@ -16,7 +16,7 @@
     "cap:sync": "npx cap sync",
     "cap:open": "npx cap open android",
     "electron:dev": "electron .",
-    "electron:build": "npm run build && electron-builder --win"
+    "electron:build": "npm run build && electron-builder --win --publish never"
   },
   "dependencies": {
     "@capacitor/core": "^8.4.1",
