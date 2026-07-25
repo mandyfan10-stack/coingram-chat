@@ -120,16 +120,7 @@ export default function Sidebar() {
   const handleSelectGlobalUser = async (user) => {
     setSearchQuery('');
     setGlobalResults([]);
-    const targetUsername = (user.username || user.id || '').toLowerCase();
-    const existingChat = chats.find(c =>
-      c.type === 'personal' &&
-      c.members?.some(m => m.id === user.id || (m.username && m.username.toLowerCase() === targetUsername))
-    );
-    if (existingChat) {
-      setActiveChatId(existingChat.id);
-      return;
-    }
-    await createChat(user.username || user.id, 'personal');
+    await createChat(user.username, 'personal');
   };
 
   // Filter chats by folder and query

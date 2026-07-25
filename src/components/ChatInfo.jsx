@@ -218,15 +218,14 @@ export default function ChatInfo() {
     );
   }
 
-  const handleMemberClick = async (member) => {
+  const handleMemberClick = (member) => {
     const isMemberMe = member.id === 'current' || member.id === currentUser?.id;
     if (isOwner && !isMemberMe) {
       setActiveActionMemberId(prev => prev === member.id ? null : member.id);
-    } else if (!isMemberMe) {
-      setIsInfoOpen(false);
-      const targetIdentifier = member.username || member.name || member.id;
-      if (targetIdentifier) {
-        await createChat(targetIdentifier, 'personal');
+    } else {
+      if (member.id === 'current') return;
+      if (member.id === 'alice') {
+        setActiveChatId('chat-1'); // Alice's personal chat
       }
     }
   };

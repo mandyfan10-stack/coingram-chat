@@ -514,39 +514,18 @@ export const dataService = {
   createChat: async (userId, target, type, initialMembers = []) => {
     if (isSupabaseConfigured) {
       if (type === 'personal') {
-        const cleanTarget = String(target).trim().toLowerCase().replace('@', '');
+        const cleanTarget = target.trim().toLowerCase();
         const { data: profile, error } = await supabase
           .from('profiles')
           .select('*')
-          .or(`username.eq.${cleanTarget},id.eq.${cleanTarget}`)
-          .maybeSingle();
+          .eq('username', cleanTarget)
+          .single();
 
         if (error || !profile) {
           throw new Error(`Пользователь с никнеймом "${target}" не найден.`);
         }
         if (profile.id === userId) {
           throw new Error("Вы не можете создать чат с самим собой.");
-        }
-
-        // Check if a personal chat between userId and profile.id ALREADY EXISTS!
-        const { data: myMemberships } = await supabase
-          .from('chat_members')
-          .select('chat_id, chats!inner(id, name, type, avatar, avatar_color, created_by, created_at, settings)')
-          .eq('profile_id', userId)
-          .eq('chats.type', 'personal');
-
-        if (myMemberships && myMemberships.length > 0) {
-          const myChatIds = myMemberships.map(m => m.chat_id);
-          const { data: commonMember } = await supabase
-            .from('chat_members')
-            .select('chat_id, chats(*)')
-            .eq('profile_id', profile.id)
-            .in('chat_id', myChatIds)
-            .maybeSingle();
-
-          if (commonMember && commonMember.chats) {
-            return commonMember.chats;
-          }
         }
 
         const { data: newChat, error: chatErr } = await supabase

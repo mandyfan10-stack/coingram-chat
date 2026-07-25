@@ -159,7 +159,7 @@ export const formatLastSeen = (lastSeenStr, isOnline) => {
 };
 
 export const ChatProvider = ({ children }) => {
-  const { currentUser, updateProfile, logOut } = useAuth();
+  const { currentUser } = useAuth();
   const { e2eePrivateKey, sharedKeysCache, setSharedKeysCache } = useE2EE();
 
   const [chats, setChats] = useState([]);
@@ -1145,28 +1145,10 @@ export const ChatProvider = ({ children }) => {
   const createChat = useCallback(async (target, type = 'personal', initialMembers = []) => {
     if (!currentUser) return null;
     try {
-      if (type === 'personal') {
-        const cleanTarget = String(target).trim().toLowerCase().replace('@', '');
-        const existingLocal = chats.find(c =>
-          c.type === 'personal' &&
-          c.members?.some(m => m.id !== currentUser.id && (
-            m.id === target ||
-            (m.username && m.username.toLowerCase() === cleanTarget)
-          ))
-        );
-        if (existingLocal) {
-          setActiveChatId(existingLocal.id);
-          return existingLocal;
-        }
-      }
-
       const newChat = await dataService.createChat(currentUser.id, target, type, initialMembers);
       if (newChat) {
         if (!dataService.isLive()) {
-          setChats(prev => {
-            const exists = prev.some(c => c.id === newChat.id);
-            return exists ? prev : [newChat, ...prev];
-          });
+          setChats(prev => [newChat, ...prev]);
         } else {
           await fetchChats();
         }
@@ -1175,11 +1157,10 @@ export const ChatProvider = ({ children }) => {
       }
       return null;
     } catch (e) {
-      console.error("Create chat error:", e);
-      alert(e.message || "Не удалось открыть или создать чат.");
+      alert(e.message);
       return null;
     }
-  }, [currentUser, chats, fetchChats]);
+  }, [currentUser, fetchChats]);
 
   const deleteChat = useCallback(async (chatId) => {
     if (!currentUser || !chatId) return false;
@@ -1598,8 +1579,6 @@ export const ChatProvider = ({ children }) => {
       getChatStatus,
       onlineUsers,
       currentUser,
-      updateProfile,
-      logOut,
       chats,
       activeChatId,
       setActiveChatId,
