@@ -11,7 +11,7 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true
     },
-    title: "CoinGram"
+    title: "Coiny"
   });
 
   // Enable WebRTC screen sharing and media permissions handler

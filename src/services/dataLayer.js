@@ -93,7 +93,7 @@ export const dataService = {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, username, display_name, bio, avatar_color, theme, wallpaper, avatar, public_key, has_e2ee')
         .eq('id', userId)
         .single();
       if (error) throw error;
@@ -106,16 +106,21 @@ export const dataService = {
 
   updateProfile: async (userId, fields) => {
     if (isSupabaseConfigured) {
+      const payload = {
+        display_name: fields.name,
+        bio: fields.bio,
+        avatar_color: fields.avatarColor,
+        theme: fields.theme,
+        wallpaper: fields.wallpaper,
+        avatar: fields.avatar,
+        public_key: fields.public_key ?? fields.publicKey,
+        has_e2ee: fields.has_e2ee ?? fields.hasE2EE
+      };
+      Object.keys(payload).forEach((key) => payload[key] === undefined && delete payload[key]);
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          display_name: fields.name,
-          bio: fields.bio,
-          avatar_color: fields.avatarColor,
-          theme: fields.theme,
-          wallpaper: fields.wallpaper,
-          avatar: fields.avatar
-        })
+        .update(payload)
         .eq('id', userId);
       if (error) throw error;
     } else {
@@ -403,24 +408,24 @@ export const dataService = {
             messages: []
           },
           {
-            id: 'mock-coingram-news',
-            name: 'CoinGram News 🚀',
+            id: 'mock-coiny-news',
+            name: 'Coiny News 🚀',
             type: 'channel',
             avatar: '🚀',
             avatarColor: 'linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)',
             bio: 'Официальные новости.',
-            username: 'coingram_news',
+            username: 'coiny_news',
             createdBy: 'system',
             pinned: false,
             notifications: true,
             members: [],
             settings: { only_admins_can_post: true, allow_media: true, allow_add_members: true, allow_pin_messages: true },
             lastSeen: null,
-            messages: [{ id: 'msg-news-1', senderId: 'system', senderName: 'CoinGram News 🚀', text: 'Добро пожаловать в CoinGram!', timestamp: new Date().toISOString(), read: true, reactions: [] }]
+            messages: [{ id: 'msg-news-1', senderId: 'system', senderName: 'Coiny News 🚀', text: 'Добро пожаловать в Coiny!', timestamp: new Date().toISOString(), read: true, reactions: [] }]
           },
           {
-            id: 'mock-coingram-community',
-            name: 'CoinGram Community 👥',
+            id: 'mock-coiny-community',
+            name: 'Coiny Community 👥',
             type: 'group',
             avatar: '👥',
             avatarColor: 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
@@ -842,9 +847,9 @@ export const dataService = {
           {
             id: 'demo-story-1',
             user_id: 'system',
-            profiles: { display_name: 'Команда CoinGram', avatar: '📢', avatar_color: '#3b82f6' },
+            profiles: { display_name: 'Команда Coiny', avatar: '📢', avatar_color: '#3b82f6' },
             media: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=2564&auto=format&fit=crop',
-            caption: 'Обновление CoinGram 1.20.0! 🚀',
+            caption: 'Обновление Coiny 1.20.0! 🚀',
             created_at: new Date(Date.now() - 3600000).toISOString()
           },
           {

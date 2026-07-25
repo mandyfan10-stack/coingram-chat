@@ -199,7 +199,7 @@ function MainLayout() {
     return (
       <div className="auth-loading-screen">
         <div className="spinner-large"></div>
-        <p>Инициализация CoinGram...</p>
+        <p>Инициализация Coiny...</p>
       </div>
     );
   }
@@ -215,7 +215,7 @@ function MainLayout() {
       onTouchMove={handleGlobalTouchMove}
       onTouchEnd={handleGlobalTouchEnd}
     >
-      <h1 className="sr-only" style={{ display: 'none' }}>CoinGram</h1>
+      <h1 className="sr-only" style={{ display: 'none' }}>Coiny</h1>
       <Sidebar />
       <ChatArea />
       <ChatInfo />

@@ -11,7 +11,7 @@ export default class AppErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    console.error('CoinGram UI crashed:', error, info);
+    console.error('Coiny UI crashed:', error, info);
   }
 
   retry = () => {

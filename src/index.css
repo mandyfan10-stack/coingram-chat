@@ -282,22 +282,31 @@ body {
   overflow: hidden;
 }
 
+.story-avatar-initials img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
 .current-user-story .story-avatar-wrapper.plus-icon::after {
   content: '+';
   position: absolute;
-  bottom: -2px;
-  right: -2px;
-  width: 16px;
-  height: 16px;
-  background-color: var(--accent-color);
+  bottom: -1px;
+  right: -1px;
+  width: 18px;
+  height: 18px;
+  background-color: #0088cc;
   color: white;
   border-radius: 50%;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1.5px solid var(--bg-secondary);
+  border: 2px solid var(--bg-secondary);
+  z-index: 10;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
 }
 
 .story-username {
@@ -1756,16 +1765,24 @@ body {
 
   /* Refinements for Stories tray */
   .story-item {
-    width: 70px !important;
+    width: 74px !important;
     gap: 6px !important;
   }
   .story-username {
-    font-size: 11px !important;
+    font-size: 10.5px !important;
+    letter-spacing: -0.2px !important;
     text-align: center !important;
     width: 100% !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
+  }
+  .current-user-story .story-username {
+    font-size: 10.5px !important;
+    letter-spacing: -0.3px !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
   }
 
   /* Refinements for Folder Tabs and Header */

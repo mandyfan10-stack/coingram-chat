@@ -372,8 +372,8 @@ export default function MainMenuDrawer() {
         <div className="drawer-footer">
           <span className="drawer-app-title">
             {/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.Capacitor
-              ? 'CoinGram Mobile'
-              : 'CoinGram Desktop'}
+              ? 'Coiny Mobile'
+              : 'Coiny Desktop'}
           </span>
           <span className="drawer-version">
             Версия {import.meta.env.APP_VERSION || '1.20.0'} — О программе

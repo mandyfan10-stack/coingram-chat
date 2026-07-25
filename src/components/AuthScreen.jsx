@@ -85,7 +85,7 @@ export default function AuthScreen() {
                 <path d="M57 44C56 38 48 37 45 40C41 43 41 51 45 54C49 57 56 55 57 50H50" stroke="#17212b" strokeWidth="4.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h2>CoinGram</h2>
+            <h2>Coiny</h2>
             <p className="auth-subtitle">Премиальный Веб-Клиент</p>
           </div>
 

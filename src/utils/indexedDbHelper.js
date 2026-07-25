@@ -1,4 +1,4 @@
-const DB_NAME = 'CoinGramOfflineDB';
+const DB_NAME = 'CoinyOfflineDB';
 const DB_VERSION = 2;
 const STORE_NAME = 'offline-attachments';
 const KEY_STORE_NAME = 'e2ee-keys';

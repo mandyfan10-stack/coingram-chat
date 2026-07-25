@@ -12,6 +12,7 @@ import {
   requireE2EEKey
 } from '../utils/e2eeHelper';
 import { getOfflineAttachment, deleteOfflineAttachment, saveOfflineAttachment } from '../utils/indexedDbHelper';
+import { extensionForMedia } from '../utils/mediaValidation';
 import { Users, Megaphone, Bookmark, User, Bot, CloudSun, Brain, Zap } from 'lucide-react';
 import PrivateStorageImage from '../components/PrivateStorageImage';
 
@@ -189,6 +190,7 @@ export const ChatProvider = ({ children }) => {
   });
 
   const [typingStatuses, setTypingStatuses] = useState({});
+  const [messagePagination, setMessagePagination] = useState({});
   const typingChannelRef = useRef(null);
   const typingTimeoutsRef = useRef({});
   
@@ -284,8 +286,8 @@ export const ChatProvider = ({ children }) => {
           const blob = await getOfflineAttachment(item.optimisticId);
           if (!blob) throw new Error("Файл вложения не найден в локальном хранилище.");
 
-          const fileExt = item.mediaType === 'audio' ? 'webm' : (item.mediaType === 'video' ? 'webm' : 'png');
-          const fileName = crypto.randomUUID() + '.' + fileExt;
+          const fileExt = extensionForMedia(blob.type, item.mediaType);
+          const fileName = `msg_${item.optimisticId}.${fileExt}`;
           const filePath = item.chatId + '/' + item.senderId + '/' + fileName;
           const blobToUpload = requiresE2EE
             ? await encryptFileForE2EE(blob, sharedKey)
@@ -294,7 +296,7 @@ export const ChatProvider = ({ children }) => {
           const { error: uploadError } = await supabase.storage
             .from('chat-attachments')
             .upload(filePath, blobToUpload, {
-              contentType: blobToUpload.type || (item.mediaType === 'audio' ? 'audio/webm' : (item.mediaType === 'video' ? 'video/webm' : 'image/png'))
+              contentType: requiresE2EE ? 'application/octet-stream' : blob.type
             });
 
           if (uploadError) throw uploadError;
@@ -578,11 +580,75 @@ export const ChatProvider = ({ children }) => {
       }));
 
       setChats(prev => prev.map(c => c.id === chatId ? { ...c, messages: decryptedMsgs } : c));
+      setMessagePagination(prev => ({ ...prev, [chatId]: { loading: false, hasMore: msgs.length === 30 } }));
     } catch (e) {
       console.error(e);
     }
   }, [currentUser, setSharedKeysCache]);
 
+  const loadOlderMessages = useCallback(async (chatId) => {
+    const chat = chatsRef.current.find(c => c.id === chatId);
+    const pagination = messagePagination[chatId];
+    if (!chat || pagination?.loading || pagination?.hasMore === false || !chat.messages?.length) return 0;
+
+    setMessagePagination(prev => ({ ...prev, [chatId]: { ...prev[chatId], loading: true } }));
+    try {
+      const oldestTimestamp = chat.messages[0]?.timestamp;
+      const older = await dataService.loadChatMessages(chatId, 30, oldestTimestamp);
+      let sharedKey = chat.type === 'personal' ? sharedKeysCacheRef.current[chatId] : null;
+
+      if (chat.type === 'personal' && !sharedKey && e2eePrivateKeyRef.current) {
+        const otherMember = chat.members?.find(m => m.id !== currentUser.id);
+        if (otherMember?.publicKey) {
+          const otherPublicKeyObj = await importPublicKey(otherMember.publicKey);
+          sharedKey = await deriveSymmetricKey(e2eePrivateKeyRef.current, otherPublicKeyObj);
+          setSharedKeysCache(prev => ({ ...prev, [chatId]: sharedKey }));
+        }
+      }
+
+      const decrypted = await Promise.all(older.map(async (message) => {
+        let text = message.text;
+        let media = message.media;
+        let unlocked = true;
+        if (chat.type === 'personal' && message.text?.startsWith('e2ee:aes-gcm:')) {
+          if (!sharedKey) unlocked = false;
+          else {
+            try {
+              const [ciphertext, iv] = message.text.replace('e2ee:aes-gcm:', '').split(':');
+              text = await decryptMessage(ciphertext, iv, sharedKey);
+            } catch {
+              unlocked = false;
+            }
+          }
+          if (!unlocked) text = 'Зашифрованное сообщение';
+        }
+        if (chat.type === 'personal' && message.media?.startsWith('e2ee:aes-gcm:')) {
+          if (!sharedKey || !unlocked) media = null;
+          else {
+            try {
+              const [ciphertext, iv] = message.media.replace('e2ee:aes-gcm:', '').split(':');
+              media = await decryptMessage(ciphertext, iv, sharedKey);
+            } catch {
+              media = null;
+            }
+          }
+        }
+        return { ...message, text, media, isLocked: !unlocked };
+      }));
+
+      setChats(prev => prev.map(c => {
+        if (c.id !== chatId) return c;
+        const known = new Set(c.messages.map(message => message.id));
+        return { ...c, messages: [...decrypted.filter(message => !known.has(message.id)), ...c.messages] };
+      }));
+      setMessagePagination(prev => ({ ...prev, [chatId]: { loading: false, hasMore: older.length === 30 } }));
+      return decrypted.length;
+    } catch (error) {
+      console.error('Failed to load older messages', error);
+      setMessagePagination(prev => ({ ...prev, [chatId]: { ...prev[chatId], loading: false } }));
+      return 0;
+    }
+  }, [currentUser, messagePagination, setSharedKeysCache]);
   // Load chat messages when activeChatId changes
   useEffect(() => {
     if (activeChatId) {
@@ -1126,12 +1192,12 @@ export const ChatProvider = ({ children }) => {
     }
   }, []);
 
-  const sendMessage = useCallback(async (text, replyToId = null, media = null, offlineMediaBlob = null, offlineMediaType = null) => {
+  const sendMessage = useCallback(async (text, replyToId = null, media = null, offlineMediaBlob = null, offlineMediaType = null, customMessageId = null) => {
     if (!text.trim() && !media && !offlineMediaBlob) return;
     if (!currentUser || !activeChatId) return;
 
     // Generate exact UUID on client for perfect optimistic matching
-    const messageId = crypto.randomUUID();
+    const messageId = customMessageId || crypto.randomUUID();
 
     const optimisticMsg = {
       id: messageId,
@@ -1564,7 +1630,9 @@ export const ChatProvider = ({ children }) => {
       isOnline,
       retrySendMessage,
       deleteFailedMessage,
-      loadActiveChatMessages
+      loadActiveChatMessages,
+      loadOlderMessages,
+      messagePagination
     }}>
       {children}
     </ChatContext.Provider>

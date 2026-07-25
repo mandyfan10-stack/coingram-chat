@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node testE2EE.js",
+    "test": "node testE2EE.js && node --test tests/*.test.mjs",
+    "test:unit": "node --test tests/*.test.mjs",
     "lint": "oxlint",
     "release:verify": "node scripts/verify-release-version.mjs",
     "preview": "vite preview",
@@ -40,7 +41,7 @@
   },
   "build": {
     "appId": "com.coingram.chat",
-    "productName": "CoinGram",
+    "productName": "Coiny",
     "directories": {
       "output": "dist-electron"
     },
@@ -57,7 +58,7 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "shortcutName": "CoinGram"
+      "shortcutName": "Coiny"
     }
   }
 }

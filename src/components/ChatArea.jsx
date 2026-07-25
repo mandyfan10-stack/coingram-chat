@@ -89,6 +89,7 @@ import {
   requireE2EEKey
 } from '../utils/e2eeHelper';
 import useResolvedMedia from '../hooks/useResolvedMedia';
+import { CHAT_MEDIA_ACCEPT, validateChatMedia } from '../utils/mediaValidation';
 
 function AttachmentUnavailable({ compact = false }) {
   return (
@@ -415,7 +416,9 @@ export default function ChatArea() {
     setActiveChatId,
     isOnline,
     retrySendMessage,
-    deleteFailedMessage
+    deleteFailedMessage,
+    loadOlderMessages,
+    messagePagination
   } = useChat();
 
   const { currentUser } = useAuth();
@@ -499,6 +502,7 @@ export default function ChatArea() {
 
   const messagesEndRef = useRef(null);
   const chatBodyRef = useRef(null);
+  const isLoadingOlderRef = useRef(false);
   const emojiRef = useRef(null);
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -519,24 +523,24 @@ export default function ChatArea() {
 
   const emojis = ['😀', '😂', '😍', '👍', '🔥', '🎉', '👏', '❤️', '🤔', '👀', '✨', '🚀', '💯', '😎'];
 
-  const uploadFileDirectly = async (file, isAudio) => {
+  const uploadFileDirectly = async (file, mediaInfo = validateChatMedia(file)) => {
     setUploading(true);
-    try {
-      const mediaType = isAudio ? 'audio' : 'image';
-      const msgText = isAudio ? 'Голосовое сообщение' : 'Изображение';
+    const messageId = crypto.randomUUID();
+    const mediaType = mediaInfo.kind;
+    const msgText = mediaType === 'audio'
+      ? 'Голосовое сообщение'
+      : mediaType === 'video' ? 'Видеосообщение' : 'Изображение';
 
+    try {
       if (isSupabaseConfigured) {
         if (!navigator.onLine) {
-          sendMessage(msgText, replyingTo?.id, null, file, mediaType);
+          sendMessage(msgText, replyingTo?.id, null, file, mediaType, messageId);
           setReplyingTo(null);
           return;
         }
 
-        const fileExt = file.name ? file.name.split('.').pop() : (isAudio ? 'webm' : 'png');
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const fileName = `msg_${messageId}.${mediaInfo.extension}`;
         const filePath = `${activeChat.id}/${currentUser.id}/${fileName}`;
-
-        // E2EE chats must never fall back to uploading plaintext.
         const blobToUpload = requiresE2EE
           ? await encryptFileForE2EE(file, await resolveSharedKeyForUpload())
           : file;
@@ -544,34 +548,29 @@ export default function ChatArea() {
         const { error } = await supabase.storage
           .from('chat-attachments')
           .upload(filePath, blobToUpload, {
-            contentType: blobToUpload.type || file.type || (isAudio ? 'audio/webm' : 'image/png')
+            contentType: requiresE2EE ? 'application/octet-stream' : mediaInfo.mimeType
           });
 
         if (error) throw error;
-
         const { data: { publicUrl } } = supabase.storage
           .from('chat-attachments')
           .getPublicUrl(filePath);
 
-        sendMessage(msgText, replyingTo?.id, publicUrl);
+        sendMessage(msgText, replyingTo?.id, publicUrl, null, null, messageId);
       } else {
         const reader = new FileReader();
-        reader.onload = (event) => {
-          sendMessage(msgText, replyingTo?.id, event.target.result);
-        };
+        reader.onload = (event) => sendMessage(msgText, replyingTo?.id, event.target.result, null, null, messageId);
         reader.readAsDataURL(file);
       }
       setReplyingTo(null);
     } catch (err) {
-      console.error("Upload error:", err);
+      console.error('Upload error:', err);
       const isNetworkError = !navigator.onLine || err.message?.includes('FetchError') || err.message?.includes('failed to fetch');
       if (isNetworkError) {
-        const mediaType = isAudio ? 'audio' : 'image';
-        const msgText = isAudio ? 'Голосовое сообщение' : 'Изображение';
-        sendMessage(msgText, replyingTo?.id, null, file, mediaType);
+        sendMessage(msgText, replyingTo?.id, null, file, mediaType, messageId);
         setReplyingTo(null);
       } else {
-        alert("Ошибка при загрузке: " + err.message);
+        alert('Ошибка при загрузке: ' + err.message);
       }
     } finally {
       setUploading(false);
@@ -582,47 +581,30 @@ export default function ChatArea() {
     const file = e.target.files[0];
     if (!file) return;
 
-    const MAX_SIZE = 15 * 1024 * 1024;
-    if (file.size > MAX_SIZE) {
-      alert("Размер файла превышает лимит 15 МБ. Выберите файл меньшего размера.");
+    try {
+      await uploadFileDirectly(file, validateChatMedia(file));
+    } catch (error) {
+      alert(error.message);
+    } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
-      return;
     }
-
-    const isAudio = (file.type && file.type.startsWith('audio/')) || 
-                    ['.mp3', '.wav', '.ogg', '.m4a', '.aac', '.flac'].some(ext => file.name.toLowerCase().endsWith(ext));
-    await uploadFileDirectly(file, isAudio);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handlePaste = async (e) => {
     const items = e.clipboardData?.items;
     if (!items) return;
-    
-    let fileToUpload = null;
-    let isAudio = false;
 
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item.type.indexOf('image') !== -1) {
-        fileToUpload = item.getAsFile();
-        isAudio = false;
-        break;
-      } else if (item.type.indexOf('audio') !== -1) {
-        fileToUpload = item.getAsFile();
-        isAudio = true;
-        break;
-      }
-    }
-
-    if (fileToUpload) {
+    for (const item of items) {
+      if (!item.type.startsWith('image/') && !item.type.startsWith('audio/') && !item.type.startsWith('video/')) continue;
+      const file = item.getAsFile();
+      if (!file) continue;
       e.preventDefault();
-      const MAX_SIZE = 15 * 1024 * 1024;
-      if (fileToUpload.size > MAX_SIZE) {
-        alert("Размер вставляемого файла превышает лимит 15 МБ.");
-        return;
+      try {
+        await uploadFileDirectly(file, validateChatMedia(file));
+      } catch (error) {
+        alert(error.message);
       }
-      await uploadFileDirectly(fileToUpload, isAudio);
+      break;
     }
   };
 
@@ -1003,16 +985,37 @@ export default function ChatArea() {
     }
   };
 
+  const latestMessageId = activeChat?.messages?.[activeChat.messages.length - 1]?.id;
+  const messageCount = activeChat?.messages?.length || 0;
   useEffect(() => {
-    scrollToBottom('smooth');
-  }, [activeChat?.messages?.length]);
+    if (!isLoadingOlderRef.current) scrollToBottom('smooth');
+  }, [activeChat?.id, latestMessageId, messageCount]);
 
-  // Monitor scroll to show "Scroll to Bottom" button
-  const handleScroll = () => {
-    if (!chatBodyRef.current) return;
-    const { scrollTop, scrollHeight, clientHeight } = chatBodyRef.current;
-    const isFar = scrollHeight - scrollTop - clientHeight > 300;
-    setShowScrollBottom(isFar);
+  // Monitor scroll, virtualize off-screen rows, and page backwards near the top.
+  const handleScroll = async () => {
+    const element = chatBodyRef.current;
+    if (!element) return;
+    const { scrollTop, scrollHeight, clientHeight } = element;
+    setShowScrollBottom(scrollHeight - scrollTop - clientHeight > 300);
+
+    const page = messagePagination?.[activeChat?.id];
+    if (scrollTop > 80 || page?.hasMore === false || isLoadingOlderRef.current) return;
+
+    isLoadingOlderRef.current = true;
+    const previousHeight = scrollHeight;
+    const previousTop = scrollTop;
+    try {
+      const loaded = await loadOlderMessages(activeChat.id);
+      if (loaded > 0) {
+        requestAnimationFrame(() => {
+          if (chatBodyRef.current) {
+            chatBodyRef.current.scrollTop = previousTop + chatBodyRef.current.scrollHeight - previousHeight;
+          }
+        });
+      }
+    } finally {
+      isLoadingOlderRef.current = false;
+    }
   };
 
   // Close menus when clicking outside
@@ -1247,7 +1250,7 @@ export default function ChatArea() {
             const isFirstInGroup = !prevMsg || prevMsg.senderId !== msg.senderId;
 
             const isVoice = msg.text && (msg.text.startsWith('🎤 Голосовое сообщение') || msg.text.startsWith('Голосовое сообщение')) && msg.media;
-            const isVideo = msg.text && (msg.text.startsWith('🎬 Видеосообщение') || msg.text.startsWith('Видеосообщение')) && msg.media;
+            const isVideo = msg.text && (msg.text.startsWith('🎬 Видеосообщение') || (msg.text.startsWith('Видеосообщение') || msg.text === 'Видео')) && msg.media;
             const isSticker = msg.text && msg.text.startsWith('sticker:') && msg.media;
 
             return (
@@ -1600,7 +1603,7 @@ export default function ChatArea() {
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
-                    accept="image/*,audio/*"
+                    accept={CHAT_MEDIA_ACCEPT}
                     style={{ display: 'none' }}
                     disabled={uploading}
                   />

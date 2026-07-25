@@ -335,7 +335,7 @@ export default function NewChatModal() {
                 <input
                   id="channelName"
                   type="text"
-                  placeholder="Например: Новости CoinGram 🌊"
+                  placeholder="Например: Новости Coiny 🌊"
                   value={channelName}
                   onChange={(e) => setChannelName(e.target.value)}
                   required

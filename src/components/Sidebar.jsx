@@ -225,7 +225,7 @@ export default function Sidebar() {
           return (
             <div 
               className="story-item current-user-story" 
-              style={{ position: 'relative' }}
+              style={{ position: 'relative', minWidth: '72px' }}
               onClick={(e) => {
                 e.stopPropagation();
                 if (hasMyStories) {
@@ -240,7 +240,7 @@ export default function Sidebar() {
                   {renderAvatar(currentUser?.avatar, '🪙')}
                 </span>
               </div>
-              <span className="story-username">Моя история</span>
+              <span className="story-username" style={{ whiteSpace: 'nowrap', overflow: 'visible', textOverflow: 'clip' }}>Моя история</span>
             </div>
           );
         })()}
