@@ -140,7 +140,16 @@ export default function NewChatModal() {
 
   const handleSelectUser = async (user) => {
     setIsNewChatOpen(false);
-    await createChat(user.username, 'personal');
+    const targetUsername = (user.username || user.id || '').toLowerCase();
+    const existingChat = chats.find(c =>
+      c.type === 'personal' &&
+      c.members?.some(m => m.id === user.id || (m.username && m.username.toLowerCase() === targetUsername))
+    );
+    if (existingChat) {
+      setActiveChatId(existingChat.id);
+      return;
+    }
+    await createChat(user.username || user.id, 'personal');
   };
 
   const handleCreateGroupSubmit = async (e) => {
