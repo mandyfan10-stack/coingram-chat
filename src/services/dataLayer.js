@@ -535,43 +535,35 @@ export const dataService = {
   createChat: async (userId, target, type, initialMembers = []) => {
     if (isSupabaseConfigured) {
       if (type === 'personal') {
-        const cleanTarget = target.trim().toLowerCase();
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('username', cleanTarget)
-          .single();
-
-        if (error || !profile) {
-          throw new Error(`Пользователь с никнеймом "${target}" не найден.`);
+        let profile = typeof target === 'object' && target?.id ? target : null;
+        if (!profile) {
+          const cleanTarget = String(target || '').trim().replace(/^@+/, '').toLowerCase();
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('id, username, display_name, avatar, avatar_color')
+            .eq('username', cleanTarget)
+            .single();
+          if (error || !data) {
+            throw new Error(`Пользователь с никнеймом "${target}" не найден.`);
+          }
+          profile = data;
         }
         if (profile.id === userId) {
-          throw new Error("Вы не можете создать чат с самим собой.");
+          throw new Error('Вы не можете создать чат с самим собой.');
         }
 
-        const { data: newChat, error: chatErr } = await supabase
-          .from('chats')
-          .insert({
-            name: profile.display_name || profile.username,
-            type: 'personal',
-            avatar: profile.avatar || '👤',
-            avatar_color: profile.avatar_color,
-            created_by: userId
-          })
-          .select()
-          .single();
-
-        if (chatErr) throw chatErr;
-
-        const { error: membersErr } = await supabase
-          .from('chat_members')
-          .insert([
-            { chat_id: newChat.id, profile_id: userId },
-            { chat_id: newChat.id, profile_id: profile.id }
-          ]);
-
-        if (membersErr) throw membersErr;
-        return newChat;
+        const { data: personalChatId, error: personalChatError } = await supabase
+          .rpc('ensure_personal_chat', { p_target_profile_id: profile.id });
+        if (personalChatError) throw personalChatError;
+        if (!personalChatId) throw new Error('Сервер не вернул идентификатор личного чата.');
+        return {
+          id: personalChatId,
+          name: profile.display_name || profile.username,
+          type: 'personal',
+          avatar: profile.avatar || '👤',
+          avatarColor: profile.avatar_color,
+          username: profile.username
+        };
       } else {
         const memberIds = [...new Set(
           (Array.isArray(initialMembers) ? initialMembers : [])

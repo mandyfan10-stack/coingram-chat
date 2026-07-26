@@ -107,7 +107,7 @@ export default function NewChatModal() {
 
   const handleSelectUser = async (user) => {
     setIsNewChatOpen(false);
-    await createChat(user.username, 'personal');
+    await createChat(user, 'personal');
   };
 
   const handleCreateGroupSubmit = async (e) => {

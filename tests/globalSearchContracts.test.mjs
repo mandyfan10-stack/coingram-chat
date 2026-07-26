@@ -5,6 +5,8 @@ import test from 'node:test';
 const dataLayer = await readFile(new URL('../src/services/dataLayer.js', import.meta.url), 'utf8');
 const sidebar = await readFile(new URL('../src/components/Sidebar.jsx', import.meta.url), 'utf8');
 const modal = await readFile(new URL('../src/components/NewChatModal.jsx', import.meta.url), 'utf8');
+const personalChatMigration = await readFile(new URL('../supabase/migrations/20260726125251_ensure_personal_chat.sql', import.meta.url), 'utf8');
+const privateWrapperMigration = await readFile(new URL('../supabase/migrations/20260726125625_move_personal_chat_function_private.sql', import.meta.url), 'utf8');
 
 test('profile search uses parameterized ilike filters instead of interpolated or syntax', () => {
   assert.match(dataLayer, /searchProfiles: async/);
@@ -23,4 +25,17 @@ test('search requests abort on query changes and ignore stale results', () => {
 test('global results open existing personal chats instead of hiding or duplicating them', () => {
   assert.match(sidebar, /const existingChat = chats\.find/);
   assert.match(sidebar, /setActiveChatId\(existingChat\.id\)/);
+});
+test('clicking a profile always resolves and activates a personal chat by profile id', () => {
+  assert.match(sidebar, /createChat\(user, 'personal'\)/);
+  assert.match(sidebar, /if \(chat\) setActiveChatId\(chat\.id\)/);
+  assert.match(dataLayer, /\.rpc\('ensure_personal_chat', \{ p_target_profile_id: profile\.id \}\)/);
+});
+
+test('personal chat creation is atomic, deduplicated, and access-controlled', () => {
+  assert.match(personalChatMigration, /pg_advisory_xact_lock/i);
+  assert.match(personalChatMigration, /security definer/i);
+  assert.match(personalChatMigration, /caller_id uuid := \(select auth\.uid\(\)\)/i);
+  assert.match(personalChatMigration, /revoke execute[\s\S]*from public, anon/i);
+  assert.match(personalChatMigration, /grant execute[\s\S]*to authenticated/i);
 });

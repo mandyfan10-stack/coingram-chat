@@ -98,7 +98,8 @@ export default function Sidebar() {
       setActiveChatId(existingChat.id);
       return;
     }
-    await createChat(user.username, 'personal');
+    const chat = await createChat(user, 'personal');
+    if (chat) setActiveChatId(chat.id);
   };
 
   // Filter chats by folder and query
