@@ -90,6 +90,7 @@ import {
 } from '../utils/e2eeHelper';
 import useResolvedMedia from '../hooks/useResolvedMedia';
 import { CHAT_MEDIA_ACCEPT, validateChatMedia } from '../utils/mediaValidation';
+import { normalizeReaction } from '../utils/reactionUtils';
 
 function AttachmentUnavailable({ compact = false }) {
   return (
@@ -1418,15 +1419,18 @@ export default function ChatArea() {
                   {/* Quick Reactions Render */}
                   {msg.reactions && msg.reactions.length > 0 && (
                     <div className="bubble-reactions">
-                      {msg.reactions.map(r => (
-                        <button
-                          key={r.emoji}
-                          className={`reaction-badge ${(r.users.includes('current') || (currentUser && r.users.includes(currentUser.id))) ? 'active' : ''}`}
-                          onClick={() => toggleReaction(activeChat.id, msg.id, r.emoji)}
-                        >
-                          {r.emoji} <span className="react-count">{r.count}</span>
-                        </button>
-                      ))}
+                      {msg.reactions.map(r => {
+                        const normalizedReaction = normalizeReaction(r);
+                        return (
+                          <button
+                            key={r.emoji}
+                            className={`reaction-badge ${(normalizedReaction.users.includes('current') || (currentUser && normalizedReaction.users.includes(currentUser.id))) ? 'active' : ''}`}
+                            onClick={() => toggleReaction(activeChat.id, msg.id, r.emoji)}
+                          >
+                            {r.emoji} <span className="react-count">{normalizedReaction.count}</span>
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
 

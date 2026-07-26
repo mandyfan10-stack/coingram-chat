@@ -26,8 +26,13 @@ export default function AuthScreen() {
       return;
     }
 
-    if (password.length < 6) {
-      setErrorMsg('Пароль должен быть не менее 6 символов.');
+    if (!isLogin && password.length < 10) {
+      setErrorMsg('Пароль должен быть не менее 10 символов.');
+      return;
+    }
+
+    if (!isLogin && !(/[a-z]/.test(password) && /[A-Z]/.test(password) && /\d/.test(password) && /[^A-Za-z0-9]/.test(password))) {
+      setErrorMsg('Пароль должен содержать строчную и заглавную буквы, цифру и специальный символ.');
       return;
     }
 
@@ -199,13 +204,19 @@ export default function AuthScreen() {
                 <input
                   id="password"
                   type="password"
-                  placeholder="••••••"
+                  placeholder={isLogin ? '••••••' : '••••••••••'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={loading}
+                  aria-describedby={!isLogin ? 'password-requirements' : undefined}
                   required
                 />
               </div>
+              {!isLogin && (
+                <span id="password-requirements" className="auth-password-hint">
+                  Минимум 10 символов: A–Z, a–z, цифра и специальный символ.
+                </span>
+              )}
             </div>
 
             <button type="submit" className="auth-submit-btn" disabled={loading}>

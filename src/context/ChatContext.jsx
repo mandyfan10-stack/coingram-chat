@@ -13,6 +13,7 @@ import {
 } from '../utils/e2eeHelper';
 import { getOfflineAttachment, deleteOfflineAttachment, saveOfflineAttachment } from '../utils/indexedDbHelper';
 import { extensionForMedia } from '../utils/mediaValidation';
+import { normalizeReactions } from '../utils/reactionUtils';
 import { Users, Megaphone, Bookmark, User, Bot, CloudSun, Brain, Zap } from 'lucide-react';
 import PrivateStorageImage from '../components/PrivateStorageImage';
 
@@ -1392,7 +1393,8 @@ export const ChatProvider = ({ children }) => {
             ...c,
             messages: c.messages.map(m => {
               if (m.id === messageId) {
-                const reactions = m.reactions ? JSON.parse(JSON.stringify(m.reactions)) : [];
+                const reactions = normalizeReactions(m.reactions);
+
                 const exist = reactions.find(r => r.emoji === emoji);
                 const userKey = currentUser ? currentUser.id : 'current';
                 if (exist) {
