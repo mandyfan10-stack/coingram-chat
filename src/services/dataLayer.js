@@ -245,32 +245,15 @@ export const dataService = {
         .select('chat_id, profile_id, role, profiles(display_name, username, avatar, avatar_color, bio, last_seen, public_key, has_e2ee)')
         .in('chat_id', chatIds);
 
-      // Fetch latest messages efficiently using a batched Promise.all
-      const latestMsgPromises = chatIds.map(id =>
-        supabase
-          .from('messages')
-          .select('*')
-          .eq('chat_id', id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-      );
-      const latestMsgResponses = await Promise.all(latestMsgPromises);
+      // Fetch one latest message per chat, including read receipts, in one request.
+      const { data: latestMessages, error: latestMessagesError } = await supabase
+        .rpc('get_latest_chat_messages', { p_chat_ids: chatIds });
+      if (latestMessagesError) throw latestMessagesError;
+
       const latestMessagesMap = {};
-      latestMsgResponses.forEach((res, idx) => {
-        if (res.data && res.data.length > 0) {
-          latestMessagesMap[chatIds[idx]] = res.data[0];
-        }
+      (latestMessages || []).forEach(message => {
+        latestMessagesMap[message.chat_id] = message;
       });
-      const latestMessageIds = Object.values(latestMessagesMap).map(message => message.id);
-      const latestReadMessageIds = new Set();
-      if (latestMessageIds.length > 0) {
-        const { data: latestReads, error: latestReadsError } = await supabase
-          .from('message_reads')
-          .select('message_id')
-          .in('message_id', latestMessageIds);
-        if (latestReadsError) throw latestReadsError;
-        (latestReads || []).forEach(receipt => latestReadMessageIds.add(receipt.message_id));
-      }
 
       return (chatList || []).map((chat) => {
         const membersRaw = (allMembersRaw || []).filter(m => m.chat_id === chat.id);
@@ -303,7 +286,8 @@ export const dataService = {
             text: latestMsg.text,
             media: latestMsg.media,
             replyTo: latestMsg.reply_to,
-            read: latestMsg.read || latestReadMessageIds.has(latestMsg.id),
+            read: latestMsg.legacy_read || (latestMsg.read_by || []).length > 0,
+            reads: latestMsg.read_by || [],
             reactions: latestMsg.reactions || [],
             timestamp: new Date(latestMsg.created_at)
           }];
