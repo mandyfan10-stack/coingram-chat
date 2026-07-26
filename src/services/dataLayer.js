@@ -492,6 +492,46 @@ export const dataService = {
     }
   },
 
+  searchProfiles: async (query, excludeUserId, limit = 10, signal) => {
+    const cleanQuery = String(query || '').trim().replace(/^@+/, '').toLowerCase();
+    if (!cleanQuery) return [];
+
+    if (!isSupabaseConfigured) {
+      const mockUsers = JSON.parse(localStorage.getItem('tg-mock-users') || '[]');
+      return mockUsers
+        .filter(user => user.id !== excludeUserId)
+        .filter(user => (
+          String(user.username || '').toLowerCase().includes(cleanQuery)
+          || String(user.name || user.display_name || '').toLowerCase().includes(cleanQuery)
+        ))
+        .slice(0, limit);
+    }
+
+    const escapedQuery = cleanQuery.replace(/[\\%_]/g, '\\$&');
+    const pattern = `%${escapedQuery}%`;
+    const createQuery = column => {
+      let request = supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar, avatar_color, bio')
+        .neq('id', excludeUserId)
+        .ilike(column, pattern)
+        .limit(limit);
+      if (signal) request = request.abortSignal(signal);
+      return request;
+    };
+
+    const [usernameResult, displayNameResult] = await Promise.all([
+      createQuery('username'),
+      createQuery('display_name')
+    ]);
+    if (usernameResult.error) throw usernameResult.error;
+    if (displayNameResult.error) throw displayNameResult.error;
+
+    const uniqueProfiles = new Map();
+    [...(usernameResult.data || []), ...(displayNameResult.data || [])]
+      .forEach(profile => uniqueProfiles.set(profile.id, profile));
+    return [...uniqueProfiles.values()].slice(0, limit);
+  },
   createChat: async (userId, target, type, initialMembers = []) => {
     if (isSupabaseConfigured) {
       if (type === 'personal') {
@@ -538,14 +578,28 @@ export const dataService = {
             .map(member => typeof member === 'object' ? member.id : member)
             .filter(profileId => profileId && profileId !== userId)
         )];
-        const { data: newChatId, error: createError } = await supabase
-          .rpc('create_managed_chat', {
-            p_name: target,
-            p_type: type,
-            p_member_ids: memberIds
-          });
-        if (createError) throw createError;
-        return { id: newChatId };      }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+        try {
+          const { data: newChatId, error: createError } = await supabase
+            .rpc('create_managed_chat', {
+              p_name: target,
+              p_type: type,
+              p_member_ids: memberIds
+            })
+            .abortSignal(controller.signal);
+          if (createError) throw createError;
+          if (!newChatId) throw new Error('Сервер не вернул идентификатор созданного чата.');
+          return { id: newChatId, name: target, type };
+        } catch (error) {
+          if (controller.signal.aborted) {
+            throw new Error('Создание заняло слишком много времени. Проверьте соединение и повторите попытку.');
+          }
+          throw error;
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      }
     } else {
       // Mock mode create
       const isGroup = type === 'group';

@@ -1183,13 +1183,56 @@ export const ChatProvider = ({ children }) => {
     try {
       const newChat = await dataService.createChat(currentUser.id, target, type, initialMembers);
       if (newChat) {
+        let createdChat = newChat;
         if (!dataService.isLive()) {
           setChats(prev => [newChat, ...prev]);
-        } else {
+        } else if (type === 'personal') {
           await fetchChats();
+        } else {
+          const memberProfiles = (Array.isArray(initialMembers) ? initialMembers : [])
+            .filter(member => member && member.id && member.id !== currentUser.id)
+            .map(member => ({
+              id: member.id,
+              name: member.display_name || member.name || member.username || 'Пользователь',
+              username: member.username,
+              avatar: member.avatar || '👤',
+              avatarColor: member.avatar_color || member.avatarColor,
+              role: 'member'
+            }));
+          createdChat = {
+            ...newChat,
+            name: newChat.name || target,
+            type,
+            avatar: newChat.avatar || (type === 'channel' ? '📢' : '👥'),
+            avatarColor: newChat.avatarColor || (type === 'channel'
+              ? 'linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)'
+              : 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)'),
+            createdBy: currentUser.id,
+            pinned: false,
+            notifications: true,
+            messages: [],
+            members: [{
+              id: currentUser.id,
+              name: currentUser.name || currentUser.username || 'Вы',
+              username: currentUser.username,
+              avatar: currentUser.avatar || '🪙',
+              avatarColor: currentUser.avatarColor,
+              role: 'admin'
+            }, ...memberProfiles],
+            settings: {
+              only_admins_can_post: type === 'channel',
+              allow_media: true,
+              allow_add_members: true,
+              allow_pin_messages: true
+            }
+          };
+          setChats(previous => (
+            previous.some(chat => chat.id === createdChat.id) ? previous : [createdChat, ...previous]
+          ));
+          fetchChats().catch(error => console.error('Failed to refresh chats after creation:', error));
         }
-        setActiveChatId(newChat.id);
-        return newChat;
+        setActiveChatId(createdChat.id);
+        return createdChat;
       }
       return null;
     } catch (e) {

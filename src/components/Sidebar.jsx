@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
-import { supabase, isSupabaseConfigured } from '../supabaseClient';
+import { dataService } from '../services/dataLayer';
 import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, Bot, MessageSquarePlus, Eye, Plus, Lock, WifiOff } from 'lucide-react';
 
 export default function Sidebar() {
@@ -58,68 +58,46 @@ export default function Sidebar() {
     };
   }, []);
 
-  // Debounced global username search
+  // Debounced global profile search
   useEffect(() => {
-    if (!currentUser || !searchQuery.trim()) {
+    const cleanQuery = searchQuery.trim().replace(/^@+/, '');
+    if (!currentUser || cleanQuery.length < 2) {
       setGlobalResults([]);
       setGlobalLoading(false);
-      return;
+      return undefined;
     }
 
-    const cleanQuery = searchQuery.trim().toLowerCase().replace('@', '');
-    if (cleanQuery.length < 3) {
-      setGlobalResults([]);
-      setGlobalLoading(false);
-      return;
-    }
-
+    const controller = new AbortController();
+    let cancelled = false;
     setGlobalLoading(true);
     const delayDebounceFn = setTimeout(async () => {
       try {
-        if (isSupabaseConfigured) {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('id, username, display_name, avatar, avatar_color, bio')
-            .neq('id', currentUser.id) // Exclude myself
-            .or(`username.ilike.%${cleanQuery}%,display_name.ilike.%${cleanQuery}%`)
-            .limit(5);
-
-          if (error) throw error;
-          
-          // Filter out users we already have a personal chat with
-          const existingUserIds = chats
-            .filter(c => c.type === 'personal')
-            .flatMap(c => c.members.map(m => m.id));
-          
-          const filtered = (data || []).filter(u => !existingUserIds.includes(u.id));
-          setGlobalResults(filtered);
-        } else {
-          const mockUsers = JSON.parse(localStorage.getItem('tg-mock-users') || '[]');
-          const filtered = mockUsers.filter(u => 
-            u.id !== currentUser.id && 
-            (u.username.toLowerCase().includes(cleanQuery) || (u.name && u.name.toLowerCase().includes(cleanQuery)))
-          );
-          
-          const existingUserIds = chats
-            .filter(c => c.type === 'personal')
-            .flatMap(c => c.members.map(m => m.id));
-          
-          const finalFiltered = filtered.filter(u => !existingUserIds.includes(u.id));
-          setGlobalResults(finalFiltered.slice(0, 5));
-        }
-      } catch (err) {
-        console.error("Global search failed:", err);
+        const profiles = await dataService.searchProfiles(cleanQuery, currentUser.id, 10, controller.signal);
+        if (!cancelled) setGlobalResults(profiles);
+      } catch (error) {
+        if (!controller.signal.aborted) console.error('Global search failed:', error);
+        if (!cancelled) setGlobalResults([]);
       } finally {
-        setGlobalLoading(false);
+        if (!cancelled) setGlobalLoading(false);
       }
-    }, 400);
+    }, 300);
 
-    return () => clearTimeout(delayDebounceFn);
-  }, [searchQuery, currentUser, chats]);
-
+    return () => {
+      cancelled = true;
+      clearTimeout(delayDebounceFn);
+      controller.abort();
+    };
+  }, [searchQuery, currentUser]);
   const handleSelectGlobalUser = async (user) => {
+    const existingChat = chats.find(chat => (
+      chat.type === 'personal' && chat.members?.some(member => member.id === user.id)
+    ));
     setSearchQuery('');
     setGlobalResults([]);
+    if (existingChat) {
+      setActiveChatId(existingChat.id);
+      return;
+    }
     await createChat(user.username, 'personal');
   };
 
@@ -379,7 +357,7 @@ export default function Sidebar() {
               </div>
             ) : globalResults.length === 0 ? (
               <div className="no-chats" style={{ padding: '12px 16px', color: 'var(--text-secondary)', fontSize: '13px' }}>
-                {searchQuery.trim().replace('@', '').length < 3 ? 'Введите не менее 3 символов' : 'Пользователи не найдены'}
+                {searchQuery.trim().replace(/^@+/, '').length < 2 ? 'Введите не менее 2 символов' : 'Пользователи не найдены'}
               </div>
             ) : (
               globalResults.map(user => (

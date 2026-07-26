@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useChat } from '../context/ChatContext';
-import { supabase, isSupabaseConfigured } from '../supabaseClient';
+import { dataService } from '../services/dataLayer';
 import { X, Search, UserPlus, Users, MessageSquare } from 'lucide-react';
 
 export default function NewChatModal() {
@@ -29,102 +29,65 @@ export default function NewChatModal() {
 
   // Debounced search effect for personal chat tab
   useEffect(() => {
-    if (!currentUser || !isNewChatOpen || newChatModalTab !== 'personal') {
+    const cleanQuery = searchQuery.trim().replace(/^@+/, '');
+    if (!currentUser || !isNewChatOpen || newChatModalTab !== 'personal' || !cleanQuery) {
       setResults([]);
       setLoading(false);
-      return;
+      return undefined;
     }
 
-    if (!searchQuery.trim()) {
-      setResults([]);
-      setLoading(false);
-      return;
-    }
-
+    const controller = new AbortController();
+    let cancelled = false;
     setLoading(true);
     const delayDebounceFn = setTimeout(async () => {
       try {
-        if (isSupabaseConfigured) {
-          const cleanQuery = searchQuery.trim().toLowerCase();
-          
-          // Search in Supabase profiles
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('id, username, display_name, avatar, avatar_color, bio')
-            .neq('id', currentUser.id) // Exclude myself
-            .or(`username.ilike.%${cleanQuery}%,display_name.ilike.%${cleanQuery}%`)
-            .limit(5);
-
-          if (error) throw error;
-          setResults(data || []);
-        } else {
-          // Search in Mock local storage users
-          const mockUsers = JSON.parse(localStorage.getItem('tg-mock-users') || '[]');
-          const cleanQuery = searchQuery.trim().toLowerCase();
-          const filtered = mockUsers.filter(u => 
-            u.id !== currentUser.id && 
-            (u.username.toLowerCase().includes(cleanQuery) || (u.name && u.name.toLowerCase().includes(cleanQuery)))
-          );
-          setResults(filtered.slice(0, 5));
-        }
-      } catch (err) {
-        console.error("Search failed:", err);
+        const profiles = await dataService.searchProfiles(cleanQuery, currentUser.id, 10, controller.signal);
+        if (!cancelled) setResults(profiles);
+      } catch (error) {
+        if (!controller.signal.aborted) console.error('Search failed:', error);
+        if (!cancelled) setResults([]);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }, 300);
 
-    return () => clearTimeout(delayDebounceFn);
+    return () => {
+      cancelled = true;
+      clearTimeout(delayDebounceFn);
+      controller.abort();
+    };
   }, [searchQuery, newChatModalTab, currentUser, isNewChatOpen]);
-
   // Debounced search effect for members to invite (group/channel tabs)
   useEffect(() => {
-    if (!currentUser || !isNewChatOpen || (newChatModalTab !== 'group' && newChatModalTab !== 'channel')) {
+    const cleanQuery = memberSearchQuery.trim().replace(/^@+/, '');
+    const supportsMembers = newChatModalTab === 'group' || newChatModalTab === 'channel';
+    if (!currentUser || !isNewChatOpen || !supportsMembers || !cleanQuery) {
       setMemberResults([]);
       setMemberLoading(false);
-      return;
+      return undefined;
     }
 
-    if (!memberSearchQuery.trim()) {
-      setMemberResults([]);
-      setMemberLoading(false);
-      return;
-    }
-
+    const controller = new AbortController();
+    let cancelled = false;
     setMemberLoading(true);
     const delayDebounceFn = setTimeout(async () => {
       try {
-        if (isSupabaseConfigured) {
-          const cleanQuery = memberSearchQuery.trim().toLowerCase();
-          
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('id, username, display_name, avatar, avatar_color, bio')
-            .neq('id', currentUser.id)
-            .or(`username.ilike.%${cleanQuery}%,display_name.ilike.%${cleanQuery}%`)
-            .limit(5);
-
-          if (error) throw error;
-          setMemberResults(data || []);
-        } else {
-          const mockUsers = JSON.parse(localStorage.getItem('tg-mock-users') || '[]');
-          const cleanQuery = memberSearchQuery.trim().toLowerCase();
-          const filtered = mockUsers.filter(u => 
-            u.id !== currentUser.id && 
-            (u.username.toLowerCase().includes(cleanQuery) || (u.name && u.name.toLowerCase().includes(cleanQuery)))
-          );
-          setMemberResults(filtered.slice(0, 5));
-        }
-      } catch (err) {
-        console.error("Member search failed:", err);
+        const profiles = await dataService.searchProfiles(cleanQuery, currentUser.id, 10, controller.signal);
+        if (!cancelled) setMemberResults(profiles);
+      } catch (error) {
+        if (!controller.signal.aborted) console.error('Member search failed:', error);
+        if (!cancelled) setMemberResults([]);
       } finally {
-        setMemberLoading(false);
+        if (!cancelled) setMemberLoading(false);
       }
     }, 300);
 
-    return () => clearTimeout(delayDebounceFn);
+    return () => {
+      cancelled = true;
+      clearTimeout(delayDebounceFn);
+      controller.abort();
+    };
   }, [memberSearchQuery, newChatModalTab, currentUser, isNewChatOpen]);
-
   // Clean form when modal closes/opens or tab changes
   useEffect(() => {
     if (!isNewChatOpen) {
@@ -152,10 +115,13 @@ export default function NewChatModal() {
     if (!groupName.trim() || creating) return;
     setCreating(true);
     setCreateError('');
-    const chat = await createChat(groupName.trim(), 'group', selectedMembers);
-    setCreating(false);
-    if (chat) setIsNewChatOpen(false);
-    else setCreateError('Не удалось создать группу. Повторите попытку.');
+    try {
+      const chat = await createChat(groupName.trim(), 'group', selectedMembers);
+      if (chat) setIsNewChatOpen(false);
+      else setCreateError('Не удалось создать группу. Повторите попытку.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const handleCreateChannelSubmit = async (e) => {
@@ -163,10 +129,13 @@ export default function NewChatModal() {
     if (!channelName.trim() || creating) return;
     setCreating(true);
     setCreateError('');
-    const chat = await createChat(channelName.trim(), 'channel', selectedMembers);
-    setCreating(false);
-    if (chat) setIsNewChatOpen(false);
-    else setCreateError('Не удалось создать канал. Повторите попытку.');
+    try {
+      const chat = await createChat(channelName.trim(), 'channel', selectedMembers);
+      if (chat) setIsNewChatOpen(false);
+      else setCreateError('Не удалось создать канал. Повторите попытку.');
+    } finally {
+      setCreating(false);
+    }
   };
 
   const getTitle = () => {
