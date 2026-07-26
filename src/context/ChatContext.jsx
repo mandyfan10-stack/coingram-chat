@@ -513,7 +513,27 @@ export const ChatProvider = ({ children }) => {
         return pendingMsgs.length > 0 ? { ...c, messages: [...c.messages, ...pendingMsgs] } : c;
       });
 
-      setChats(updatedChats);
+      setChats(previousChats => updatedChats.map(nextChat => {
+        const existingChat = previousChats.find(chat => chat.id === nextChat.id);
+        if (!existingChat?.messages?.length) return nextChat;
+
+        const refreshedById = new Map(nextChat.messages.map(message => [message.id, message]));
+        const existingMessages = existingChat.messages.map(message => {
+          const refreshed = refreshedById.get(message.id);
+          return message.isLocked && refreshed && !refreshed.isLocked ? refreshed : message;
+        });
+        const knownMessageIds = new Set(existingMessages.map(message => message.id));
+        const missingPreviewMessages = nextChat.messages.filter(
+          message => !knownMessageIds.has(message.id)
+        );
+
+        return {
+          ...nextChat,
+          messages: [...existingMessages, ...missingPreviewMessages].sort(
+            (left, right) => new Date(left.timestamp) - new Date(right.timestamp)
+          )
+        };
+      }));
     } catch (e) {
       console.error("Failed to load chats", e);
     }
@@ -655,7 +675,7 @@ export const ChatProvider = ({ children }) => {
     if (activeChatId) {
       loadActiveChatMessages(activeChatId);
     }
-  }, [activeChatId, loadActiveChatMessages]);
+  }, [activeChatId, e2eePrivateKey, loadActiveChatMessages]);
 
   const fetchStickers = useCallback(async () => {
     if (!currentUser) return;
