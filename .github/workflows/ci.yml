@@ -1,4 +1,4 @@
-﻿name: CI
+name: CI
 
 on:
   push:
@@ -41,7 +41,7 @@ jobs:
         run: npm run build
 
   live-e2e:
-    name: Two-user WebRTC E2E
+    name: Two-user messenger E2E
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:

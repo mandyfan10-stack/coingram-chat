@@ -314,6 +314,8 @@ export default function Sidebar() {
               <div
                 key={chat.id}
                 className={`chat-item ${isActive ? 'active' : ''}`}
+                data-chat-id={chat.id}
+                data-chat-username={chat.username || undefined}
                 onClick={() => setActiveChatId(chat.id)}
               >
                 {/* Avatar */}
