@@ -100,7 +100,7 @@ function AttachmentUnavailable({ compact = false }) {
   );
 }
 
-function DecryptedImage({ mediaUrl, chatId }) {
+function DecryptedImage({ mediaUrl, chatId, onOpen }) {
   const { url, loading, error } = useResolvedMedia(mediaUrl, chatId, 'image/png');
   if (loading) {
     return (
@@ -110,7 +110,11 @@ function DecryptedImage({ mediaUrl, chatId }) {
     );
   }
   if (error || !url) return <AttachmentUnavailable />;
-  return <img src={url} alt="Изображение" className="bubble-media" />;
+  return (
+    <button type="button" className="bubble-media-open" onClick={(event) => { event.stopPropagation(); onOpen?.(url); }} aria-label="Открыть изображение">
+      <img src={url} alt="Изображение" className="bubble-media" />
+    </button>
+  );
 }
 
 function DecryptedVideoPlayer({ mediaUrl, chatId }) {
@@ -274,6 +278,7 @@ function VideoMessagePlayer({ videoUrl }) {
   const [isMuted, setIsMuted] = useState(true);
   const [progress, setProgress] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [hasEnded, setHasEnded] = useState(false);
   const isCalculatingRef = useRef(false);
 
   useEffect(() => {
@@ -287,10 +292,15 @@ function VideoMessagePlayer({ videoUrl }) {
     };
 
     const handleEnded = () => {
-      setProgress(0);
+      setProgress(100);
+      setIsPlaying(false);
+      setHasEnded(true);
     };
 
-    const handlePlay = () => setIsPlaying(true);
+    const handlePlay = () => {
+      setIsPlaying(true);
+      setHasEnded(false);
+    };
     const handlePause = () => setIsPlaying(false);
 
     const handleDurationCompute = () => {
@@ -336,6 +346,7 @@ function VideoMessagePlayer({ videoUrl }) {
     if (!video) return;
 
     if (isMuted) {
+      if (hasEnded) video.currentTime = 0;
       video.muted = false;
       setIsMuted(false);
       video.play().then(() => setIsPlaying(true)).catch(err => console.error(err));
@@ -343,6 +354,7 @@ function VideoMessagePlayer({ videoUrl }) {
       if (isPlaying) {
         video.pause();
       } else {
+        if (hasEnded) video.currentTime = 0;
         video.play().then(() => setIsPlaying(true)).catch(err => console.error(err));
       }
     }
@@ -366,7 +378,6 @@ function VideoMessagePlayer({ videoUrl }) {
         ref={videoRef}
         src={videoUrl}
         className="round-video-element"
-        loop
         muted={isMuted}
         playsInline
         autoPlay
@@ -485,6 +496,7 @@ export default function ChatArea() {
   const [replyingTo, setReplyingTo] = useState(null);
   const [showMsgActionsId, setShowMsgActionsId] = useState(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
+  const [openedImageUrl, setOpenedImageUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [isCurrentlyTyping, setIsCurrentlyTyping] = useState(false);
   const isCurrentlyTypingRef = useRef(isCurrentlyTyping);
@@ -504,6 +516,7 @@ export default function ChatArea() {
   const messagesEndRef = useRef(null);
   const chatBodyRef = useRef(null);
   const isLoadingOlderRef = useRef(false);
+  const shouldAutoScrollRef = useRef(true);
   const emojiRef = useRef(null);
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -616,7 +629,9 @@ export default function ChatArea() {
 
   useEffect(() => {
     scrollToBottom('auto');
+    shouldAutoScrollRef.current = true;
     setReplyingTo(null);
+    setOpenedImageUrl(null);
     setInputVal('');
 
     if (isCurrentlyTypingRef.current) {
@@ -986,18 +1001,25 @@ export default function ChatArea() {
     }
   };
 
-  const latestMessageId = activeChat?.messages?.[activeChat.messages.length - 1]?.id;
+  const latestMessage = activeChat?.messages?.[activeChat.messages.length - 1];
+  const latestMessageId = latestMessage?.id;
+  const latestMessageSenderId = latestMessage?.senderId;
   const messageCount = activeChat?.messages?.length || 0;
   useEffect(() => {
-    if (!isLoadingOlderRef.current) scrollToBottom('smooth');
-  }, [activeChat?.id, latestMessageId, messageCount]);
+    const isOwnMessage = latestMessageSenderId === currentUser?.id || latestMessageSenderId === 'current';
+    if (!isLoadingOlderRef.current && (shouldAutoScrollRef.current || isOwnMessage)) {
+      scrollToBottom('smooth');
+    }
+  }, [activeChat?.id, latestMessageId, latestMessageSenderId, messageCount, currentUser?.id]);
 
   // Monitor scroll, virtualize off-screen rows, and page backwards near the top.
   const handleScroll = async () => {
     const element = chatBodyRef.current;
     if (!element) return;
     const { scrollTop, scrollHeight, clientHeight } = element;
-    setShowScrollBottom(scrollHeight - scrollTop - clientHeight > 300);
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < 120;
+    setShowScrollBottom(distanceFromBottom > 300);
 
     const page = messagePagination?.[activeChat?.id];
     if (scrollTop > 80 || page?.hasMore === false || isLoadingOlderRef.current) return;
@@ -1018,6 +1040,15 @@ export default function ChatArea() {
       isLoadingOlderRef.current = false;
     }
   };
+
+  useEffect(() => {
+    if (!openedImageUrl) return undefined;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setOpenedImageUrl(null);
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [openedImageUrl]);
 
   // Close menus when clicking outside
   useEffect(() => {
@@ -1281,7 +1312,11 @@ export default function ChatArea() {
                   {/* Media attachment if any */}
                   {msg.media && !isVoice && !isVideo && !isSticker && (
                     <div className="bubble-media-wrapper">
-                      <DecryptedImage mediaUrl={msg.media} chatId={activeChat.id} />
+                      <DecryptedImage
+                        mediaUrl={msg.media}
+                        chatId={activeChat.id}
+                        onOpen={setOpenedImageUrl}
+                      />
                     </div>
                   )}
 
@@ -1510,9 +1545,24 @@ export default function ChatArea() {
 
       {/* Floating scroll to bottom button */}
       {showScrollBottom && (
-        <button className="scroll-bottom-btn" onClick={() => scrollToBottom('smooth')}>
+        <button
+          className="scroll-bottom-btn"
+          onClick={() => {
+            shouldAutoScrollRef.current = true;
+            scrollToBottom('smooth');
+          }}
+        >
           <ArrowDown size={18} />
         </button>
+      )}
+
+      {openedImageUrl && (
+        <div className="chat-image-viewer" role="dialog" aria-modal="true" aria-label="Просмотр изображения" onClick={() => setOpenedImageUrl(null)}>
+          <button type="button" className="chat-image-viewer-close" onClick={() => setOpenedImageUrl(null)} aria-label="Закрыть изображение">
+            <X size={26} />
+          </button>
+          <img src={openedImageUrl} alt="Просмотр изображения" onClick={(event) => event.stopPropagation()} />
+        </div>
       )}
 
       {/* Input Area */}
