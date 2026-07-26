@@ -81,17 +81,29 @@ export function deleteOfflineAttachment(optimisticId) {
   });
 }
 
-export function savePrivateKey(userId, key) {
+export function savePrivateKey(userId, key, publicKey = null) {
   return initOfflineDB().then((db) => {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(KEY_STORE_NAME, 'readwrite');
       const store = transaction.objectStore(KEY_STORE_NAME);
-      const request = store.put(key, userId);
+      const request = store.put({
+        key,
+        publicKey,
+        storedAt: new Date().toISOString()
+      }, userId);
 
       request.onsuccess = () => resolve();
       request.onerror = (e) => reject(e.target.error);
     });
   });
+}
+
+export function isPrivateKeyRecordCurrent(record, publicKey) {
+  return !!(
+    record?.key &&
+    typeof record.publicKey === 'string' &&
+    record.publicKey === publicKey
+  );
 }
 
 export function getPrivateKey(userId) {

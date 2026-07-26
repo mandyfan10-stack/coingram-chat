@@ -9,7 +9,12 @@ import {
   generateRecoveryCode,
   importPrivateKey
 } from '../utils/e2eeHelper';
-import { savePrivateKey, getPrivateKey, deletePrivateKey } from '../utils/indexedDbHelper';
+import {
+  savePrivateKey,
+  getPrivateKey,
+  deletePrivateKey,
+  isPrivateKeyRecordCurrent
+} from '../utils/indexedDbHelper';
 
 const E2EEContext = createContext();
 
@@ -42,18 +47,25 @@ export const E2EEProvider = ({ children }) => {
       if (currentUser && currentUser.has_e2ee && !e2eePrivateKey) {
         try {
           // 1. Try IndexedDB first
-          let restoredKey = await getPrivateKey(currentUser.id);
+          const storedKeyRecord = await getPrivateKey(currentUser.id);
+          let restoredKey = isPrivateKeyRecordCurrent(storedKeyRecord, currentUser.public_key)
+            ? storedKeyRecord.key
+            : null;
+
+          if (storedKeyRecord && !restoredKey) {
+            console.warn('Stored E2EE key does not match the current profile key. Unlock is required.');
+          }
           
           // 2. Fallback to localStorage/sessionStorage (migration)
           const cacheKey = `coingram-e2ee-key-${currentUser.id}`;
-          if (!restoredKey) {
+          if (!restoredKey && !dataService.isLive()) {
             let cachedJwk = sessionStorage.getItem(cacheKey) || localStorage.getItem(cacheKey);
             if (cachedJwk) {
               // Import key with extractable = false for runtime security
               restoredKey = await importPrivateKey(cachedJwk, false);
               
               // Migrate to IndexedDB
-              await savePrivateKey(currentUser.id, restoredKey);
+              await savePrivateKey(currentUser.id, restoredKey, currentUser.public_key);
               
               // Clean up legacy plaintext storage
               sessionStorage.removeItem(cacheKey);
@@ -103,7 +115,7 @@ export const E2EEProvider = ({ children }) => {
       );
 
       // 5. Store securely
-      await savePrivateKey(currentUser.id, securePrivKey);
+      await savePrivateKey(currentUser.id, securePrivKey, pubKeyStr);
       setE2eePrivateKey(securePrivKey);
       setIsE2EESetupRequired(false);
 
@@ -140,7 +152,7 @@ export const E2EEProvider = ({ children }) => {
       );
 
       // 3. Store securely in IndexedDB and memory
-      await savePrivateKey(currentUser.id, securePrivKey);
+      await savePrivateKey(currentUser.id, securePrivKey, currentUser.public_key);
       setE2eePrivateKey(securePrivKey);
       return true;
     } catch (e) {
