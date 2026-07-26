@@ -80,6 +80,7 @@ body {
 .app-container {
   display: flex;
   width: 100%;
+  min-width: 0;
   height: 100%;
   overflow: hidden;
 }
@@ -894,6 +895,7 @@ body {
 
 /* --- Right Details panel (ChatInfo) --- */
 .chat-info {
+  flex: 0 0 auto;
   width: 0;
   min-width: 0;
   max-width: 320px;
