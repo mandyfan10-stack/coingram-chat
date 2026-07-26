@@ -1187,7 +1187,46 @@ export const ChatProvider = ({ children }) => {
         if (!dataService.isLive()) {
           setChats(prev => [newChat, ...prev]);
         } else if (type === 'personal') {
-          await fetchChats();
+          const targetProfile = typeof target === 'object' ? target : {};
+          createdChat = {
+            ...newChat,
+            name: newChat.name || targetProfile.display_name || targetProfile.username || String(target),
+            avatar: newChat.avatar || targetProfile.avatar || '??',
+            avatarColor: newChat.avatarColor || targetProfile.avatar_color,
+            username: newChat.username || targetProfile.username || '',
+            createdBy: currentUser.id,
+            pinned: false,
+            notifications: true,
+            messages: [],
+            members: [{
+              id: currentUser.id,
+              name: currentUser.name || currentUser.username || '\u0412\u044b',
+              username: currentUser.username,
+              avatar: currentUser.avatar || '\u{1F464}',
+              avatarColor: currentUser.avatarColor,
+              role: 'member'
+            }, {
+              id: targetProfile.id,
+              name: targetProfile.display_name || targetProfile.username || newChat.name,
+              username: targetProfile.username || newChat.username,
+              avatar: targetProfile.avatar || newChat.avatar || '\u{1F464}',
+              avatarColor: targetProfile.avatar_color || newChat.avatarColor,
+              bio: targetProfile.bio || '',
+              role: 'member'
+            }].filter(member => member.id),
+            settings: {
+              only_admins_can_post: false,
+              allow_media: true,
+              allow_add_members: false,
+              allow_pin_messages: true
+            }
+          };
+          setChats(previous => {
+            const existingIndex = previous.findIndex(chat => chat.id === createdChat.id);
+            if (existingIndex === -1) return [createdChat, ...previous];
+            return previous.map(chat => chat.id === createdChat.id ? { ...createdChat, ...chat } : chat);
+          });
+          fetchChats().catch(error => console.error('Failed to refresh chats after opening personal chat:', error));
         } else {
           const memberProfiles = (Array.isArray(initialMembers) ? initialMembers : [])
             .filter(member => member && member.id && member.id !== currentUser.id)

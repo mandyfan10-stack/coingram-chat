@@ -30,6 +30,7 @@ export default function Sidebar() {
   const [globalResults, setGlobalResults] = useState([]);
   const [globalLoading, setGlobalLoading] = useState(false);
   const [showMyStoriesMenu, setShowMyStoriesMenu] = useState(false);
+  const [openingProfileId, setOpeningProfileId] = useState(null);
   const storiesTrayRef = useRef(null);
 
   // Translate vertical wheel scroll to horizontal scroll on stories tray
@@ -89,17 +90,27 @@ export default function Sidebar() {
     };
   }, [searchQuery, currentUser]);
   const handleSelectGlobalUser = async (user) => {
+    if (openingProfileId) return;
     const existingChat = chats.find(chat => (
       chat.type === 'personal' && chat.members?.some(member => member.id === user.id)
     ));
-    setSearchQuery('');
-    setGlobalResults([]);
     if (existingChat) {
       setActiveChatId(existingChat.id);
+      setSearchQuery('');
+      setGlobalResults([]);
       return;
     }
-    const chat = await createChat(user, 'personal');
-    if (chat) setActiveChatId(chat.id);
+    setOpeningProfileId(user.id);
+    try {
+      const chat = await createChat(user, 'personal');
+      if (chat) {
+        setActiveChatId(chat.id);
+        setSearchQuery('');
+        setGlobalResults([]);
+      }
+    } finally {
+      setOpeningProfileId(null);
+    }
   };
 
   // Filter chats by folder and query
@@ -362,11 +373,12 @@ export default function Sidebar() {
               </div>
             ) : (
               globalResults.map(user => (
-                <div
+                <button
+                  type="button"
                   key={user.id}
-                  className="chat-item"
+                  className="chat-item global-search-result"
                   onClick={() => handleSelectGlobalUser(user)}
-                  style={{ cursor: 'pointer' }}
+                  disabled={openingProfileId === user.id}
                 >
                   <div className="chat-avatar" style={{ background: user.avatar_color || 'var(--accent-gradient)' }}>
                     {renderAvatar(user.avatar, '👤')}
@@ -381,7 +393,7 @@ export default function Sidebar() {
                       </p>
                     </div>
                   </div>
-                </div>
+                </button>
               ))
             )}
           </>
