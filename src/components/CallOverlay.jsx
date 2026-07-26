@@ -477,17 +477,19 @@ export default function CallOverlay() {
   useEffect(() => {
     if (localVideoRef.current && localVideoStream) {
       localVideoRef.current.srcObject = localVideoStream;
+      localVideoRef.current.play().catch(() => {});
     }
     if (localVideoStream) {
       setDragPos({ x: 318, y: 12 });
     }
-  }, [localVideoStream]);
+  }, [localVideoStream, isMinimized]);
 
   useEffect(() => {
     if (remoteVideoRef.current && remoteVideoStream) {
       remoteVideoRef.current.srcObject = remoteVideoStream;
+      remoteVideoRef.current.play().catch(() => {});
     }
-  }, [remoteVideoStream]);
+  }, [remoteVideoStream, isMinimized]);
 
   // Auto-contain remote screen shares
   useEffect(() => {

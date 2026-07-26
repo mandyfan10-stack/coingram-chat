@@ -360,6 +360,27 @@ export const CallProvider = ({ children }) => {
             }
           };
 
+          const ensureGroupParticipant = (peerId) => {
+            const memberInfo = activeChatRef.current?.members?.find(member => member.id === peerId);
+            setGroupCallParticipants(previous => {
+              if (previous.some(participant => participant.id === peerId)) {
+                return previous.map(participant => (
+                  participant.id === peerId ? { ...participant, isReal: true } : participant
+                ));
+              }
+              return [...previous, {
+                id: peerId,
+                name: memberInfo ? memberInfo.name : `Пользователь ${peerId.slice(0, 4)}`,
+                avatar: memberInfo ? memberInfo.avatar : '👤',
+                avatarColor: (memberInfo && (memberInfo.avatarColor || memberInfo.avatar_color))
+                  || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)',
+                muted: false,
+                videoStream: null,
+                speaking: false,
+                isReal: true
+              }];
+            });
+          };
           const getOrCreatePeerConnection = (peerId) => {
             if (pcsRef.current[peerId]) {
               return pcsRef.current[peerId];
@@ -438,6 +459,12 @@ export const CallProvider = ({ children }) => {
                 pcInstance.addTrack(track, localStream);
               });
             }
+            const activeVideoStream = localVideoStreamRef.current;
+            if (activeVideoStream) {
+              activeVideoStream.getVideoTracks()
+                .filter(track => track.readyState === 'live')
+                .forEach(track => pcInstance.addTrack(track, activeVideoStream));
+            }
 
             pcsRef.current[peerId] = pcInstance;
             return pcInstance;
@@ -448,22 +475,7 @@ export const CallProvider = ({ children }) => {
               const { senderId } = payload.payload;
               if (senderId === currentUserRef.current.id) return;
 
-              const memberInfo = activeChatRef.current?.members?.find(m => m.id === senderId);
-              setGroupCallParticipants(prev => {
-                if (prev.some(p => p.id === senderId)) {
-                  return prev.map(p => p.id === senderId ? { ...p, isReal: true } : p);
-                }
-                return [...prev, {
-                  id: senderId,
-                  name: memberInfo ? memberInfo.name : `Пользователь ${senderId.slice(0, 4)}`,
-                  avatar: memberInfo ? memberInfo.avatar : '👤',
-                  avatarColor: (memberInfo && (memberInfo.avatarColor || memberInfo.avatar_color)) || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)',
-                  muted: false,
-                  videoStream: null,
-                  speaking: false,
-                  isReal: true
-                }];
-              });
+              ensureGroupParticipant(senderId);
               
               if (pcsRef.current[senderId]) {
                 const existingPc = pcsRef.current[senderId];
@@ -495,6 +507,7 @@ export const CallProvider = ({ children }) => {
               if (signal.targetId !== currentUserRef.current.id) return;
               const senderId = signal.senderId;
               if (!senderId) return;
+              ensureGroupParticipant(senderId);
 
               const pcInstance = getOrCreatePeerConnection(senderId);
 
@@ -894,13 +907,13 @@ export const CallProvider = ({ children }) => {
   const triggerRenegotiation = useCallback(async () => {
     const isGroup = chats.find(c => c.id === callState.chatId)?.type === 'group';
     if (isGroup) {
-      Object.keys(pcsRef.current).forEach(async (peerId) => {
+      await Promise.all(Object.keys(pcsRef.current).map(async (peerId) => {
         const pcInstance = pcsRef.current[peerId];
         if (pcInstance && activeCallChannelRef.current) {
           try {
             const offer = await pcInstance.createOffer();
             await pcInstance.setLocalDescription(offer);
-            activeCallChannelRef.current.send({
+            await activeCallChannelRef.current.send({
               type: 'broadcast',
               event: 'signal',
               payload: {
@@ -914,7 +927,7 @@ export const CallProvider = ({ children }) => {
             console.error(e);
           }
         }
-      });
+      }));
     } else {
       if (pcRef.current && activeCallChannelRef.current) {
         try {
@@ -1055,9 +1068,9 @@ export const CallProvider = ({ children }) => {
         };
 
         if (isGroup) {
-          Object.keys(pcsRef.current).forEach(async (peerId) => {
+          await Promise.all(Object.keys(pcsRef.current).map(async (peerId) => {
             if (pcsRef.current[peerId]) await replaceOrAdd(pcsRef.current[peerId]);
-          });
+          }));
           await triggerRenegotiation();
         } else if (pcRef.current) {
           await replaceOrAdd(pcRef.current);
@@ -1115,9 +1128,9 @@ export const CallProvider = ({ children }) => {
         };
 
         if (isGroup) {
-          Object.keys(pcsRef.current).forEach(async (peerId) => {
+          await Promise.all(Object.keys(pcsRef.current).map(async (peerId) => {
             if (pcsRef.current[peerId]) await replaceOrAdd(pcsRef.current[peerId]);
-          });
+          }));
           await triggerRenegotiation();
         } else if (pcRef.current) {
           await replaceOrAdd(pcRef.current);
@@ -1136,16 +1149,16 @@ export const CallProvider = ({ children }) => {
               const senders = pcInstance.getSenders();
               const videoSender = senders.find(s => s.track && s.track.kind === 'video');
               if (videoSender) {
-                videoSender.replaceTrack(videoTrack);
+                await videoSender.replaceTrack(videoTrack);
               } else {
                 pcInstance.addTrack(videoTrack, stream);
               }
             };
 
             if (isGroup) {
-              Object.keys(pcsRef.current).forEach(async (peerId) => {
+              await Promise.all(Object.keys(pcsRef.current).map(async (peerId) => {
                 if (pcsRef.current[peerId]) await replaceOrAdd(pcsRef.current[peerId]);
-              });
+              }));
               await triggerRenegotiation();
             } else if (pcRef.current) {
               await replaceOrAdd(pcRef.current);
