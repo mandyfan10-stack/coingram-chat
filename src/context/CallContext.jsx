@@ -55,7 +55,7 @@ const startAudioAnalyzer = (stream, onVolume) => {
 
 export const CallProvider = ({ children }) => {
   const { currentUser } = useAuth();
-  const { chats, activeChatId } = useChat();
+  const { chats } = useChat();
 
   const [callState, setCallState] = useState({
     status: 'idle',
@@ -90,13 +90,13 @@ export const CallProvider = ({ children }) => {
   const pendingSignalingMessagesRef = useRef(new Map());
   const activeCallChannelRef = useRef(null);
 
-  const activeChat = chats.find(c => c.id === activeChatId);
+  const callChat = chats.find(c => c.id === callState.chatId);
   const signalingChatIds = chats.map(chat => chat.id).sort().join(',');
   const currentUserRef = useRef(currentUser);
-  const activeChatRef = useRef(activeChat);
+  const callChatRef = useRef(callChat);
   const callStateRef = useRef(callState);
   currentUserRef.current = currentUser;
-  activeChatRef.current = activeChat;
+  callChatRef.current = callChat;
   callStateRef.current = callState;
 
   const endCallLocally = useCallback(() => {
@@ -341,10 +341,15 @@ export const CallProvider = ({ children }) => {
       });
 
       if (dataService.isLive()) {
-        const isGroup = activeChatRef.current?.type === 'group';
+        const isGroup = callChatRef.current?.type === 'group';
 
         if (isGroup) {
-          activeCallChannel = supabase.channel(`call:chat:${callStateRef.current.chatId}:media`, { config: { private: true } });
+          activeCallChannel = supabase.channel(`call:chat:${callStateRef.current.chatId}:media`, {
+            config: {
+              private: true,
+              presence: { key: currentUserRef.current.id }
+            }
+          });
           activeCallChannelRef.current = activeCallChannel;
 
           const processPeerCandidateQueue = async (peerId, pcInstance) => {
@@ -361,7 +366,7 @@ export const CallProvider = ({ children }) => {
           };
 
           const ensureGroupParticipant = (peerId) => {
-            const memberInfo = activeChatRef.current?.members?.find(member => member.id === peerId);
+            const memberInfo = callChatRef.current?.members?.find(member => member.id === peerId);
             setGroupCallParticipants(previous => {
               if (previous.some(participant => participant.id === peerId)) {
                 return previous.map(participant => (
@@ -471,6 +476,41 @@ export const CallProvider = ({ children }) => {
           };
 
           activeCallChannel
+            .on('presence', { event: 'sync' }, () => {
+              const presenceState = activeCallChannel.presenceState();
+              const syncedParticipants = new Map();
+
+              Object.values(presenceState).flat().forEach(presence => {
+                if (!presence?.id) return;
+                const memberInfo = callChatRef.current?.members?.find(member => member.id === presence.id);
+                syncedParticipants.set(presence.id, {
+                  id: presence.id,
+                  name: presence.id === currentUserRef.current.id
+                    ? 'Вы'
+                    : presence.name || memberInfo?.name || `Пользователь ${presence.id.slice(0, 4)}`,
+                  avatar: presence.avatar || memberInfo?.avatar || '👤',
+                  avatarColor: presence.avatarColor
+                    || memberInfo?.avatarColor
+                    || memberInfo?.avatar_color
+                    || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)',
+                  muted: Boolean(presence.muted),
+                  videoStream: null,
+                  speaking: false,
+                  isReal: true
+                });
+              });
+
+              setGroupCallParticipants(previous => (
+                [...syncedParticipants.values()]
+                  .map(participant => {
+                    const existing = previous.find(item => item.id === participant.id);
+                    return existing
+                      ? { ...participant, speaking: existing.speaking, videoStream: existing.videoStream }
+                      : participant;
+                  })
+                  .sort((left, right) => Number(right.id === currentUserRef.current.id) - Number(left.id === currentUserRef.current.id))
+              ));
+            })
             .on('broadcast', { event: 'join-group-call' }, async (payload) => {
               const { senderId } = payload.payload;
               if (senderId === currentUserRef.current.id) return;
@@ -568,7 +608,14 @@ export const CallProvider = ({ children }) => {
             })
             .subscribe(async (status) => {
               if (status === 'SUBSCRIBED') {
-                activeCallChannel.send({
+                await activeCallChannel.track({
+                  id: currentUserRef.current.id,
+                  name: currentUserRef.current.name || currentUserRef.current.username || 'Пользователь',
+                  avatar: currentUserRef.current.avatar || '🪙',
+                  avatarColor: currentUserRef.current.avatarColor || currentUserRef.current.avatar_color,
+                  muted: callStateRef.current.muted
+                });
+                await activeCallChannel.send({
                   type: 'broadcast',
                   event: 'join-group-call',
                   payload: { senderId: currentUserRef.current.id }
@@ -902,7 +949,18 @@ export const CallProvider = ({ children }) => {
         track.enabled = !nextMuted;
       });
     }
-  }, [callState.muted, currentUser]);
+
+    const isGroup = chats.find(chat => chat.id === callState.chatId)?.type === 'group';
+    if (isGroup && activeCallChannelRef.current) {
+      activeCallChannelRef.current.track({
+        id: currentUser.id,
+        name: currentUser.name || currentUser.username || 'Пользователь',
+        avatar: currentUser.avatar || '🪙',
+        avatarColor: currentUser.avatarColor || currentUser.avatar_color,
+        muted: nextMuted
+      }).catch(error => console.error('Failed to update group call presence:', error));
+    }
+  }, [callState.chatId, callState.muted, chats, currentUser]);
 
   const triggerRenegotiation = useCallback(async () => {
     const isGroup = chats.find(c => c.id === callState.chatId)?.type === 'group';

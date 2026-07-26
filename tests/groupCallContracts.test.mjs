@@ -27,3 +27,16 @@ test('group media updates finish for every peer before renegotiation', () => {
   assert.doesNotMatch(callContext, /forEach\(async/);
   assert.ok((callContext.match(/await Promise\.all\(Object\.keys\(pcsRef\.current\)\.map/g) || []).length >= 4);
 });
+test('group participant list is reconciled from Supabase Presence', () => {
+  assert.match(callContext, /presence:\s*\{ key: currentUserRef\.current\.id \}/);
+  assert.match(callContext, /\.on\('presence', \{ event: 'sync' \}/);
+  assert.match(callContext, /activeCallChannel\.presenceState\(\)/);
+  assert.match(callContext, /await activeCallChannel\.track\(\{/);
+  assert.match(callContext, /activeCallChannelRef\.current\.track\(\{/);
+});
+
+test('group call metadata is resolved from the call chat instead of the open chat', () => {
+  assert.match(callContext, /const callChat = chats\.find\(c => c\.id === callState\.chatId\)/);
+  assert.match(callContext, /callChatRef\.current\?\.members/);
+  assert.doesNotMatch(callContext, /activeChatRef/);
+});
