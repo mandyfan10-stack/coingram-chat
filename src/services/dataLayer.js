@@ -533,45 +533,19 @@ export const dataService = {
         if (membersErr) throw membersErr;
         return newChat;
       } else {
-        const { data: newChat, error: chatErr } = await supabase
-          .from('chats')
-          .insert({
-            name: target,
-            type: type,
-            avatar: type === 'channel' ? '📢' : '👥',
-            avatar_color: type === 'channel' ? 'linear-gradient(135deg, #fbc2eb 0%, #a6c1ee 100%)' : 'linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)',
-            created_by: userId,
-            settings: {
-              only_admins_can_post: type === 'channel',
-              allow_media: true,
-              allow_add_members: true,
-              allow_pin_messages: true
-            }
-          })
-          .select()
-          .single();
-
-        if (chatErr) throw chatErr;
-
-        const memberRows = [{ chat_id: newChat.id, profile_id: userId }];
-        if (Array.isArray(initialMembers)) {
-          for (const m of initialMembers) {
-            const profileId = typeof m === 'object' ? m.id : m;
-            if (profileId && profileId !== userId) {
-              if (!memberRows.some(row => row.profile_id === profileId)) {
-                memberRows.push({ chat_id: newChat.id, profile_id: profileId });
-              }
-            }
-          }
-        }
-
-        const { error: memberErr } = await supabase
-          .from('chat_members')
-          .insert(memberRows);
-
-        if (memberErr) throw memberErr;
-        return newChat;
-      }
+        const memberIds = [...new Set(
+          (Array.isArray(initialMembers) ? initialMembers : [])
+            .map(member => typeof member === 'object' ? member.id : member)
+            .filter(profileId => profileId && profileId !== userId)
+        )];
+        const { data: newChatId, error: createError } = await supabase
+          .rpc('create_managed_chat', {
+            p_name: target,
+            p_type: type,
+            p_member_ids: memberIds
+          });
+        if (createError) throw createError;
+        return { id: newChatId };      }
     } else {
       // Mock mode create
       const isGroup = type === 'group';

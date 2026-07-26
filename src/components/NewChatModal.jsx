@@ -18,6 +18,8 @@ export default function NewChatModal() {
   const [channelName, setChannelName] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState('');
 
   // States for inviting members
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
@@ -133,6 +135,8 @@ export default function NewChatModal() {
       setMemberSearchQuery('');
       setMemberResults([]);
       setSelectedMembers([]);
+      setCreating(false);
+      setCreateError('');
     }
   }, [isNewChatOpen, newChatModalTab]);
 
@@ -145,18 +149,24 @@ export default function NewChatModal() {
 
   const handleCreateGroupSubmit = async (e) => {
     e.preventDefault();
-    if (!groupName.trim()) return;
-    
-    setIsNewChatOpen(false);
-    await createChat(groupName.trim(), 'group', selectedMembers);
+    if (!groupName.trim() || creating) return;
+    setCreating(true);
+    setCreateError('');
+    const chat = await createChat(groupName.trim(), 'group', selectedMembers);
+    setCreating(false);
+    if (chat) setIsNewChatOpen(false);
+    else setCreateError('Не удалось создать группу. Повторите попытку.');
   };
 
   const handleCreateChannelSubmit = async (e) => {
     e.preventDefault();
-    if (!channelName.trim()) return;
-    
-    setIsNewChatOpen(false);
-    await createChat(channelName.trim(), 'channel', selectedMembers);
+    if (!channelName.trim() || creating) return;
+    setCreating(true);
+    setCreateError('');
+    const chat = await createChat(channelName.trim(), 'channel', selectedMembers);
+    setCreating(false);
+    if (chat) setIsNewChatOpen(false);
+    else setCreateError('Не удалось создать канал. Повторите попытку.');
   };
 
   const getTitle = () => {
@@ -178,6 +188,7 @@ export default function NewChatModal() {
 
         {/* Body */}
         <div className="new-chat-body">
+          {createError && <div className="auth-error-alert">{createError}</div>}
           {newChatModalTab === 'personal' && (
             <div className="personal-chat-search">
               <div className="search-container modal-search">
@@ -321,9 +332,9 @@ export default function NewChatModal() {
                 ) : null}
               </div>
               
-              <button type="submit" className="group-submit-btn" disabled={!groupName.trim()}>
+              <button type="submit" className="group-submit-btn" disabled={!groupName.trim() || creating}>
                 <Users size={18} />
-                <span>Создать группу</span>
+                <span>{creating ? 'Создание...' : 'Создать группу'}</span>
               </button>
             </form>
           )}
@@ -421,9 +432,9 @@ export default function NewChatModal() {
                 ) : null}
               </div>
               
-              <button type="submit" className="group-submit-btn" disabled={!channelName.trim()} style={{ background: 'var(--accent-gradient)' }}>
+              <button type="submit" className="group-submit-btn" disabled={!channelName.trim() || creating} style={{ background: 'var(--accent-gradient)' }}>
                 <Users size={18} />
-                <span>Создать канал</span>
+                <span>{creating ? 'Создание...' : 'Создать канал'}</span>
               </button>
             </form>
           )}
