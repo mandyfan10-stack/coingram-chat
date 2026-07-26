@@ -24,39 +24,34 @@ export const AuthProvider = ({ children }) => {
   // Listen to auth changes (Supabase vs Mock)
   useEffect(() => {
     if (dataService.isLive()) {
-      const initAuth = async () => {
-        try {
-          const { data: { session } } = await supabase.auth.getSession();
-          if (session) {
-            const profile = await dataService.fetchProfile(session.user.id);
-            if (profile) {
-              setCurrentUser({
-                id: profile.id,
-                name: profile.display_name,
-                username: profile.username,
-                avatarColor: profile.avatar_color,
-                bio: profile.bio,
-                theme: profile.theme,
-                wallpaper: profile.wallpaper,
-                avatar: profile.avatar,
-                has_e2ee: profile.has_e2ee,
-                public_key: profile.public_key
-              });
+      let cancelled = false;
+      let authRequestId = 0;
+
+      const applySession = (session) => {
+        const requestId = ++authRequestId;
+
+        if (!session) {
+          setCurrentUser(previousUser => {
+            if (previousUser?.id) {
+              void clearE2EECache(previousUser.id);
             }
-          }
-        } catch (e) {
-          console.error("Auth init failed", e);
-        } finally {
+            return null;
+          });
           setAuthLoading(false);
+          return;
         }
-      };
 
-      initAuth();
+        // Supabase warns against awaiting other client calls directly inside
+        // onAuthStateChange because it can deadlock the auth client.
+        setTimeout(async () => {
+          try {
+            const profile = await dataService.fetchProfile(session.user.id);
+            if (cancelled || requestId !== authRequestId) return;
+            if (!profile) {
+              await supabase.auth.signOut({ scope: 'local' });
+              return;
+            }
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if (session) {
-          const profile = await dataService.fetchProfile(session.user.id);
-          if (profile) {
             setCurrentUser({
               id: profile.id,
               name: profile.display_name,
@@ -69,19 +64,26 @@ export const AuthProvider = ({ children }) => {
               has_e2ee: profile.has_e2ee,
               public_key: profile.public_key
             });
-          }
-        } else {
-          setCurrentUser(previousUser => {
-            if (previousUser?.id) {
-              void clearE2EECache(previousUser.id);
+          } catch (error) {
+            if (!cancelled && requestId === authRequestId) {
+              const errorCode = error?.code ? ` [${error.code}]` : '';
+              console.error(`Failed to load authenticated profile${errorCode}: ${error?.message || String(error)}`);
             }
-            return null;
-          });
-        }
-        setAuthLoading(false);
+          } finally {
+            if (!cancelled && requestId === authRequestId) {
+              setAuthLoading(false);
+            }
+          }
+        }, 0);
+      };
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        applySession(session);
       });
 
       return () => {
+        cancelled = true;
+        authRequestId += 1;
         subscription?.unsubscribe();
       };
     } else {
@@ -97,7 +99,6 @@ export const AuthProvider = ({ children }) => {
       setAuthLoading(false);
     }
   }, [clearE2EECache]);
-
   const signUpWithUsername = async (username, password, displayName) => {
     return await dataService.signUp(username, password, displayName);
   };

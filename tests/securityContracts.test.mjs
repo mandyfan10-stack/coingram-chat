@@ -8,7 +8,12 @@ const migration = await readFile(new URL('../supabase/migrations/20260723114811_
 test('call signaling uses only private chat-scoped topics', () => {
   assert.doesNotMatch(callContext, /call:user:/);
   assert.match(callContext, /call:chat:/);
+  assert.match(callContext, /call:chat:\$\{callStateRef\.current\.chatId\}:media/);
   assert.match(callContext, /private:\s*true/);
+  assert.doesNotMatch(
+    callContext,
+    /const sendSignalingMessage[\s\S]*?channel\.subscribe[\s\S]*?const startCall/
+  );
 });
 
 test('database migration locks routing and abuse boundaries', () => {

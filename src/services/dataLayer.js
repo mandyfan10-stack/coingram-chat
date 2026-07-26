@@ -95,7 +95,7 @@ export const dataService = {
         .from('profiles')
         .select('id, username, display_name, bio, avatar_color, theme, wallpaper, avatar, public_key, has_e2ee')
         .eq('id', userId)
-        .single();
+        .maybeSingle();
       if (error) throw error;
       return data;
     } else {

@@ -87,9 +87,11 @@ export const CallProvider = ({ children }) => {
   const localVideoStreamRef = useRef(null);
   const pcRef = useRef(null);
   const globalSignalingChannelRef = useRef(null);
+  const pendingSignalingMessagesRef = useRef(new Map());
   const activeCallChannelRef = useRef(null);
 
   const activeChat = chats.find(c => c.id === activeChatId);
+  const signalingChatIds = chats.map(chat => chat.id).sort().join(',');
   const currentUserRef = useRef(currentUser);
   const activeChatRef = useRef(activeChat);
   const callStateRef = useRef(callState);
@@ -160,7 +162,7 @@ export const CallProvider = ({ children }) => {
       signalingChannel
         .on('broadcast', { event: 'incoming-call' }, (payload) => {
           const { callerId, callerName, callerAvatar, callerAvatarColor, chatId } = payload.payload;
-          if (callerId === currentUser.id) return;
+          if (callerId === currentUserRef.current?.id) return;
           setCallState({
             status: 'incoming', chatId, duration: 0, muted: false, isOutgoing: false,
             callerInfo: { name: callerName, avatar: callerAvatar, avatarColor: callerAvatarColor },
@@ -169,7 +171,7 @@ export const CallProvider = ({ children }) => {
         })
         .on('broadcast', { event: 'call-accepted' }, (payload) => {
           const { responderId } = payload.payload || {};
-          if (responderId === currentUser.id) return;
+          if (responderId === currentUserRef.current?.id) return;
           setCallState(prev => prev.status === 'calling'
             ? { ...prev, status: 'connected', otherUserId: responderId || prev.otherUserId }
             : prev);
@@ -182,7 +184,17 @@ export const CallProvider = ({ children }) => {
             ? { status: 'idle', chatId: null, duration: 0, muted: false, isOutgoing: false, callerInfo: null, otherUserId: null, webrtcState: 'disconnected' }
             : prev), 1500);
         })
-        .subscribe();
+        .subscribe((status) => {
+          signalingChannel.callSubscriptionStatus = status;
+          if (status !== 'SUBSCRIBED') return;
+
+          const pendingMessages = pendingSignalingMessagesRef.current.get(chat.id) || [];
+          pendingSignalingMessagesRef.current.delete(chat.id);
+          pendingMessages.forEach(({ event, payload }) => {
+            signalingChannel.send({ type: 'broadcast', event, payload })
+              .catch(error => console.error('Failed to flush call signaling message:', error));
+          });
+        });
       return signalingChannel;
     });
 
@@ -191,7 +203,7 @@ export const CallProvider = ({ children }) => {
       channels.forEach(channel => channel.unsubscribe());
       if (globalSignalingChannelRef.current === channels) globalSignalingChannelRef.current = [];
     };
-  }, [currentUser, chats]);
+  }, [currentUser?.id, signalingChatIds]);
 
   // WebRTC Connection and Streaming Effect
   useEffect(() => {
@@ -332,7 +344,7 @@ export const CallProvider = ({ children }) => {
         const isGroup = activeChatRef.current?.type === 'group';
 
         if (isGroup) {
-          activeCallChannel = supabase.channel(`call:chat:${callStateRef.current.chatId}`, { config: { private: true } });
+          activeCallChannel = supabase.channel(`call:chat:${callStateRef.current.chatId}:media`, { config: { private: true } });
           activeCallChannelRef.current = activeCallChannel;
 
           const processPeerCandidateQueue = async (peerId, pcInstance) => {
@@ -551,7 +563,7 @@ export const CallProvider = ({ children }) => {
               }
             });
         } else {
-          activeCallChannel = supabase.channel(`call:chat:${callStateRef.current.chatId}`, { config: { private: true } });
+          activeCallChannel = supabase.channel(`call:chat:${callStateRef.current.chatId}:media`, { config: { private: true } });
           activeCallChannelRef.current = activeCallChannel;
 
           const sendOffer = async () => {
@@ -708,13 +720,21 @@ export const CallProvider = ({ children }) => {
 
   const sendSignalingMessage = useCallback((chatId, event, payload) => {
     if (!dataService.isLive() || !chatId) return;
-    const channel = supabase.channel(`call:chat:${chatId}`, { config: { private: true } });
-    channel.subscribe((status) => {
-      if (status !== 'SUBSCRIBED') return;
+    const topic = `realtime:call:chat:${chatId}`;
+    const subscribedChannels = Array.isArray(globalSignalingChannelRef.current)
+      ? globalSignalingChannelRef.current
+      : [];
+    const channel = subscribedChannels.find(item => item.topic === topic);
+
+    if (channel?.callSubscriptionStatus === 'SUBSCRIBED') {
       channel.send({ type: 'broadcast', event, payload })
-        .catch(error => console.error(error))
-        .finally(() => setTimeout(() => channel.unsubscribe(), 3000));
-    });
+        .catch(error => console.error('Failed to send call signaling message:', error));
+      return;
+    }
+
+    const pendingMessages = pendingSignalingMessagesRef.current.get(chatId) || [];
+    pendingMessages.push({ event, payload });
+    pendingSignalingMessagesRef.current.set(chatId, pendingMessages);
   }, []);
 
   const startCall = useCallback((chatId) => {
