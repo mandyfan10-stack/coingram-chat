@@ -33,6 +33,9 @@ test('clicking a profile always resolves and activates a personal chat by profil
   assert.match(sidebar, /if \(chat\) \{[\s\S]*setActiveChatId\(chat\.id\)/);
   assert.match(dataLayer, /\.rpc\('ensure_personal_chat', \{ p_target_profile_id: profile\.id \}\)/);
   assert.match(sidebar, /className="chat-item global-search-result"/);
+  assert.match(sidebar, /onPointerUpCapture=\{handleGlobalResultPointerUp\}/);
+  assert.match(sidebar, /data-global-profile-id=\{user\.id\}/);
+  assert.match(sidebar, /openingProfileRef\.current = user\.id/);
 });
 
 test('a newly resolved personal chat is available locally before background refresh', () => {
