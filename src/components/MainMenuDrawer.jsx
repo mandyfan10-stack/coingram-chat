@@ -142,48 +142,13 @@ export default function MainMenuDrawer() {
       }
 
       if (isSupabaseConfigured) {
-        // Double check database to prevent race conditions / duplicates
-        const { data: dbExisting, error: checkErr } = await supabase
-          .from('chats')
-          .select('id')
-          .eq('name', 'Избранное')
-          .eq('type', 'personal')
-          .eq('created_by', currentUser.id)
-          .limit(1);
-
-        if (dbExisting && dbExisting.length > 0) {
-          if (fetchChats) await fetchChats();
-          setActiveChatId(dbExisting[0].id);
-          setIsDrawerOpen(false);
-          setIsOpeningSaved(false);
-          return;
-        }
-
-        // Create a personal chat named "Избранное" with ourselves
-        const { data: newChat, error: chatErr } = await supabase
-          .from('chats')
-          .insert({
-            name: 'Избранное',
-            type: 'personal',
-            avatar: '🔖',
-            avatar_color: 'linear-gradient(135deg, #3a7bd5 0%, #3a6073 100%)',
-            created_by: currentUser.id
-          })
-          .select()
-          .single();
-
-        if (chatErr) throw chatErr;
-
-        const { error: membersErr } = await supabase
-          .from('chat_members')
-          .insert({ chat_id: newChat.id, profile_id: currentUser.id });
-
-        if (membersErr) throw membersErr;
+        const { data: savedChatId, error: savedErr } = await supabase
+          .rpc('ensure_saved_messages_chat');
+        if (savedErr) throw savedErr;
 
         if (fetchChats) await fetchChats();
-        setActiveChatId(newChat.id);
-        setIsDrawerOpen(false);
-      } else {
+        setActiveChatId(savedChatId);
+        setIsDrawerOpen(false);      } else {
         // Mock mode
         const newChat = {
           id: `chat-saved-${Date.now()}`,

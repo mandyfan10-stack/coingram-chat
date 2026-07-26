@@ -190,39 +190,26 @@ export const dataService = {
       if (!rawChats) rawChats = [];
 
       // 2. Ensure "Избранное" (Saved Messages) exists for userId in Supabase
-      const hasSaved = rawChats.some(c => c.name === 'Избранное' && (c.created_by === userId || c.type === 'personal'));
+      const hasSaved = rawChats.some(c => c.name === 'Избранное' && c.created_by === userId && c.type === 'personal');
       if (!hasSaved) {
         try {
-          const { data: newSaved } = await supabase
-            .from('chats')
-            .insert({
-              name: 'Избранное',
-              type: 'personal',
-              avatar: '🔖',
-              avatar_color: 'linear-gradient(135deg, #3a7bd5 0%, #3a6073 100%)',
-              created_by: userId
-            })
-            .select()
-            .single();
+          const { data: savedChatId, error: savedErr } = await supabase
+            .rpc('ensure_saved_messages_chat');
+          if (savedErr) throw savedErr;
 
-          if (newSaved) {
-            await supabase.from('chat_members').insert({
-              chat_id: newSaved.id,
-              profile_id: userId,
-              role: 'owner'
-            });
-            await supabase.from('messages').insert({
-              chat_id: newSaved.id,
-              sender_id: userId,
-              text: 'Добро пожаловать в Избранное! 🔖 Сохраняйте здесь нужные сообщения и файлы.'
-            });
-            rawChats.unshift(newSaved);
+          const { data: savedChat, error: savedChatErr } = await supabase
+            .from('chats')
+            .select('*')
+            .eq('id', savedChatId)
+            .single();
+          if (savedChatErr) throw savedChatErr;
+          if (savedChat && !rawChats.some(chat => chat.id === savedChat.id)) {
+            rawChats.unshift(savedChat);
           }
         } catch (e) {
           console.warn("Failed to auto-create Saved Messages:", e);
         }
       }
-
       // 3. Fetch user memberships
       let { data: memberships } = await supabase
         .from('chat_members')
