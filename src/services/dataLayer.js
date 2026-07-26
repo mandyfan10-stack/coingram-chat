@@ -261,6 +261,16 @@ export const dataService = {
           latestMessagesMap[chatIds[idx]] = res.data[0];
         }
       });
+      const latestMessageIds = Object.values(latestMessagesMap).map(message => message.id);
+      const latestReadMessageIds = new Set();
+      if (latestMessageIds.length > 0) {
+        const { data: latestReads, error: latestReadsError } = await supabase
+          .from('message_reads')
+          .select('message_id')
+          .in('message_id', latestMessageIds);
+        if (latestReadsError) throw latestReadsError;
+        (latestReads || []).forEach(receipt => latestReadMessageIds.add(receipt.message_id));
+      }
 
       return (chatList || []).map((chat) => {
         const membersRaw = (allMembersRaw || []).filter(m => m.chat_id === chat.id);
@@ -293,7 +303,7 @@ export const dataService = {
             text: latestMsg.text,
             media: latestMsg.media,
             replyTo: latestMsg.reply_to,
-            read: latestMsg.read,
+            read: latestMsg.read || latestReadMessageIds.has(latestMsg.id),
             reactions: latestMsg.reactions || [],
             timestamp: new Date(latestMsg.created_at)
           }];

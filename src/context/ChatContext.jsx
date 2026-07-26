@@ -1035,6 +1035,21 @@ export const ChatProvider = ({ children }) => {
               return c;
             }));
           })
+          .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_reads' }, (payload) => {
+            const receipt = payload.new;
+            setChats(prevChats => prevChats.map(chat => ({
+              ...chat,
+              messages: chat.messages.map(message => (
+                message.id === receipt.message_id
+                  ? {
+                      ...message,
+                      read: true,
+                      reads: [...new Set([...(message.reads || []), receipt.profile_id])]
+                    }
+                  : message
+              ))
+            })));
+          })
           .subscribe();
 
         const memberChannel = supabase
