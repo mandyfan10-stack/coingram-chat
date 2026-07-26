@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useChat } from '../context/ChatContext';
+import { useAuth } from '../context/AuthContext';
 import { isSupabaseConfigured, supabase } from '../supabaseClient';
 import { 
   UserCircle, 
@@ -15,7 +16,6 @@ import {
 
 export default function MainMenuDrawer() {
   const {
-    currentUser,
     isDrawerOpen,
     setIsDrawerOpen,
     setIsSettingsOpen,
@@ -26,11 +26,11 @@ export default function MainMenuDrawer() {
     setChats,
     setActiveChatId,
     fetchChats,
-    updateProfile,
     setSettingsTab,
     setNewChatModalTab,
     renderAvatar
   } = useChat();
+  const { currentUser, updateProfile } = useAuth();
 
   const drawerRef = useRef(null);
 

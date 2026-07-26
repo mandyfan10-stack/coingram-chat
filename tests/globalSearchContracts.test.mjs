@@ -6,6 +6,7 @@ const fsChatContext = await readFile(new URL('../src/context/ChatContext.jsx', i
 
 const dataLayer = await readFile(new URL('../src/services/dataLayer.js', import.meta.url), 'utf8');
 const sidebar = await readFile(new URL('../src/components/Sidebar.jsx', import.meta.url), 'utf8');
+const drawer = await readFile(new URL('../src/components/MainMenuDrawer.jsx', import.meta.url), 'utf8');
 const modal = await readFile(new URL('../src/components/NewChatModal.jsx', import.meta.url), 'utf8');
 const personalChatMigration = await readFile(new URL('../supabase/migrations/20260726125251_ensure_personal_chat.sql', import.meta.url), 'utf8');
 const privateWrapperMigration = await readFile(new URL('../supabase/migrations/20260726125625_move_personal_chat_function_private.sql', import.meta.url), 'utf8');
@@ -33,9 +34,13 @@ test('clicking a profile always resolves and activates a personal chat by profil
   assert.match(sidebar, /if \(chat\) \{[\s\S]*setActiveChatId\(chat\.id\)/);
   assert.match(dataLayer, /\.rpc\('ensure_personal_chat', \{ p_target_profile_id: profile\.id \}\)/);
   assert.match(sidebar, /className="chat-item global-search-result"/);
-  assert.match(sidebar, /onPointerUpCapture=\{handleGlobalResultPointerUp\}/);
-  assert.match(sidebar, /data-global-profile-id=\{user\.id\}/);
-  assert.match(sidebar, /openingProfileRef\.current = user\.id/);
+  assert.match(fsChatContext, /<ChatContext\.Provider[\s\S]*createChat,[\s\S]*deleteMessage/);
+});
+
+test('chat context exposes the operations consumed by messenger surfaces', () => {
+  assert.match(fsChatContext, /chats,\s+setChats,\s+fetchChats,/);
+  assert.match(drawer, /const \{ currentUser, updateProfile \} = useAuth\(\)/);
+  assert.doesNotMatch(drawer, /updateProfile,[\s\S]*= useChat\(\)/);
 });
 
 test('a newly resolved personal chat is available locally before background refresh', () => {

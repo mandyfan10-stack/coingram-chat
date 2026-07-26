@@ -32,7 +32,6 @@ export default function Sidebar() {
   const [showMyStoriesMenu, setShowMyStoriesMenu] = useState(false);
   const [openingProfileId, setOpeningProfileId] = useState(null);
   const storiesTrayRef = useRef(null);
-  const openingProfileRef = useRef(null);
 
   // Translate vertical wheel scroll to horizontal scroll on stories tray
   useEffect(() => {
@@ -91,8 +90,7 @@ export default function Sidebar() {
     };
   }, [searchQuery, currentUser]);
   const handleSelectGlobalUser = async (user) => {
-    if (openingProfileRef.current) return;
-    openingProfileRef.current = user.id;
+    if (openingProfileId) return;
     const existingChat = chats.find(chat => (
       chat.type === 'personal' && chat.members?.some(member => member.id === user.id)
     ));
@@ -100,7 +98,6 @@ export default function Sidebar() {
       setActiveChatId(existingChat.id);
       setSearchQuery('');
       setGlobalResults([]);
-      openingProfileRef.current = null;
       return;
     }
     setOpeningProfileId(user.id);
@@ -112,19 +109,8 @@ export default function Sidebar() {
         setGlobalResults([]);
       }
     } finally {
-      openingProfileRef.current = null;
       setOpeningProfileId(null);
     }
-  };
-
-  const handleGlobalResultPointerUp = (event) => {
-    if (event.button !== 0) return;
-    const result = event.target.closest('[data-global-profile-id]');
-    if (!result) return;
-    const user = globalResults.find(profile => profile.id === result.dataset.globalProfileId);
-    if (!user) return;
-    event.preventDefault();
-    handleSelectGlobalUser(user);
   };
 
   // Filter chats by folder and query
@@ -287,7 +273,7 @@ export default function Sidebar() {
       </div>
 
       {/* Chat List */}
-      <div className="chat-list" onPointerUpCapture={handleGlobalResultPointerUp}>
+      <div className="chat-list">
         {searchQuery.trim() !== '' && (
           <div className="search-section-header" style={{ padding: '8px 16px 4px 16px', fontSize: '11px', fontWeight: '600', color: 'var(--accent-color)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             Чаты и контакты
@@ -391,10 +377,7 @@ export default function Sidebar() {
                   type="button"
                   key={user.id}
                   className="chat-item global-search-result"
-                  data-global-profile-id={user.id}
-                  onClick={(event) => {
-                    if (event.detail === 0) handleSelectGlobalUser(user);
-                  }}
+                  onClick={() => handleSelectGlobalUser(user)}
                   disabled={openingProfileId === user.id}
                 >
                   <div className="chat-avatar" style={{ background: user.avatar_color || 'var(--accent-gradient)' }}>

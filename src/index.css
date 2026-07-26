@@ -386,9 +386,6 @@ body {
 
 .global-search-result {
   width: 100%;
-  position: relative;
-  z-index: 2;
-  pointer-events: auto;
   border: 0;
   background: transparent;
   color: inherit;
