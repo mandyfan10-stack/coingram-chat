@@ -13,7 +13,7 @@ Engineering items that depend on **billing, certificates, or operational choices
 | Auth rate limits | 30 req / 5 min / IP | Keep; raise only with evidence |
 | Storage 15 MiB + MIME allowlist | Server-side | Keep aligned with `mediaValidation.ts` |
 | Orphan media cleanup Edge Function | Scheduled daily | Verify Vault secrets & cron after deploys |
-| **Leaked-password protection** | **Unavailable on Free plan** | Accept risk **or** upgrade Supabase plan and enable in Auth settings |
+| **Leaked-password protection** | **Enabled** (plan upgraded) | Keep on in Auth settings; re-check after any plan change |
 | Unused indexes | Advisor informational | Reassess after real traffic; do not drop blindly |
 
 Reference: [qa-security-report-2026-07-23.md](./qa-security-report-2026-07-23.md).
@@ -34,10 +34,12 @@ Reference: [qa-security-report-2026-07-23.md](./qa-security-report-2026-07-23.md
 | Item | Location / secret |
 |------|-------------------|
 | Local keystore | `android/keystores/` (gitignored) |
-| Backup | Follow `android/keystores/BACKUP-INSTRUCTIONS.txt` — **off-machine encrypted copy required** |
-| CI | `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD` |
+| Encrypted backup script | `scripts/backup-android-keystore.ps1` → `%USERPROFILE%\Documents\Coingram-secure-backups\` |
+| Restore script | `scripts/restore-android-keystore.ps1` |
+| CI sync | `scripts/sync-android-signing-secrets.ps1` (four `ANDROID_*` secrets) |
+| Full guide | [SIGNING.md](./SIGNING.md) |
 
-Loss of the release keystore blocks play-store-style upgrades over previous release builds.
+Local backup archive is created on-disk; **owner must still copy `.bin` + `.meta.json` off this machine** (USB / vault). Loss of the release keystore blocks upgrades over previous release installs.
 
 See [RELEASING.md](./RELEASING.md).
 
@@ -47,11 +49,13 @@ See [RELEASING.md](./RELEASING.md).
 
 | Item | Notes |
 |------|--------|
-| Current state | NSIS installer builds **without** trusted signature → SmartScreen warnings |
-| CI readiness | Secrets `WINDOWS_CERTIFICATE_BASE64`, `WINDOWS_CERTIFICATE_PASSWORD` |
-| Action | Purchase EV/OV code-signing cert → add secrets → re-run release workflow |
+| Current state | NSIS installer builds **unsigned** until a CA-issued code-signing cert is purchased |
+| CI | Validates PFX, sets `WIN_CSC_*`, verifies signature with `Get-AuthenticodeSignature` when secrets exist |
+| Secrets | `WINDOWS_CERTIFICATE_BASE64`, `WINDOWS_CERTIFICATE_PASSWORD` |
+| Upload helper | `scripts/setup-windows-signing-secrets.ps1 -PfxPath <file.pfx>` |
+| Action left | Purchase OV/EV (or Azure Trusted Signing) → run setup script → tag a release |
 
-Until then, document SmartScreen for end users in release notes.
+Until then, mention SmartScreen in release notes. Details: [SIGNING.md](./SIGNING.md).
 
 ---
 
@@ -93,6 +97,6 @@ Prefer GitHub Releases for installers over keeping every `Setup *.exe` locally.
 
 ## Explicit non-goals (this doc)
 
-- Buying certificates or plan upgrades for the user  
+- Buying Windows Authenticode certificates for the user  
 - Running production migrations against live projects without review  
-- Enabling features that require paid Supabase tiers without a decision  
+- Changing Supabase plan tiers without an explicit owner decision

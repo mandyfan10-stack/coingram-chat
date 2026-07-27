@@ -28,20 +28,28 @@ git push origin v1.20.8
 
 ## Android signing key
 
-Локальные файлы находятся в `android/keystores/` и исключены из Git. Сделайте зашифрованную резервную копию:
+Локальные файлы: `android/keystores/` (gitignored). Полная инструкция: [SIGNING.md](./SIGNING.md).
 
-- `coingram-release.p12`;
-- `signing.properties`.
+```powershell
+powershell -File scripts/backup-android-keystore.ps1
+powershell -File scripts/sync-android-signing-secrets.ps1
+```
 
-APK из релиза `v1.20.5` был подписан временным debug-ключом. Перед установкой первой постоянной release-сборки `v1.20.7` старый APK потребуется удалить; дальнейшие версии будут обновляться поверх приложения без удаления.
+Зашифрованный бэкап пишется в `%USERPROFILE%\Documents\Coingram-secure-backups\`. **Скопируйте `.bin` + `.meta.json` с этой машины** (USB / второй vault).
 
-Потеря ключа не позволит выпускать обновления, устанавливаемые поверх предыдущей release-сборки. GitHub Actions использует секреты `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS` и `ANDROID_KEY_PASSWORD`.
+APK из релиза `v1.20.5` был подписан временным debug-ключом. Перед установкой первой постоянной release-сборки `v1.20.7` старый APK потребуется удалить; дальнейшие версии обновляются поверх.
+
+Потеря ключа блокирует обновления поверх release-сборок. CI: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`.
 
 ## Подпись Windows
 
-Workflow готов к Authenticode-подписи. После получения доверенного PFX-сертификата добавьте секреты:
+Нужен **купленный** OV/EV code-signing сертификат (или Azure Trusted Signing). Self-signed SmartScreen не убирает.
 
-- `WINDOWS_CERTIFICATE_BASE64` — Base64-содержимое PFX;
-- `WINDOWS_CERTIFICATE_PASSWORD` — пароль PFX.
+После получения PFX:
 
-Пока этих секретов нет, EXE собирается без доверенной подписи и Windows SmartScreen может показывать предупреждение.
+```powershell
+powershell -File scripts/setup-windows-signing-secrets.ps1 -PfxPath C:\path\to\codesign.pfx
+```
+
+Секреты: `WINDOWS_CERTIFICATE_BASE64`, `WINDOWS_CERTIFICATE_PASSWORD`.  
+Пока секретов нет — EXE **unsigned**, SmartScreen предупреждает. Подробности: [SIGNING.md](./SIGNING.md).

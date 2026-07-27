@@ -34,7 +34,9 @@
 
 ## Remaining platform warning
 
-Supabase leaked-password protection is unavailable on the current Free plan. The final security advisor has no other security warnings. Existing unused-index notices are informational and should be reassessed after real production traffic rather than deleted immediately.
+**Update (owner, post-report):** Supabase plan upgraded and **leaked-password protection enabled**. Original note below is historical.
+
+~~Supabase leaked-password protection is unavailable on the current Free plan.~~ The final security advisor had no other security warnings at report time. Existing unused-index notices are informational and should be reassessed after real production traffic rather than deleted immediately.
 
 ## Cleanup
 

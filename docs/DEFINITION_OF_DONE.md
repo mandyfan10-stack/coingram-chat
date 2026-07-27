@@ -49,9 +49,11 @@ Legend: ✅ done in code · ⏳ ops / budget · ➖ deferred by design
 
 - [x] Document residual risks in [OPS.md](./OPS.md)
 - [x] Releasing / keystore / E2E secrets cross-linked
-- [ ] ⏳ Supabase leaked-password protection (plan upgrade)
-- [ ] ⏳ Windows Authenticode certificate + CI secrets
-- [ ] ⏳ Off-machine keystore backup verified by owner
+- [x] Supabase leaked-password protection (plan upgraded + enabled by owner)
+- [x] Android keystore encrypted backup tooling + local archive + CI secret re-sync ([SIGNING.md](./SIGNING.md))
+- [ ] ⏳ Owner: copy keystore `.bin` off-machine (USB / second vault) and tick checklist in SIGNING.md
+- [x] Windows Authenticode CI path hardened (PFX validate + signature check + setup script)
+- [ ] ⏳ Purchase OV/EV (or Azure Trusted Signing) + run `setup-windows-signing-secrets.ps1`
 
 ## Phase G — Documentation
 

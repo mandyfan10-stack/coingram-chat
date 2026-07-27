@@ -142,22 +142,88 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Windows installer
+      - name: Prepare Windows code-signing certificate
+        id: win_cert
+        shell: pwsh
         env:
-          WIN_CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          CERT_B64: ${{ secrets.WINDOWS_CERTIFICATE_BASE64 }}
+          CERT_PASS: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+        run: |
+          $hasCert = -not [string]::IsNullOrWhiteSpace($env:CERT_B64)
+          $hasPass = -not [string]::IsNullOrWhiteSpace($env:CERT_PASS)
+          if ($hasCert -xor $hasPass) {
+            throw "Set BOTH WINDOWS_CERTIFICATE_BASE64 and WINDOWS_CERTIFICATE_PASSWORD, or neither."
+          }
+          if (-not $hasCert) {
+            Write-Host "No Authenticode secrets — installer will be UNSIGNED (SmartScreen warnings expected)."
+            Add-Content -Path $env:GITHUB_OUTPUT -Value "signed=false"
+            # Prevent electron-builder from auto-picking random local certs on the runner
+            Add-Content -Path $env:GITHUB_ENV -Value "CSC_IDENTITY_AUTO_DISCOVERY=false"
+            return
+          }
+          $pfx = Join-Path $env:RUNNER_TEMP "windows-codesign.pfx"
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:CERT_B64.Trim()))
+          if (-not (Test-Path -LiteralPath $pfx) -or (Get-Item -LiteralPath $pfx).Length -lt 64) {
+            throw "Decoded WINDOWS_CERTIFICATE_BASE64 is empty or too small."
+          }
+          $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2(
+            $pfx,
+            $env:CERT_PASS,
+            [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]::EphemeralKeySet
+          )
+          Write-Host "Authenticode PFX OK subject=$($cert.Subject) notAfter=$($cert.NotAfter.ToString('u')) thumbprint=$($cert.Thumbprint)"
+          $cert.Dispose()
+          # electron-builder: file path via WIN_CSC_LINK
+          Add-Content -Path $env:GITHUB_ENV -Value "WIN_CSC_LINK=$pfx"
+          Add-Content -Path $env:GITHUB_ENV -Value "WIN_CSC_KEY_PASSWORD=$env:CERT_PASS"
+          Add-Content -Path $env:GITHUB_ENV -Value "CSC_IDENTITY_AUTO_DISCOVERY=true"
+          Add-Content -Path $env:GITHUB_OUTPUT -Value "signed=true"
+
+      - name: Build Windows installer
         run: npm run electron:build
 
-      - name: Package installer
+      - name: Package installer and verify Authenticode
         shell: pwsh
+        env:
+          EXPECT_SIGNED: ${{ steps.win_cert.outputs.signed }}
         run: |
           $version = $env:GITHUB_REF_NAME.TrimStart('v')
-          $source = "dist-electron\CoinGram Setup $version.exe"
-          if (-not (Test-Path -LiteralPath $source)) { throw "Installer not found: $source" }
+          $candidates = @(
+            "dist-electron\CoinGram Setup $version.exe",
+            "dist-electron\Coiny Setup $version.exe"
+          )
+          $found = Get-ChildItem -Path dist-electron -Filter "*Setup*.exe" -ErrorAction SilentlyContinue |
+            Select-Object -ExpandProperty FullName
+          $candidates = @($candidates + $found) | Where-Object { $_ -and (Test-Path -LiteralPath $_) } | Select-Object -Unique
+          if (-not $candidates) {
+            throw "Installer not found under dist-electron (looked for CoinGram/Coiny Setup $version.exe)"
+          }
+          $source = $candidates[0]
+          Write-Host "Using installer: $source"
           New-Item -ItemType Directory -Path release -Force | Out-Null
           $target = "release\CoinGram-Setup-$version.exe"
-          Copy-Item -LiteralPath $source -Destination $target
-          Get-FileHash -Algorithm SHA256 -LiteralPath $target
+          Copy-Item -LiteralPath $source -Destination $target -Force
+          Get-FileHash -Algorithm SHA256 -LiteralPath $target | Format-List
+
+          $sig = Get-AuthenticodeSignature -LiteralPath $target
+          Write-Host "Authenticode Status: $($sig.Status)"
+          Write-Host "Authenticode Signer: $($sig.SignerCertificate.Subject)"
+          if ($env:EXPECT_SIGNED -eq "true") {
+            if (-not $sig.SignerCertificate) {
+              throw "WINDOWS_CERTIFICATE_* secrets set but installer is unsigned (Status=$($sig.Status))."
+            }
+            if ($sig.Status -ne "Valid") {
+              Write-Warning "Signature present but Status=$($sig.Status) (runner trust store / timestamp). Thumbprint=$($sig.SignerCertificate.Thumbprint)"
+            } else {
+              Write-Host "Signed Valid: $($sig.SignerCertificate.Thumbprint)"
+            }
+          } else {
+            if ($sig.SignerCertificate) {
+              Write-Host "Installer is signed."
+            } else {
+              Write-Host "Installer is unsigned — set WINDOWS_CERTIFICATE_BASE64 + WINDOWS_CERTIFICATE_PASSWORD (see docs/SIGNING.md)."
+            }
+          }
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
