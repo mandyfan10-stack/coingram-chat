@@ -8,10 +8,16 @@ export default function ChatHeader({
   isTypingText,
   isInfoOpen,
   setIsInfoOpen,
+  setIsPulseOpen,
   setActiveChatId
 }) {
+  const toggleInfo = () => {
+    setIsPulseOpen?.(false);
+    setIsInfoOpen(!isInfoOpen);
+  };
+
   return (
-    <header className="chat-header" onClick={() => setIsInfoOpen(!isInfoOpen)}>
+    <header className="chat-header" onClick={toggleInfo}>
       <div className="chat-header-info">
         <button
           type="button"
@@ -45,7 +51,7 @@ export default function ChatHeader({
         </div>
       </div>
       <div className="chat-header-actions" onClick={(e) => e.stopPropagation()}>
-        <button className="chat-header-btn" onClick={() => setIsInfoOpen(!isInfoOpen)} title="Информация">
+        <button className="chat-header-btn" onClick={toggleInfo} title="Информация">
           <MoreVertical size={20} />
         </button>
       </div>

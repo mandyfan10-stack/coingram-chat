@@ -40,6 +40,7 @@ export default function ChatArea() {
     toggleReaction,
     isInfoOpen,
     setIsInfoOpen,
+    setIsPulseOpen,
     typingStatuses,
     sendTypingStatus,
     wallpaper,
@@ -847,6 +848,7 @@ export default function ChatArea() {
         isTypingText={isTypingText}
         isInfoOpen={isInfoOpen}
         setIsInfoOpen={setIsInfoOpen}
+        setIsPulseOpen={setIsPulseOpen}
         setActiveChatId={setActiveChatId}
       />
       {!isOnline && (

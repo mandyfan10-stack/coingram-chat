@@ -10,5 +10,16 @@ export default defineConfig({
   base: './',
   define: {
     'import.meta.env.APP_VERSION': JSON.stringify(pkg.version),
-  }
+  },
+  // YouTube embed needs a non-same-origin Referrer-Policy (Error 153 otherwise)
+  server: {
+    headers: {
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+    },
+  },
+  preview: {
+    headers: {
+      'Referrer-Policy': 'strict-origin-when-cross-origin',
+    },
+  },
 })

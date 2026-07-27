@@ -9,6 +9,7 @@ export function useChatUiState() {
   const [activeFolder, setActiveFolder] = useState('all');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isPulseOpen, setIsPulseOpen] = useState(false);
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -47,6 +48,8 @@ export function useChatUiState() {
     setIsSettingsOpen,
     isInfoOpen,
     setIsInfoOpen,
+    isPulseOpen,
+    setIsPulseOpen,
     isNewChatOpen,
     setIsNewChatOpen,
     isCreateStoryOpen,

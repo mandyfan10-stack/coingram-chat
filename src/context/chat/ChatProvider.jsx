@@ -138,6 +138,8 @@ export const ChatProvider = ({ children }) => {
       setIsSettingsOpen: ui.setIsSettingsOpen,
       isInfoOpen: ui.isInfoOpen,
       setIsInfoOpen: ui.setIsInfoOpen,
+      isPulseOpen: ui.isPulseOpen,
+      setIsPulseOpen: ui.setIsPulseOpen,
       isNewChatOpen: ui.isNewChatOpen,
       setIsNewChatOpen: ui.setIsNewChatOpen,
       isCreateStoryOpen: ui.isCreateStoryOpen,

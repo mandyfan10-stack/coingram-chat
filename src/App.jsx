@@ -6,6 +6,7 @@ import { CallProvider, useCalls } from './context/CallContext';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import ChatInfo from './components/ChatInfo';
+import PulsePanel from './components/pulse/PulsePanel';
 import SettingsModal from './components/SettingsModal';
 import StoryViewer from './components/StoryViewer';
 import AuthScreen from './components/AuthScreen';
@@ -218,6 +219,7 @@ function MainLayout() {
     >
       <h1 className="sr-only" style={{ display: 'none' }}>Coiny</h1>
       <Sidebar />
+      <PulsePanel />
       <ChatArea />
       <ChatInfo />
       <SettingsModal />

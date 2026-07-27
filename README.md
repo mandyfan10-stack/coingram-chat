@@ -51,9 +51,29 @@ src/
 VITE_SUPABASE_URL=https://your-project-id.supabase.co
 VITE_SUPABASE_ANON_KEY=your-anon-key-here
 VITE_GITHUB_REPO=mandyfan10-stack/coingram-chat
+# Optional — Pulse infinite YouTube feed (Data API v3). Restrict key by HTTP referrer.
+VITE_YOUTUBE_API_KEY=your-youtube-data-api-key
+# Optional — "Connect YouTube" OAuth (subscriptions + likes → recommendations)
+VITE_GOOGLE_OAUTH_CLIENT_ID=your-oauth-web-client-id.apps.googleusercontent.com
 ```
 
 *Примечание: Если переменные окружения отсутствуют, приложение автоматически переключается в интерактивный демонстрационный оффлайн-режим (Mock Mode).*
+
+### Pulse + YouTube
+
+Полный «дамп» YouTube недоступен (API Google). Pulse строит **бесконечную ленту**:
+
+- `mostPopular` по категориям + `search` по вкусу
+- только **embeddable** public-видео
+- кэш в `pulse_items` (Supabase)
+
+**Подключить YouTube (OAuth):** пользователь жмёт в Pulse → Google consent (`youtube.readonly`) → читаем **подписки + лайки** → строим taste → поднимаем похожий контент в ленте.
+
+Нужны:
+1. `VITE_YOUTUBE_API_KEY` — каталог  
+2. `VITE_GOOGLE_OAUTH_CLIENT_ID` — OAuth Web client; Authorized JS origins / redirect: `http://127.0.0.1:5173`, production origin  
+
+Без ключей — локальный/кураторский каталог.
 
 ---
 
