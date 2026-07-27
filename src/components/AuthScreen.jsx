@@ -26,6 +26,11 @@ export default function AuthScreen() {
       return;
     }
 
+    if (!/^[a-zA-Z0-9_]+$/.test(username.trim())) {
+      setErrorMsg('Имя пользователя: только латиница, цифры и _.');
+      return;
+    }
+
     if (!isLogin && password.length < 10) {
       setErrorMsg('Пароль должен быть не менее 10 символов.');
       return;

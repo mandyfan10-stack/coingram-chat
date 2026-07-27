@@ -16,7 +16,7 @@ import CallOverlay from './components/CallOverlay';
 import E2EESetupModal from './components/E2EESetupModal';
 import { X } from 'lucide-react';
 
-const CURRENT_VERSION = import.meta.env.APP_VERSION || '1.20.7';
+const CURRENT_VERSION = import.meta.env.APP_VERSION;
 
 function UpdateModal({ show, releaseInfo, onClose }) {
   if (!show || !releaseInfo) return null;
@@ -167,6 +167,7 @@ function MainLayout() {
 
   useEffect(() => {
     const checkUpdates = async () => {
+      if (!CURRENT_VERSION) return;
       try {
         const repo = import.meta.env.VITE_GITHUB_REPO || 'mandyfan10-stack/coingram-chat';
         const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);

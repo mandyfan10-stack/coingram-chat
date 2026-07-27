@@ -1,6 +1,17 @@
 export const MAX_CHAT_MEDIA_BYTES = 15 * 1024 * 1024;
 
-const MEDIA_TYPES = new Map([
+export type MediaKind = 'image' | 'video' | 'audio';
+
+export interface MediaTypeInfo {
+  kind: MediaKind;
+  extension: string;
+}
+
+export interface ValidatedChatMedia extends MediaTypeInfo {
+  mimeType: string;
+}
+
+const MEDIA_TYPES = new Map<string, MediaTypeInfo>([
   ['image/avif', { kind: 'image', extension: 'avif' }],
   ['image/gif', { kind: 'image', extension: 'gif' }],
   ['image/jpeg', { kind: 'image', extension: 'jpg' }],
@@ -21,7 +32,7 @@ const MEDIA_TYPES = new Map([
 
 export const CHAT_MEDIA_ACCEPT = [...MEDIA_TYPES.keys()].join(',');
 
-export function validateChatMedia(file) {
+export function validateChatMedia(file: Pick<File, 'size' | 'type'> | null | undefined): ValidatedChatMedia {
   if (!file || file.size <= 0) throw new Error('Файл пуст.');
   if (file.size > MAX_CHAT_MEDIA_BYTES) throw new Error('Размер файла превышает лимит 15 МБ.');
 
@@ -32,7 +43,7 @@ export function validateChatMedia(file) {
   return { ...media, mimeType: type };
 }
 
-export function extensionForMedia(mimeType, fallbackKind = 'image') {
+export function extensionForMedia(mimeType: string | null | undefined, fallbackKind: MediaKind | string = 'image'): string {
   return MEDIA_TYPES.get(String(mimeType || '').toLowerCase())?.extension
     || (fallbackKind === 'video' ? 'webm' : fallbackKind === 'audio' ? 'webm' : 'png');
 }

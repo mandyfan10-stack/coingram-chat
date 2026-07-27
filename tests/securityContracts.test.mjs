@@ -2,16 +2,18 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
-const callContext = await readFile(new URL('../src/context/CallContext.jsx', import.meta.url), 'utf8');
+const callProvider = await readFile(new URL('../src/context/calls/CallProvider.jsx', import.meta.url), 'utf8');
+const callSignaling = await readFile(new URL('../src/context/calls/useCallSignaling.js', import.meta.url), 'utf8');
+const callSources = [callProvider, callSignaling].join('\n');
 const migration = await readFile(new URL('../supabase/migrations/20260723114811_harden_messenger_security_and_limits.sql', import.meta.url), 'utf8');
 
 test('call signaling uses only private chat-scoped topics', () => {
-  assert.doesNotMatch(callContext, /call:user:/);
-  assert.match(callContext, /call:chat:/);
-  assert.match(callContext, /call:chat:\$\{callStateRef\.current\.chatId\}:media/);
-  assert.match(callContext, /private:\s*true/);
+  assert.doesNotMatch(callSources, /call:user:/);
+  assert.match(callSources, /call:chat:/);
+  assert.match(callSources, /call:chat:\$\{callStateRef\.current\.chatId\}:media/);
+  assert.match(callSources, /private:\s*true/);
   assert.doesNotMatch(
-    callContext,
+    callSources,
     /const sendSignalingMessage[\s\S]*?channel\.subscribe[\s\S]*?const startCall/
   );
 });

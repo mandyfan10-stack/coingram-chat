@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CHAT_MEDIA_ACCEPT, MAX_CHAT_MEDIA_BYTES, extensionForMedia, validateChatMedia } from '../src/utils/mediaValidation.js';
+import { CHAT_MEDIA_ACCEPT, MAX_CHAT_MEDIA_BYTES, extensionForMedia, validateChatMedia } from '../src/utils/mediaValidation.ts';
 
 const fakeFile = (type, size = 128, name = 'file') => ({ type, size, name });
 

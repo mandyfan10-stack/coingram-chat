@@ -17,17 +17,29 @@ Coiny — это высокозащищенный, быстрый кросспл
 
 ---
 
-## 📁 Структура Проекта и Архитектура
+## 📁 Структура проекта
 
-Приложение использует модульное разделение зон ответственности для предотвращения монолитного скопления логики:
+```
+src/
+  components/          # UI (chat/, settings/, CallOverlay, …)
+  context/
+    AuthContext.jsx    # сессия Supabase / mock
+    E2EEContext.jsx    # ключи, backup/restore
+    chat/              # ChatProvider + hooks (loader, actions, realtime, offline)
+    calls/             # CallProvider, signaling, media, ICE
+  services/            # dataLayer facade + auth/chat/message/media/offline
+  types/               # shared TypeScript types
+  utils/               # e2eeHelper, mediaValidation, IndexedDB, …
+  mocks/               # demo stickers
+```
 
-- `/src/context/AuthContext.jsx` — управление авторизацией пользователей, сессиями Supabase и локальным кэшированием.
-- `/src/context/E2EEContext.jsx` — генерация ключевых пар, создание и расшифровка резервных копий приватных ключей, вычисление общих секретов ECDH.
-- `/src/context/ChatContext.jsx` — реактивное обновление списка чатов, распределение по папкам, отправка и оптимистичное добавление сообщений, отслеживание статусов набора текста (Typing).
-- `/src/context/CallContext.jsx` — организация голосовых и видеозвонков, WebRTC P2P/Mesh сигнальный слой, трансляция экрана.
-- `/src/services/dataLayer.js` — абстрактный интерфейс взаимодействия с данными, объединяющий логику `SupabaseDataService` и локальную `MockDataService`.
-- `/src/utils/e2eeHelper.js` — низкоуровневые криптографические операции (генерация, шифрование, дешифрование, экспорт/импорт).
-- `/src/utils/indexedDbHelper.js` — работа с базой данных IndexedDB для оффлайн-вложений и ключей.
+Публичные entry points (стабильные импорты):
+
+- `context/ChatContext.jsx` → `useChat` / `ChatProvider`
+- `context/CallContext.jsx` → `useCalls` / `CallProvider`
+- `services/dataLayer.js` → `dataService.*`
+
+Подробнее: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** · ops: **[docs/OPS.md](docs/OPS.md)** · DoD: **[docs/DEFINITION_OF_DONE.md](docs/DEFINITION_OF_DONE.md)**.
 
 ---
 
@@ -42,6 +54,36 @@ VITE_GITHUB_REPO=mandyfan10-stack/coingram-chat
 ```
 
 *Примечание: Если переменные окружения отсутствуют, приложение автоматически переключается в интерактивный демонстрационный оффлайн-режим (Mock Mode).*
+
+---
+
+## 📘 TypeScript (постепенно)
+
+В проекте включён **gradual TypeScript**:
+
+- `tsconfig.json` — `allowJs: true`, `strict: true`, `noEmit`
+- общие типы: `src/types/` (`profile`, `chat`, `message`, `call`)
+- уже на TS: `authEmail`, `mediaValidation`, `reactionUtils`, `iceServers`, `themesData`, …
+- проверка: `npm run typecheck` (также в CI)
+
+Новые pure-модули предпочтительно писать на `.ts` / `.tsx`. Крупные JSX context/UI пока остаются на JS.
+
+---
+
+## 🔐 Модель входа (username-first)
+
+UI принимает только **username + password**. Supabase Auth по-прежнему требует email, поэтому клиент строит *внутренний* идентификатор:
+
+| Схема | Email (не показывается пользователю) | Когда |
+|-------|--------------------------------------|--------|
+| **Modern** (новые аккаунты) | `{username}@coiny.users.local` | Регистрация |
+| **Legacy** (существующие) | `{username}@tg-clone.com` | Вход dual-path |
+
+**Вход:** клиент пробует modern email, при ошибке credentials — legacy.  
+**Регистрация:** только modern.  
+Username: `a-z`, `0-9`, `_`, длина 3–32.
+
+В Mock Mode пароли в `localStorage` хранятся как **SHA-256 hash** (`passwordHash`), не в открытом виде.
 
 ---
 
@@ -62,14 +104,12 @@ npm run dev
 npm run build
 ```
 
----
-
-## 🧪 Запуск Юнит-Тестов
-
-Для проверки криптографического слоя (`e2eeHelper.js`) в проекте развернут изолированный тестовый фреймворк, проверяющий генерацию ключей, шифрование сообщений, шифрование файлов, бекапы по паролям и кодам восстановления:
-
+### Качество:
 ```bash
-npm test
+npm run lint
+npm run typecheck
+npm test              # E2EE + unit/contracts (offline, auth, …)
+npm run test:e2e      # live two-user (нужны E2E_* secrets, см. docs/live-e2e.md)
 ```
 
 ---
@@ -102,3 +142,27 @@ npm run electron:build
    ```bash
    npx cap open android
    ```
+
+---
+
+## 🧹 Локальная очистка артефактов
+
+Сборки и кэши **не** хранятся в Git (см. `.gitignore`), но локально могут занимать гигабайты (`dist-electron/`, `android/**/build`, `node_modules`).
+
+Безопасно удалить и пересобрать:
+
+```bash
+# dist, dist-electron, android build, Playwright reports
+npm run clean:artifacts
+
+# то же + node_modules (после этого нужен npm install)
+npm run clean:all
+```
+
+Установочные файлы релизов скачивайте с GitHub Releases — их не обязательно держать в `dist-electron/` между сборками.
+
+Версия приложения всегда берётся из `package.json` через Vite (`import.meta.env.APP_VERSION`). Перед тегом:
+
+```bash
+npm run release:verify -- v1.20.8
+```

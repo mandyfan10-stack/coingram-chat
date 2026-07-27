@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeReaction, normalizeReactions } from '../src/utils/reactionUtils.js';
+import { normalizeReaction, normalizeReactions } from '../src/utils/reactionUtils.ts';
 
 test('normalizes legacy reactions without a users array', () => {
   assert.deepEqual(

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { useChat, formatLastSeen } from '../context/ChatContext';
+import { useChat } from '../context/ChatContext';
+import { formatLastSeen } from '../utils/formatLastSeen';
 import { useCalls } from '../context/CallContext';
 import { useAuth } from '../context/AuthContext';
 import { X, Phone, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut, Camera, Lock } from 'lucide-react';

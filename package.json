@@ -7,11 +7,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node testE2EE.js && node --test tests/*.test.mjs",
-    "test:unit": "node --test tests/*.test.mjs",
+    "test": "node testE2EE.js && npm run test:unit",
+    "test:unit": "node --experimental-strip-types --test tests/*.test.mjs",
     "test:e2e": "npm run build && playwright test",
+    "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "release:verify": "node scripts/verify-release-version.mjs",
+    "clean:artifacts": "node scripts/clean-artifacts.mjs",
+    "clean:all": "node scripts/clean-artifacts.mjs --all",
     "preview": "vite preview",
     "predeploy": "npm run build",
     "deploy": "gh-pages -t -d dist",
@@ -39,6 +42,7 @@
     "electron-packager": "^17.1.2",
     "gh-pages": "^6.3.0",
     "oxlint": "^1.71.0",
+    "typescript": "^5.9.2",
     "vite": "^8.1.1"
   },
   "build": {

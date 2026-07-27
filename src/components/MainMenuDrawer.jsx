@@ -341,7 +341,7 @@ export default function MainMenuDrawer() {
               : 'Coiny Desktop'}
           </span>
           <span className="drawer-version">
-            Версия {import.meta.env.APP_VERSION || '1.20.0'} — О программе
+            Версия {import.meta.env.APP_VERSION} — О программе
           </span>
         </div>
       </div>

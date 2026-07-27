@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
-import StickerMessage from './StickerMessage';
 import './ChatArea.css';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import {
@@ -8,9 +7,6 @@ import {
   Paperclip,
   Smile,
   Mic,
-  MoreVertical,
-  CornerUpLeft,
-  Trash2,
   X,
   ArrowDown,
   Play,
@@ -18,68 +14,10 @@ import {
   Lock,
   Sparkles,
   Film,
-  ArrowLeft,
-  VolumeX,
-  Volume2,
-  AlertCircle,
-  WifiOff
+  Trash2,
+  WifiOff,
+  CornerUpLeft
 } from 'lucide-react';
-
-const SingleCheck = ({ className }) => (
-  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
-    <circle cx="6" cy="6" r="3.5" stroke="currentColor" strokeWidth="1.2" />
-  </svg>
-);
-
-const DoubleCheck = ({ className }) => (
-  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className={className} xmlns="http://www.w3.org/2000/svg">
-    <circle cx="6" cy="6" r="3.5" fill="currentColor" />
-  </svg>
-);
-
-const PendingClock = ({ className }) => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className={className} style={{ width: '10px', height: '10px' }}>
-    <circle cx="12" cy="12" r="10" />
-    <polyline points="12 6 12 12 16 14" />
-  </svg>
-);
-
-function renderMessageTextWithLinks(text) {
-  if (!text) return null;
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  const parts = text.split(urlRegex);
-  return parts.map((part, i) => {
-    if (part.match(urlRegex)) {
-      let href = part;
-      let display = part;
-      
-      const trailingPunctuation = /[.,!?;)]+$/;
-      const match = part.match(trailingPunctuation);
-      let trailing = "";
-      if (match) {
-        trailing = match[0];
-        href = part.substring(0, part.length - trailing.length);
-        display = href;
-      }
-      
-      return (
-        <React.Fragment key={i}>
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {display}
-          </a>
-          {trailing}
-        </React.Fragment>
-      );
-    }
-    return part;
-  });
-}
-
 import { useAuth } from '../context/AuthContext';
 import { useE2EE } from '../context/E2EEContext';
 import {
@@ -88,328 +26,10 @@ import {
   encryptFileForE2EE,
   requireE2EEKey
 } from '../utils/e2eeHelper';
-import useResolvedMedia from '../hooks/useResolvedMedia';
 import { CHAT_MEDIA_ACCEPT, validateChatMedia } from '../utils/mediaValidation';
-import { normalizeReaction } from '../utils/reactionUtils';
-
-function AttachmentUnavailable({ compact = false }) {
-  return (
-    <div className={'bubble-media-error' + (compact ? ' bubble-media-error-compact' : '')}>
-      Вложение недоступно
-    </div>
-  );
-}
-
-function DecryptedImage({ mediaUrl, chatId, onOpen }) {
-  const { url, loading, error } = useResolvedMedia(mediaUrl, chatId, 'image/png');
-  if (loading) {
-    return (
-      <div className="bubble-media-loading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '150px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px' }}>
-        <div className="spinner" style={{ border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', width: '20px', height: '20px' }}></div>
-      </div>
-    );
-  }
-  if (error || !url) return <AttachmentUnavailable />;
-  return (
-    <button type="button" className="bubble-media-open" onClick={(event) => { event.stopPropagation(); onOpen?.(url); }} aria-label="Открыть изображение">
-      <img src={url} alt="Изображение" className="bubble-media" />
-    </button>
-  );
-}
-
-function DecryptedVideoPlayer({ mediaUrl, chatId }) {
-  const { url, loading, error } = useResolvedMedia(mediaUrl, chatId, 'video/webm');
-  if (loading) {
-    return (
-      <div className="bubble-media-loading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '120px', background: 'rgba(0,0,0,0.1)', borderRadius: '8px' }}>
-        <div className="spinner" style={{ border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', width: '20px', height: '20px' }}></div>
-      </div>
-    );
-  }
-  if (error || !url) return <AttachmentUnavailable />;
-  return <VideoMessagePlayer videoUrl={url} />;
-}
-
-function DecryptedVoicePlayer({ mediaUrl, chatId }) {
-  const { url, loading, error } = useResolvedMedia(mediaUrl, chatId, 'audio/webm');
-  if (loading) {
-    return (
-      <div className="voice-player-bubble-loading" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'rgba(255,255,255,0.05)', borderRadius: '16px' }}>
-        <div className="spinner" style={{ border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', width: '12px', height: '12px' }}></div>
-        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>Загрузка голосового сообщения...</span>
-      </div>
-    );
-  }
-  if (error || !url) return <AttachmentUnavailable compact />;
-  return <VoiceMessagePlayer audioUrl={url} />;
-}
-
-function DecryptedSticker({ mediaUrl, chatId }) {
-  const { url, loading, error } = useResolvedMedia(mediaUrl, chatId);
-  if (loading) {
-    return (
-      <div
-        className="bubble-media-loading"
-        style={{ width: '130px', height: '130px', borderRadius: '12px' }}
-      />
-    );
-  }
-  if (error || !url) return <AttachmentUnavailable />;
-  return <StickerMessage mediaUrl={url} sourceUrl={mediaUrl} />;
-}
-
-function VoiceMessagePlayer({ audioUrl, duration }) {
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [maxDuration, setMaxDuration] = useState(duration || 0);
-  const audioRef = useRef(null);
-  const isCalculatingRef = useRef(false);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    const handleTimeUpdate = () => {
-      if (!isCalculatingRef.current) {
-        setCurrentTime(audio.currentTime);
-      }
-    };
-
-    const handleDurationCompute = () => {
-      if (audio.duration === Infinity) {
-        isCalculatingRef.current = true;
-        audio.currentTime = 1e101;
-        
-        const onSeeked = () => {
-          audio.removeEventListener('seeked', onSeeked);
-          setMaxDuration(audio.duration);
-          audio.currentTime = 0;
-          setTimeout(() => {
-            isCalculatingRef.current = false;
-          }, 150);
-        };
-        audio.addEventListener('seeked', onSeeked);
-      } else if (audio.duration && !isNaN(audio.duration)) {
-        setMaxDuration(audio.duration);
-      }
-    };
-
-    audio.addEventListener('play', handlePlay);
-    audio.addEventListener('pause', handlePause);
-    audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('loadedmetadata', handleDurationCompute);
-    audio.addEventListener('durationchange', handleDurationCompute);
-
-    setIsPlaying(false);
-    setCurrentTime(0);
-
-    return () => {
-      audio.removeEventListener('play', handlePlay);
-      audio.removeEventListener('pause', handlePause);
-      audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('loadedmetadata', handleDurationCompute);
-      audio.removeEventListener('durationchange', handleDurationCompute);
-    };
-  }, [audioUrl]);
-
-  const togglePlay = (e) => {
-    e.stopPropagation();
-    const audio = audioRef.current;
-    if (!audio) return;
-    if (isPlaying) {
-      audio.pause();
-    } else {
-      audio.play().catch(err => console.error("Error playing audio:", err));
-    }
-  };
-
-  const handleSeek = (e) => {
-    e.stopPropagation();
-    const audio = audioRef.current;
-    if (!audio) return;
-    const val = parseFloat(e.target.value);
-    audio.currentTime = val;
-    setCurrentTime(val);
-  };
-
-  const formatTime = (time) => {
-    if (isNaN(time) || time === Infinity) return '0:00';
-    const m = Math.floor(time / 60);
-    const s = Math.floor(time % 60);
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
-
-  return (
-    <div className="voice-player-bubble" onClick={(e) => e.stopPropagation()}>
-      <audio ref={audioRef} src={audioUrl} preload="metadata" />
-      <button className="voice-play-btn" onClick={togglePlay}>
-        {isPlaying ? (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
-          </svg>
-        ) : (
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style={{ marginLeft: '2px' }}>
-            <path d="M8 5v14l11-7z"/>
-          </svg>
-        )}
-      </button>
-      <div className="voice-player-details">
-        <input
-          type="range"
-          className="voice-seek-bar"
-          min={0}
-          max={maxDuration || 100}
-          step={0.1}
-          value={currentTime}
-          onChange={handleSeek}
-        />
-        <div className="voice-player-meta">
-          <span>{formatTime(currentTime)} / {formatTime(maxDuration)}</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function VideoMessagePlayer({ videoUrl }) {
-  const videoRef = useRef(null);
-  const [isMuted, setIsMuted] = useState(true);
-  const [progress, setProgress] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(true);
-  const [hasEnded, setHasEnded] = useState(false);
-  const isCalculatingRef = useRef(false);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const handleTimeUpdate = () => {
-      if (!isCalculatingRef.current && video.duration && video.duration !== Infinity) {
-        setProgress((video.currentTime / video.duration) * 100);
-      }
-    };
-
-    const handleEnded = () => {
-      setProgress(100);
-      setIsPlaying(false);
-      setHasEnded(true);
-    };
-
-    const handlePlay = () => {
-      setIsPlaying(true);
-      setHasEnded(false);
-    };
-    const handlePause = () => setIsPlaying(false);
-
-    const handleDurationCompute = () => {
-      if (video.duration === Infinity) {
-        isCalculatingRef.current = true;
-        video.currentTime = 1e101;
-        
-        const onSeeked = () => {
-          video.removeEventListener('seeked', onSeeked);
-          video.currentTime = 0;
-          setTimeout(() => {
-            isCalculatingRef.current = false;
-          }, 150);
-        };
-        video.addEventListener('seeked', onSeeked);
-      }
-    };
-
-    video.addEventListener('timeupdate', handleTimeUpdate);
-    video.addEventListener('ended', handleEnded);
-    video.addEventListener('play', handlePlay);
-    video.addEventListener('pause', handlePause);
-    video.addEventListener('loadedmetadata', handleDurationCompute);
-    video.addEventListener('durationchange', handleDurationCompute);
-
-    video.play().catch(() => {
-      setIsPlaying(false);
-    });
-
-    return () => {
-      video.removeEventListener('timeupdate', handleTimeUpdate);
-      video.removeEventListener('ended', handleEnded);
-      video.removeEventListener('play', handlePlay);
-      video.removeEventListener('pause', handlePause);
-      video.removeEventListener('loadedmetadata', handleDurationCompute);
-      video.removeEventListener('durationchange', handleDurationCompute);
-    };
-  }, [videoUrl]);
-
-  const togglePlaybackAndMute = (e) => {
-    e.stopPropagation();
-    const video = videoRef.current;
-    if (!video) return;
-
-    if (isMuted) {
-      if (hasEnded) video.currentTime = 0;
-      video.muted = false;
-      setIsMuted(false);
-      video.play().then(() => setIsPlaying(true)).catch(err => console.error(err));
-    } else {
-      if (isPlaying) {
-        video.pause();
-      } else {
-        if (hasEnded) video.currentTime = 0;
-        video.play().then(() => setIsPlaying(true)).catch(err => console.error(err));
-      }
-    }
-  };
-
-  const handleMuteBtnClick = (e) => {
-    e.stopPropagation();
-    const video = videoRef.current;
-    if (!video) return;
-    video.muted = !video.muted;
-    setIsMuted(video.muted);
-  };
-
-  const r = 88;
-  const circ = 2 * Math.PI * r;
-  const strokeDashoffset = circ - (progress / 100) * circ;
-
-  return (
-    <div className="round-video-wrapper" onClick={togglePlaybackAndMute}>
-      <video
-        ref={videoRef}
-        src={videoUrl}
-        className="round-video-element"
-        muted={isMuted}
-        playsInline
-        autoPlay
-      />
-      
-      <svg className="video-progress-ring" viewBox="0 0 184 184">
-        <circle
-          className="video-progress-ring-circle"
-          cx="92"
-          cy="92"
-          r={r}
-          stroke="var(--accent-color)"
-          strokeWidth="3"
-          fill="transparent"
-          strokeDasharray={circ}
-          strokeDashoffset={strokeDashoffset}
-          transform="rotate(-90 92 92)"
-        />
-      </svg>
-
-      {!isPlaying && (
-        <div className="video-mute-icon-overlay" style={{ top: '55%', left: '50%', transform: 'translate(-50%, -50%)', width: '36px', height: '36px', fontSize: '14px', position: 'absolute', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Play size={16} fill="currentColor" style={{ marginLeft: '2px' }} />
-        </div>
-      )}
-
-      <div className="video-mute-icon-overlay" onClick={handleMuteBtnClick} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        {isMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
-      </div>
-    </div>
-  );
-}
+import ChatHeader from './chat/ChatHeader';
+import MessageBubble from './chat/MessageBubble';
+import ImageViewer from './chat/ImageViewer';
 
 export default function ChatArea() {
   const {
@@ -1202,11 +822,6 @@ export default function ChatArea() {
     setInputVal(prev => prev + emoji);
   };
 
-  const getFormatTime = (dateObj) => {
-    const d = new Date(dateObj);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  };
-
   const typingUsersInChat = typingStatuses[activeChat.id] ? Object.values(typingStatuses[activeChat.id]) : [];
   const isTypingText = typingUsersInChat.length > 0
     ? `${typingUsersInChat.join(', ')} ${typingUsersInChat.length > 1 ? 'печатают' : 'печатает'}...`
@@ -1220,41 +835,15 @@ export default function ChatArea() {
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Header */}
-      <header className="chat-header" onClick={() => setIsInfoOpen(!isInfoOpen)}>
-        <div className="chat-header-info">
-          <button 
-            type="button" 
-            className="chat-back-btn" 
-            onClick={(e) => {
-              e.stopPropagation();
-              setActiveChatId(null);
-            }} 
-            title="Назад"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <div className="chat-avatar header-avatar" style={{ background: activeChat.avatarColor }}>
-            {renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? '📢' : '👥')}
-          </div>
-          <div className="chat-header-meta">
-            <h4 className="chat-header-name">
-              {activeChat.name}
-              {activeChat.type === 'personal' && (
-                <Lock size={15} className="e2ee-header-lock-icon" title="Сквозное шифрование включено" style={{ color: '#2ecc71', marginLeft: '6px', display: 'inline-block', verticalAlign: 'middle' }} />
-              )}
-            </h4>
-            <span className={`chat-header-status ${isTypingText ? 'typing' : ''}`}>
-              {isTypingText || getChatStatus(activeChat)}
-            </span>
-          </div>
-        </div>
-        <div className="chat-header-actions" onClick={(e) => e.stopPropagation()}>
-          <button className="chat-header-btn" onClick={() => setIsInfoOpen(!isInfoOpen)} title="Информация">
-            <MoreVertical size={20} />
-          </button>
-        </div>
-      </header>
+      <ChatHeader
+        activeChat={activeChat}
+        renderAvatar={renderAvatar}
+        getChatStatus={getChatStatus}
+        isTypingText={isTypingText}
+        isInfoOpen={isInfoOpen}
+        setIsInfoOpen={setIsInfoOpen}
+        setActiveChatId={setActiveChatId}
+      />
       {!isOnline && (
         <div className="offline-banner" style={{ padding: '6px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
           <WifiOff size={14} className="offline-banner-icon" />
@@ -1270,277 +859,26 @@ export default function ChatArea() {
         style={chatBodyStyle}
       >
         <div className="messages-list">
-          {activeChat.messages.map((msg, index) => {
-            const isMe = msg.senderId === currentUser?.id || msg.senderId === 'current';
-            const showSenderName = activeChat.type === 'group' && !isMe;
-            const replyMsg = msg.replyTo ? activeChat.messages.find(m => m.id === msg.replyTo) : null;
-
-            // Check if sequential messages are from same sender (bubble grouping)
-            const nextMsg = activeChat.messages[index + 1];
-            const prevMsg = activeChat.messages[index - 1];
-            const isLastInGroup = !nextMsg || nextMsg.senderId !== msg.senderId;
-            const isFirstInGroup = !prevMsg || prevMsg.senderId !== msg.senderId;
-
-            const isVoice = msg.text && (msg.text.startsWith('🎤 Голосовое сообщение') || msg.text.startsWith('Голосовое сообщение')) && msg.media;
-            const isVideo = msg.text && (msg.text.startsWith('🎬 Видеосообщение') || (msg.text.startsWith('Видеосообщение') || msg.text === 'Видео')) && msg.media;
-            const isSticker = msg.text && msg.text.startsWith('sticker:') && msg.media;
-
-            return (
-              <div
-                key={msg.id}
-                className={`message-row ${isMe ? 'row-me' : 'row-other'} ${isFirstInGroup ? 'group-first' : ''} ${isLastInGroup ? 'group-last' : ''}`}
-                data-message-id={msg.id}
-                data-message-sender-id={msg.senderId}
-                onMouseLeave={() => {
-                  if (showMsgActionsId !== msg.id) {
-                    setShowMsgActionsId(null);
-                  }
-                }}
-              >
-                {/* Bubble */}
-                <div className={`message-bubble ${isMe ? 'bubble-me' : 'bubble-other'} ${isVideo ? 'bubble-video' : ''} ${isSticker ? 'bubble-sticker' : ''}`}>
-                  {showSenderName && isFirstInGroup && (
-                    <span className="sender-name">{msg.senderName}</span>
-                  )}
-
-                  {/* Reply Context in Bubble */}
-                  {replyMsg && (
-                    <div className="reply-preview-bubble">
-                      <span className="reply-preview-sender">{replyMsg.senderName}</span>
-                      <p className="reply-preview-text">{replyMsg.text}</p>
-                    </div>
-                  )}
-
-                  {/* Media attachment if any */}
-                  {msg.media && !isVoice && !isVideo && !isSticker && (
-                    <div className="bubble-media-wrapper">
-                      <DecryptedImage
-                        mediaUrl={msg.media}
-                        chatId={activeChat.id}
-                        onOpen={setOpenedImageUrl}
-                      />
-                    </div>
-                  )}
-
-                  {isSticker ? (
-                    <div style={{ position: 'relative', display: 'inline-block' }}>
-                      <DecryptedSticker mediaUrl={msg.media} chatId={activeChat.id} />
-                      <div className="bubble-metadata sticker-metadata" style={{
-                        position: 'absolute',
-                        bottom: '4px',
-                        right: '4px',
-                        background: 'rgba(0, 0, 0, 0.45)',
-                        padding: '1px 5px',
-                        borderRadius: '8px',
-                        color: 'white',
-                        zIndex: 10,
-                        fontSize: '9px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '2px',
-                        pointerEvents: 'none'
-                      }}>
-                        <span className="message-time" style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '9px' }}>
-                          {getFormatTime(msg.timestamp)}
-                        </span>
-                        {isMe && (
-                          <span className="check-icons" style={{ color: 'white' }}>
-                            {msg.isFailed ? (
-                              <AlertCircle 
-                                className="seen-check failed" 
-                                style={{ width: '12px', height: '12px', color: '#f87171', cursor: 'pointer', pointerEvents: 'auto' }} 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRetryMenuMsgId(retryMenuMsgId === msg.id ? null : msg.id);
-                                }}
-                              />
-                            ) : msg.isPending ? (
-                              <PendingClock className="seen-check pending" style={{ width: '10px', height: '10px' }} />
-                            ) : activeChat.type === 'channel' ? (
-                              <SingleCheck className="seen-check" style={{ width: '10px', height: '10px' }} />
-                            ) : msg.read ? (
-                              <DoubleCheck className="seen-check blue" style={{ width: '10px', height: '10px' }} />
-                            ) : (
-                              <SingleCheck className="seen-check" style={{ width: '10px', height: '10px' }} />
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ) : isVideo ? (
-                    <div style={{ position: 'relative' }}>
-                      <DecryptedVideoPlayer mediaUrl={msg.media} chatId={activeChat.id} />
-                      <div className="bubble-metadata" style={{
-                        position: 'absolute',
-                        bottom: '8px',
-                        right: '36px',
-                        background: 'rgba(0, 0, 0, 0.5)',
-                        padding: '2px 6px',
-                        borderRadius: '10px',
-                        color: 'white',
-                        zIndex: 10
-                      }}>
-                        <span className="message-time" style={{ color: 'rgba(255, 255, 255, 0.8)' }}>
-                          {getFormatTime(msg.timestamp)}
-                        </span>
-                        {isMe && (
-                          <span className="check-icons" style={{ color: 'white' }}>
-                            {msg.isFailed ? (
-                              <AlertCircle 
-                                className="seen-check failed" 
-                                style={{ width: '12px', height: '12px', color: '#f87171', cursor: 'pointer', pointerEvents: 'auto' }} 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRetryMenuMsgId(retryMenuMsgId === msg.id ? null : msg.id);
-                                }}
-                              />
-                            ) : msg.isPending ? (
-                              <PendingClock className="seen-check pending" />
-                            ) : activeChat.type === 'channel' ? (
-                              <SingleCheck className="seen-check" />
-                            ) : msg.read ? (
-                              <DoubleCheck className="seen-check blue" />
-                            ) : (
-                              <SingleCheck className="seen-check" />
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    /* Message content */
-                    <div className="bubble-content">
-                      {isVoice ? (
-                        <DecryptedVoicePlayer mediaUrl={msg.media} chatId={activeChat.id} />
-                      ) : (msg.text && msg.text.startsWith('```')) ? (
-                        <pre className="code-block">
-                          <code>{msg.text.replace(/```/g, '')}</code>
-                        </pre>
-                      ) : (
-                        (!msg.text || (msg.text !== '🖼️ [Изображение]' && msg.text !== 'Изображение')) && (
-                          <p className="message-text" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            {msg.isLocked && <Lock size={13} style={{ color: 'var(--text-secondary)', opacity: 0.8, flexShrink: 0 }} />}
-                            <span>{renderMessageTextWithLinks(msg.text)}</span>
-                          </p>
-                        )
-                      )}
-
-                      <div className="bubble-metadata">
-                        <span className="message-time">{getFormatTime(msg.timestamp)}</span>
-                        {isMe && (
-                          <span className="check-icons">
-                            {msg.isFailed ? (
-                              <AlertCircle 
-                                className="seen-check failed" 
-                                style={{ width: '12px', height: '12px', color: '#f87171', cursor: 'pointer', pointerEvents: 'auto' }} 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setRetryMenuMsgId(retryMenuMsgId === msg.id ? null : msg.id);
-                                }}
-                              />
-                            ) : msg.isPending ? (
-                              <PendingClock className="seen-check pending" />
-                            ) : activeChat.type === 'channel' ? (
-                              <SingleCheck className="seen-check" />
-                            ) : msg.read ? (
-                              <DoubleCheck className="seen-check blue" />
-                            ) : (
-                              <SingleCheck className="seen-check" />
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Quick Reactions Render */}
-                  {msg.reactions && msg.reactions.length > 0 && (
-                    <div className="bubble-reactions">
-                      {msg.reactions.map(r => {
-                        const normalizedReaction = normalizeReaction(r);
-                        return (
-                          <button
-                            key={r.emoji}
-                            className={`reaction-badge ${(normalizedReaction.users.includes('current') || (currentUser && normalizedReaction.users.includes(currentUser.id))) ? 'active' : ''}`}
-                            onClick={() => toggleReaction(activeChat.id, msg.id, r.emoji)}
-                          >
-                            {r.emoji} <span className="react-count">{normalizedReaction.count}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {/* Action hover tools */}
-                  <div className={`message-hover-actions ${showMsgActionsId === msg.id ? 'active' : ''}`}>
-                    <button
-                      className="hover-action-btn"
-                      onClick={() => setReplyingTo(msg)}
-                      title="Ответить"
-                    >
-                      <CornerUpLeft size={14} />
-                    </button>
-                    <button
-                      className="hover-action-btn"
-                      onClick={() => {
-                        if (showMsgActionsId === msg.id) {
-                          setShowMsgActionsId(null);
-                        } else {
-                          setShowMsgActionsId(msg.id);
-                        }
-                      }}
-                    >
-                      <Smile size={14} />
-                    </button>
-                    <button
-                      className="hover-action-btn delete"
-                      onClick={() => deleteMessage(activeChat.id, msg.id)}
-                      title="Удалить"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-
-                    {/* Emoji Reaction Drawer */}
-                    {showMsgActionsId === msg.id && (
-                      <div className="reaction-drawer">
-                        {emojis.slice(0, 8).map(emo => (
-                          <span
-                            key={emo}
-                            className="reaction-drawer-item"
-                            onClick={() => {
-                              toggleReaction(activeChat.id, msg.id, emo);
-                              setShowMsgActionsId(null);
-                            }}
-                          >
-                            {emo}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {retryMenuMsgId === msg.id && (
-                    <div className="failed-message-menu">
-                      <button className="failed-menu-btn retry" onClick={(e) => {
-                        e.stopPropagation();
-                        retrySendMessage(msg.id);
-                        setRetryMenuMsgId(null);
-                      }}>
-                        Повторить
-                      </button>
-                      <button className="failed-menu-btn delete" onClick={(e) => {
-                        e.stopPropagation();
-                        deleteFailedMessage(msg.id);
-                        setRetryMenuMsgId(null);
-                      }}>
-                        Удалить
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+          {activeChat.messages.map((msg, index) => (
+            <MessageBubble
+              key={msg.id}
+              msg={msg}
+              index={index}
+              activeChat={activeChat}
+              currentUser={currentUser}
+              showMsgActionsId={showMsgActionsId}
+              setShowMsgActionsId={setShowMsgActionsId}
+              retryMenuMsgId={retryMenuMsgId}
+              setRetryMenuMsgId={setRetryMenuMsgId}
+              setReplyingTo={setReplyingTo}
+              setOpenedImageUrl={setOpenedImageUrl}
+              deleteMessage={deleteMessage}
+              toggleReaction={toggleReaction}
+              retrySendMessage={retrySendMessage}
+              deleteFailedMessage={deleteFailedMessage}
+              emojis={emojis}
+            />
+          ))}
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -1559,12 +897,7 @@ export default function ChatArea() {
       )}
 
       {openedImageUrl && (
-        <div className="chat-image-viewer" role="dialog" aria-modal="true" aria-label="Просмотр изображения" onClick={() => setOpenedImageUrl(null)}>
-          <button type="button" className="chat-image-viewer-close" onClick={() => setOpenedImageUrl(null)} aria-label="Закрыть изображение">
-            <X size={26} />
-          </button>
-          <img src={openedImageUrl} alt="Просмотр изображения" onClick={(event) => event.stopPropagation()} />
-        </div>
+        <ImageViewer imageUrl={openedImageUrl} onClose={() => setOpenedImageUrl(null)} />
       )}
 
       {/* Input Area */}
