@@ -676,7 +676,12 @@ export default function ChatArea() {
       if (emojiRef.current && !emojiRef.current.contains(e.target)) {
         setShowEmojiPicker(false);
       }
-      if (!e.target.closest('.message-hover-actions')) {
+      // Reaction drawer is portaled to document.body — include it so emoji clicks
+      // and the open smile control are not treated as "outside".
+      if (
+        !e.target.closest('.message-hover-actions') &&
+        !e.target.closest('.reaction-drawer')
+      ) {
         setShowMsgActionsId(null);
       }
       if (!e.target.closest('.failed-message-menu') && !e.target.closest('.seen-check.failed')) {

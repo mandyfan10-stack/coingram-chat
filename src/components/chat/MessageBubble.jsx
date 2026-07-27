@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CornerUpLeft,
   Trash2,
@@ -50,6 +51,69 @@ export default function MessageBubble({
   const isVoice = msg.text && (msg.text.startsWith('🎤 Голосовое сообщение') || msg.text.startsWith('Голосовое сообщение')) && msg.media;
   const isVideo = msg.text && (msg.text.startsWith('🎬 Видеосообщение') || (msg.text.startsWith('Видеосообщение') || msg.text === 'Видео')) && msg.media;
   const isSticker = msg.text && msg.text.startsWith('sticker:') && msg.media;
+
+  const smileBtnRef = useRef(null);
+  const drawerRef = useRef(null);
+  const [drawerStyle, setDrawerStyle] = useState(null);
+  const isReactionOpen = showMsgActionsId === msg.id;
+
+  const repositionDrawer = useCallback(() => {
+    if (!isReactionOpen || !smileBtnRef.current) return;
+
+    const anchor = smileBtnRef.current;
+    const rect = anchor.getBoundingClientRect();
+    const viewportPad = 8;
+    const gap = 8;
+
+    // Prefer measured drawer size; fall back to ~8 emoji cells
+    const drawerEl = drawerRef.current;
+    const realWidth = drawerEl?.offsetWidth || Math.min(248, window.innerWidth - viewportPad * 2);
+    const realHeight = drawerEl?.offsetHeight || 40;
+
+    let top = rect.top - realHeight - gap;
+    let placement = 'above';
+    if (top < viewportPad) {
+      top = rect.bottom + gap;
+      placement = 'below';
+    }
+
+    // Keep whole bar inside the viewport horizontally
+    let left = rect.left + rect.width / 2 - realWidth / 2;
+    const maxLeft = window.innerWidth - realWidth - viewportPad;
+    left = Math.max(viewportPad, Math.min(left, maxLeft));
+
+    setDrawerStyle({
+      position: 'fixed',
+      top: `${Math.round(top)}px`,
+      left: `${Math.round(left)}px`,
+      zIndex: 10050,
+      visibility: 'visible',
+      ['--reaction-placement']: placement
+    });
+  }, [isReactionOpen]);
+
+  useLayoutEffect(() => {
+    if (!isReactionOpen) {
+      setDrawerStyle(null);
+      return;
+    }
+    // Drawer is mounted (possibly off-screen); measure then place
+    repositionDrawer();
+  }, [isReactionOpen, repositionDrawer]);
+
+  useEffect(() => {
+    if (!isReactionOpen) return undefined;
+
+    const onScrollOrResize = () => repositionDrawer();
+    window.addEventListener('resize', onScrollOrResize);
+    // Capture scroll from chat-body and nested scrollers
+    document.addEventListener('scroll', onScrollOrResize, true);
+
+    return () => {
+      window.removeEventListener('resize', onScrollOrResize);
+      document.removeEventListener('scroll', onScrollOrResize, true);
+    };
+  }, [isReactionOpen, repositionDrawer]);
 
   return (
               <div
@@ -247,7 +311,10 @@ export default function MessageBubble({
                       <CornerUpLeft size={14} />
                     </button>
                     <button
+                      ref={smileBtnRef}
+                      type="button"
                       className="hover-action-btn"
+                      title="Реакция"
                       onClick={() => {
                         if (showMsgActionsId === msg.id) {
                           setShowMsgActionsId(null);
@@ -259,6 +326,7 @@ export default function MessageBubble({
                       <Smile size={14} />
                     </button>
                     <button
+                      type="button"
                       className="hover-action-btn delete"
                       onClick={() => deleteMessage(activeChat.id, msg.id)}
                       title="Удалить"
@@ -266,23 +334,46 @@ export default function MessageBubble({
                       <Trash2 size={14} />
                     </button>
 
-                    {/* Emoji Reaction Drawer */}
-                    {showMsgActionsId === msg.id && (
-                      <div className="reaction-drawer">
-                        {emojis.slice(0, 8).map(emo => (
-                          <span
-                            key={emo}
-                            className="reaction-drawer-item"
-                            onClick={() => {
-                              toggleReaction(activeChat.id, msg.id, emo);
-                              setShowMsgActionsId(null);
-                            }}
-                          >
-                            {emo}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    {/* Portal + fixed: not clipped/squeezed by chat scroll or content-visibility */}
+                    {isReactionOpen &&
+                      createPortal(
+                        <div
+                          ref={drawerRef}
+                          className={`reaction-drawer reaction-drawer-fixed${
+                            drawerStyle?.['--reaction-placement'] === 'below'
+                              ? ' reaction-drawer-below'
+                              : ''
+                          }`}
+                          style={
+                            drawerStyle || {
+                              position: 'fixed',
+                              top: 0,
+                              left: 0,
+                              visibility: 'hidden',
+                              pointerEvents: 'none',
+                              zIndex: 10050
+                            }
+                          }
+                          role="listbox"
+                          aria-label="Реакции"
+                          onMouseDown={(e) => e.stopPropagation()}
+                        >
+                          {emojis.slice(0, 8).map(emo => (
+                            <span
+                              key={emo}
+                              role="option"
+                              className="reaction-drawer-item"
+                              onClick={() => {
+                                toggleReaction(activeChat.id, msg.id, emo);
+                                setShowMsgActionsId(null);
+                              }}
+                            >
+                              {emo}
+                            </span>
+                          ))}
+                        </div>,
+                        document.body
+                      )}
                   </div>
                   
                   {retryMenuMsgId === msg.id && (

@@ -275,6 +275,8 @@
   box-shadow: var(--shadow-md);
   transition: var(--transition-fast);
   z-index: 10;
+  /* Reaction drawer is portaled; keep action bar from clipping anything local */
+  overflow: visible;
 }
 
 .message-hover-actions::before {

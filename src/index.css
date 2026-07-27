@@ -656,10 +656,38 @@ body {
   border-radius: 20px;
   padding: 4px 8px;
   display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
   gap: 6px;
   box-shadow: var(--shadow-lg);
   animation: popUp 0.15s ease;
   z-index: 12;
+  /* Never shrink under parent overflow / narrow hover bar */
+  width: max-content;
+  min-width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+/* Viewport-fixed drawer: not clipped by chat-body / content-visibility */
+.reaction-drawer.reaction-drawer-fixed {
+  position: fixed;
+  top: auto;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  transform: none;
+  animation: reactionDrawerIn 0.15s ease;
+  z-index: 10050;
+  pointer-events: auto;
+}
+
+.reaction-drawer.reaction-drawer-below {
+  animation-name: reactionDrawerInBelow;
 }
 
 @keyframes popUp {
@@ -667,10 +695,28 @@ body {
   100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
 }
 
+@keyframes reactionDrawerIn {
+  0% { transform: translateY(6px) scale(0.92); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes reactionDrawerInBelow {
+  0% { transform: translateY(-6px) scale(0.92); opacity: 0; }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
 .reaction-drawer-item {
   font-size: 18px;
+  line-height: 1;
   cursor: pointer;
   transition: transform var(--transition-fast);
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
 }
 
 .reaction-drawer-item:hover {
