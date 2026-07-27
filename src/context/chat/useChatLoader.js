@@ -95,7 +95,21 @@ export function useChatLoader({
         const refreshedById = new Map(nextChat.messages.map((message) => [message.id, message]));
         const existingMessages = existingChat.messages.map((message) => {
           const refreshed = refreshedById.get(message.id);
-          return message.isLocked && refreshed && !refreshed.isLocked ? refreshed : message;
+          if (!refreshed) return message;
+
+          // Prefer decrypted local plaintext when already unlocked; always take
+          // server-side delivery/read/reaction state so receipts survive refresh.
+          const keepLocalBody = !message.isLocked || refreshed.isLocked;
+          return {
+            ...message,
+            ...refreshed,
+            text: keepLocalBody ? message.text : refreshed.text,
+            media: keepLocalBody ? message.media : refreshed.media,
+            isLocked: keepLocalBody ? message.isLocked : refreshed.isLocked,
+            read: Boolean(message.read || refreshed.read),
+            reads: refreshed.reads?.length ? refreshed.reads : message.reads,
+            reactions: refreshed.reactions ?? message.reactions
+          };
         });
         const knownMessageIds = new Set(existingMessages.map((message) => message.id));
         const missingPreviewMessages = nextChat.messages.filter(

@@ -25,6 +25,9 @@ dist-ssr
 
 .vercel
 .env
+.env.e2e
+playwright-report/
+test-results/
 
 # Portable JDKs
 jdk17/

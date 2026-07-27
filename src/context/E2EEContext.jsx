@@ -117,7 +117,8 @@ export const E2EEProvider = ({ children }) => {
       // 5. Store securely
       await savePrivateKey(currentUser.id, securePrivKey, pubKeyStr);
       setE2eePrivateKey(securePrivKey);
-      setIsE2EESetupRequired(false);
+      // Keep isE2EESetupRequired=true until the UI finishes the recovery-code step.
+      // Clearing it here unmounts E2EESetupModal before step 2 can render.
 
       setCurrentUser(prev => ({
         ...prev,

@@ -1,63 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { loadE2eAccounts, loginAndUnlock, openPersonalChat } from './helpers.mjs';
 
-const qa = {
-  first: {
-    username: process.env.E2E_USER_A,
-    password: process.env.E2E_PASSWORD_A,
-    encryptionPassword: process.env.E2E_ENCRYPTION_PASSWORD_A,
-  },
-  second: {
-    username: process.env.E2E_USER_B,
-    password: process.env.E2E_PASSWORD_B,
-    encryptionPassword: process.env.E2E_ENCRYPTION_PASSWORD_B,
-  },
-};
-
-const missingVariables = Object.entries({
-  E2E_USER_A: qa.first.username,
-  E2E_PASSWORD_A: qa.first.password,
-  E2E_ENCRYPTION_PASSWORD_A: qa.first.encryptionPassword,
-  E2E_USER_B: qa.second.username,
-  E2E_PASSWORD_B: qa.second.password,
-  E2E_ENCRYPTION_PASSWORD_B: qa.second.encryptionPassword,
-})
-  .filter(([, value]) => !value)
-  .map(([name]) => name);
+const qa = loadE2eAccounts();
 
 test.skip(
-  missingVariables.length > 0,
-  `Live two-user E2E requires: ${missingVariables.join(', ')}`,
+  qa.missing.length > 0,
+  `Live two-user E2E requires: ${qa.missing.join(', ')}`,
 );
-
-async function loginAndUnlock(page, account) {
-  await page.goto('/');
-  await page.locator('#username').fill(account.username);
-  await page.locator('#password').fill(account.password);
-  await page.locator('button[type="submit"]').click();
-
-  const unlockPassword = page.locator('#unlock-password');
-  if (await unlockPassword.isVisible({ timeout: 15_000 }).catch(() => false)) {
-    await unlockPassword.fill(account.encryptionPassword);
-    await page.locator('.e2ee-unlock-password button[type="submit"]').click();
-  }
-
-  await expect(page.locator('.sidebar')).toBeVisible({ timeout: 30_000 });
-}
-
-async function openPersonalChat(page, username) {
-  const existingChat = page.locator('.chat-item').filter({ hasText: username }).first();
-  if (await existingChat.isVisible({ timeout: 3_000 }).catch(() => false)) {
-    await existingChat.click();
-    return;
-  }
-
-  const search = page.locator('.sidebar-search input, .search-container input').first();
-  await search.fill(username);
-  const result = page.locator('.chat-item').filter({ hasText: `@${username}` }).first();
-  await expect(result).toBeVisible();
-  await result.click();
-  await expect(page.locator('.chat-header')).toBeVisible();
-}
 
 /**
  * Count live remote audio tracks attached by CallContext
@@ -75,6 +24,7 @@ async function countRemoteAudioFeeds(page) {
 }
 
 test('two users establish and finish a WebRTC audio call with remote media', async ({ browser }) => {
+  test.setTimeout(180_000);
   const contextOptions = {
     permissions: ['microphone', 'camera'],
   };
@@ -89,10 +39,8 @@ test('two users establish and finish a WebRTC audio call with remote media', asy
   }
 
   try {
-    await Promise.all([
-      loginAndUnlock(firstPage, qa.first),
-      loginAndUnlock(secondPage, qa.second),
-    ]);
+    await loginAndUnlock(firstPage, qa.first);
+    await loginAndUnlock(secondPage, qa.second);
 
     await openPersonalChat(firstPage, qa.second.username);
     await firstPage.locator('.chat-header-btn[title="Информация"]').click();

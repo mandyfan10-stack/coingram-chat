@@ -49,8 +49,12 @@ export default function E2EESetupModal() {
 
   if (authLoading || !currentUser) return null;
 
-  const needsSetup = isE2EESetupRequired;
-  const needsUnlock = currentUser.has_e2ee && !e2eePrivateKey;
+  // After setupE2EE succeeds the profile flips has_e2ee=true, which clears
+  // isE2EESetupRequired via context useEffect. Keep the recovery-code step
+  // mounted with local wizard state so the user can save the code.
+  const showingRecoveryStep = setupStep === 2 && Boolean(generatedCode);
+  const needsSetup = isE2EESetupRequired || showingRecoveryStep;
+  const needsUnlock = currentUser.has_e2ee && !e2eePrivateKey && !showingRecoveryStep;
 
   if (!needsSetup && !needsUnlock) return null;
 

@@ -131,8 +131,9 @@ export const messageService = {
     if (messagesError) throw messagesError;
 
     if (unreadMsgs && unreadMsgs.length > 0) {
-      const readRows = unreadMsgs.map(m => ({
-        message_id: m.id,
+      const ids = unreadMsgs.map((m) => m.id);
+      const readRows = ids.map((id) => ({
+        message_id: id,
         profile_id: userId
       }));
 
@@ -144,6 +145,17 @@ export const messageService = {
         });
 
       if (readsError) throw readsError;
+
+      // Also flip messages.read so senders get a postgres UPDATE event.
+      // message_reads INSERT realtime is flaky for some clients; UPDATE on
+      // messages is already subscribed and drives the double blue check UI.
+      const { error: flagError } = await supabase
+        .from('messages')
+        .update({ read: true })
+        .in('id', ids)
+        .eq('read', false);
+
+      if (flagError) throw flagError;
     }
   }
 };

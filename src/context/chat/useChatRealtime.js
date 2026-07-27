@@ -97,7 +97,6 @@ export function useChatRealtime({
             setChats((prevChats) => {
               const chat = prevChats.find((c) => c.id === newMsg.chat_id);
               if (!chat) return prevChats;
-              if (chat.messages.some((m) => m.id === newMsg.id)) return prevChats;
 
               const senderName = chat.members.find((m) => m.id === newMsg.sender_id)?.name || 'Пользователь';
 
@@ -108,26 +107,46 @@ export function useChatRealtime({
                 text: decryptedText,
                 media: decryptedMedia,
                 replyTo: newMsg.reply_to,
-                read: newMsg.read,
+                // Preserve local read receipts already applied via message_reads realtime
+                read: chat.messages.find((m) => m.id === newMsg.id)?.read || newMsg.read,
+                reads: chat.messages.find((m) => m.id === newMsg.id)?.reads,
                 reactions: newMsg.reactions || [],
                 timestamp: new Date(newMsg.created_at),
-                isLocked: !isDecrypted
+                isLocked: !isDecrypted,
+                isOptimistic: false,
+                isPending: false
               };
 
-              let replacedOptimistic = false;
-              const nextMessages = chat.messages.map((m) => {
-                if (isMe && m.isOptimistic && m.id === newMsg.id) {
-                  replacedOptimistic = true;
-                  return formattedMsg;
-                }
-                return m;
-              });
+              const existingIndex = chat.messages.findIndex((m) => m.id === newMsg.id);
+              if (existingIndex !== -1) {
+                // Own optimistic bubble (same client id) or a race with message_reads:
+                // merge instead of ignoring the INSERT event.
+                const nextMessages = chat.messages.map((m, index) => (
+                  index === existingIndex
+                    ? {
+                        ...formattedMsg,
+                        // Keep decrypted plaintext the sender already shows
+                        text: isMe && m.text && !String(m.text).startsWith('e2ee:')
+                          ? m.text
+                          : formattedMsg.text,
+                        media: isMe && m.media && !String(m.media || '').startsWith('e2ee:')
+                          ? m.media
+                          : formattedMsg.media,
+                        read: m.read || formattedMsg.read,
+                        reads: m.reads || formattedMsg.reads
+                      }
+                    : m
+                ));
+                return prevChats.map((c) => (
+                  c.id === newMsg.chat_id ? { ...c, messages: nextMessages } : c
+                ));
+              }
 
               return prevChats.map((c) => {
                 if (c.id === newMsg.chat_id) {
                   return {
                     ...c,
-                    messages: replacedOptimistic ? nextMessages : [...c.messages, formattedMsg]
+                    messages: [...c.messages, formattedMsg]
                   };
                 }
                 return c;

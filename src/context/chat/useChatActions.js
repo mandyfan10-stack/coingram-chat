@@ -312,6 +312,19 @@ export function useChatActions({
         }
 
         await dataService.sendMessage(activeChatId, currentUser.id, textToSend, replyToId, mediaToSend, messageId);
+        // Confirm delivery locally even if the INSERT realtime event is coalesced
+        // with an existing optimistic bubble.
+        setChats((prevChats) => prevChats.map((c) => {
+          if (c.id !== activeChatId) return c;
+          return {
+            ...c,
+            messages: c.messages.map((m) => (
+              m.id === messageId
+                ? { ...m, isOptimistic: false, isPending: false }
+                : m
+            ))
+          };
+        }));
       } catch (error) {
         console.error('Send failed:', error);
         const isNetwork = !navigator.onLine || error.message?.includes('FetchError') || error.message?.includes('failed to fetch');
