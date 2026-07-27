@@ -30,6 +30,15 @@ export function normalizeAuthUsername(username: string | null | undefined): stri
     .toLowerCase();
 }
 
+/** Usernames reserved for mock-only demo bots / system (not real accounts). */
+export const RESERVED_AUTH_USERNAMES = new Set([
+  'echo_bot',
+  'quiz_bot',
+  'weather_bot',
+  'saved_messages',
+  'coiny_news'
+]);
+
 /**
  * Validate username for auth (must form a safe local-part of an email).
  */
@@ -43,6 +52,9 @@ export function validateAuthUsername(username: string | null | undefined): Usern
   }
   if (!/^[a-z0-9_]+$/.test(normalized)) {
     return { ok: false, error: 'Имя пользователя: только латиница, цифры и _.' };
+  }
+  if (RESERVED_AUTH_USERNAMES.has(normalized)) {
+    return { ok: false, error: 'Это имя пользователя зарезервировано.' };
   }
   return { ok: true, username: normalized };
 }

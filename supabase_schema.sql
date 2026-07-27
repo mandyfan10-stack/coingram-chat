@@ -376,14 +376,12 @@ create trigger on_auth_user_created
   for each row execute procedure public.handle_new_user();
 
 -- ==========================================
--- 5. Предварительно созданные боты (Seeding)
+-- 5. Demo bots — MOCK CLIENT ONLY (do not seed in production)
 -- ==========================================
-insert into public.profiles (id, username, display_name, avatar, avatar_color, bio)
-values 
-  ('00000000-0000-0000-0000-000000000003', 'echo_bot', 'Echo Bot 🤖', '🤖', 'linear-gradient(135deg, #f6d365 0%, #fda085 100%)', 'Я бот-повторюшка. Напиши мне что-нибудь, и я отвечу эхом, добавив немного юмора!'),
-  ('00000000-0000-0000-0000-000000000004', 'quiz_bot', 'Quiz Master 🧠', '🧠', 'linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%)', 'Официальный бот викторин. Набери максимальный балл!'),
-  ('00000000-0000-0000-0000-000000000005', 'weather_bot', 'Weather Bot 🌤️', '🌤️', 'linear-gradient(135deg, #a8ceff 0%, #ffebaa 100%)', 'Самый точный прогноз погоды прямо в чате. Просто напиши название города.')
-on conflict (id) do nothing;
+-- Echo / quiz / weather bots live in src/services/chatService.js
+-- (buildDefaultMockChats) and reply only when dataService is not live.
+-- Never INSERT them into public.profiles on a real Supabase project.
+-- Cleanup migration: 20260727120000_remove_mock_demo_bots.sql
 
 -- ==========================================
 -- 6. Настройка политик безопасности для Storage

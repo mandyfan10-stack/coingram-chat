@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
+import { isMockOnlyBotProfile, isMockOnlyBotUsername } from '../utils/mockOnlyBots';
 
 function buildDefaultMockChats() {
   return [
@@ -194,6 +195,11 @@ export const chatService = {
           ? formattedMembers.find(m => m.id !== userId)
           : null;
 
+        // Live mode: hide legacy personal chats with mock-only demo bots.
+        if (chat.type === 'personal' && isMockOnlyBotProfile(otherMember)) {
+          return null;
+        }
+
         const latestMsg = latestMessagesMap[chat.id] || null;
         let messages = [];
         if (latestMsg) {
@@ -234,7 +240,7 @@ export const chatService = {
           lastSeen: otherMember ? otherMember.lastSeen : null,
           messages
         };
-      });
+      }).filter(Boolean);
     }
 
     const saved = localStorage.getItem('tg-chats-mock');
@@ -292,7 +298,11 @@ export const chatService = {
 
     const uniqueProfiles = new Map();
     [...(usernameResult.data || []), ...(displayNameResult.data || [])]
-      .forEach(profile => uniqueProfiles.set(profile.id, profile));
+      .forEach(profile => {
+        // Never surface mock-only demo bots in live Supabase search.
+        if (isMockOnlyBotProfile(profile)) return;
+        uniqueProfiles.set(profile.id, profile);
+      });
     return [...uniqueProfiles.values()].slice(0, limit);
   },
 
@@ -302,6 +312,9 @@ export const chatService = {
         let profile = typeof target === 'object' && target?.id ? target : null;
         if (!profile) {
           const cleanTarget = String(target || '').trim().replace(/^@+/, '').toLowerCase();
+          if (isMockOnlyBotUsername(cleanTarget)) {
+            throw new Error('Этот бот доступен только в demo/mock-режиме (без Supabase).');
+          }
           const { data, error } = await supabase
             .from('profiles')
             .select('id, username, display_name, avatar, avatar_color')
@@ -311,6 +324,9 @@ export const chatService = {
             throw new Error(`Пользователь с никнеймом "${target}" не найден.`);
           }
           profile = data;
+        }
+        if (isMockOnlyBotProfile(profile)) {
+          throw new Error('Этот бот доступен только в demo/mock-режиме (без Supabase).');
         }
         if (profile.id === userId) {
           throw new Error('Вы не можете создать чат с самим собой.');

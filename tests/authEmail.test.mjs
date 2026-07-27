@@ -37,6 +37,13 @@ test('username validation rejects invalid local-parts', () => {
   assert.equal(validateAuthUsername('ok_user1').ok, true);
 });
 
+test('username validation rejects mock-only reserved bot names', () => {
+  assert.equal(validateAuthUsername('echo_bot').ok, false);
+  assert.equal(validateAuthUsername('quiz_bot').ok, false);
+  assert.equal(validateAuthUsername('weather_bot').ok, false);
+  assert.equal(validateAuthUsername('saved_messages').ok, false);
+});
+
 test('mock passwords are compared via hash without requiring plaintext field', async () => {
   const passwordHash = await hashMockPassword('Secret#12345');
   assert.equal(await mockPasswordMatches({ passwordHash }, 'Secret#12345'), true);
