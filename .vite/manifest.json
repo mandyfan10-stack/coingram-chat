@@ -1,39 +1,39 @@
 {
-  "_circle-user-q01Jz1xx.js": {
-    "file": "assets/circle-user-q01Jz1xx.js",
+  "_circle-user-CVTywcV0.js": {
+    "file": "assets/circle-user-CVTywcV0.js",
     "name": "circle-user",
     "imports": [
-      "_createLucideIcon-CTf2TsVd.js"
+      "_createLucideIcon-CfWhKK-f.js"
     ]
   },
-  "_copy-YdjoO53p.js": {
-    "file": "assets/copy-YdjoO53p.js",
+  "_copy-Duy0YBBy.js": {
+    "file": "assets/copy-Duy0YBBy.js",
     "name": "copy",
     "imports": [
-      "_createLucideIcon-CTf2TsVd.js"
+      "_createLucideIcon-CfWhKK-f.js"
     ]
   },
-  "_createLucideIcon-CTf2TsVd.js": {
-    "file": "assets/createLucideIcon-CTf2TsVd.js",
+  "_createLucideIcon-CfWhKK-f.js": {
+    "file": "assets/createLucideIcon-CfWhKK-f.js",
     "name": "createLucideIcon",
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_supabaseClient-CEy6kYK5.js",
-      "_dataLayer-CLq8TXPA.js",
+      "_supabaseClient-ezRf1qsV.js",
+      "_dataLayer-Da1eJMQf.js",
       "_indexedDbHelper-BRF1Ap1s.js",
-      "_e2eeHelper-DmGKKlgC.js"
+      "_e2eeHelper-gDDUpGCk.js"
     ]
   },
-  "_dataLayer-CLq8TXPA.js": {
-    "file": "assets/dataLayer-CLq8TXPA.js",
+  "_dataLayer-Da1eJMQf.js": {
+    "file": "assets/dataLayer-Da1eJMQf.js",
     "name": "dataLayer",
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_supabaseClient-CEy6kYK5.js"
+      "_supabaseClient-ezRf1qsV.js"
     ]
   },
-  "_e2eeHelper-DmGKKlgC.js": {
-    "file": "assets/e2eeHelper-DmGKKlgC.js",
+  "_e2eeHelper-gDDUpGCk.js": {
+    "file": "assets/e2eeHelper-gDDUpGCk.js",
     "name": "e2eeHelper",
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js"
@@ -46,11 +46,11 @@
       "_rolldown-runtime-QTnfLwEv.js"
     ]
   },
-  "_external-link-DMwgvs-c.js": {
-    "file": "assets/external-link-DMwgvs-c.js",
+  "_external-link-OVeDJKkI.js": {
+    "file": "assets/external-link-OVeDJKkI.js",
     "name": "external-link",
     "imports": [
-      "_createLucideIcon-CTf2TsVd.js"
+      "_createLucideIcon-CfWhKK-f.js"
     ]
   },
   "_indexedDbHelper-BRF1Ap1s.js": {
@@ -60,65 +60,65 @@
       "_rolldown-runtime-QTnfLwEv.js"
     ]
   },
-  "_info-cVars3rq.js": {
-    "file": "assets/info-cVars3rq.js",
+  "_info-BbGweHY-.js": {
+    "file": "assets/info-BbGweHY-.js",
     "name": "info",
     "imports": [
-      "_createLucideIcon-CTf2TsVd.js"
+      "_createLucideIcon-CfWhKK-f.js"
     ]
   },
-  "_log-out-BzUscZlq.js": {
-    "file": "assets/log-out-BzUscZlq.js",
+  "_log-out-CfsIqteJ.js": {
+    "file": "assets/log-out-CfsIqteJ.js",
     "name": "log-out",
     "imports": [
-      "_createLucideIcon-CTf2TsVd.js"
+      "_createLucideIcon-CfWhKK-f.js"
     ]
   },
-  "_phone-WD9gXvvT.js": {
-    "file": "assets/phone-WD9gXvvT.js",
+  "_phone-BQKbIjIn.js": {
+    "file": "assets/phone-BQKbIjIn.js",
     "name": "phone",
     "imports": [
-      "_createLucideIcon-CTf2TsVd.js"
+      "_createLucideIcon-CfWhKK-f.js"
     ]
   },
   "_rolldown-runtime-QTnfLwEv.js": {
     "file": "assets/rolldown-runtime-QTnfLwEv.js",
     "name": "rolldown-runtime"
   },
-  "_supabaseClient-CEy6kYK5.js": {
-    "file": "assets/supabaseClient-CEy6kYK5.js",
+  "_supabaseClient-ezRf1qsV.js": {
+    "file": "assets/supabaseClient-ezRf1qsV.js",
     "name": "supabaseClient",
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js"
     ]
   },
-  "_upload-jznErqWf.js": {
-    "file": "assets/upload-jznErqWf.js",
+  "_upload-D81h4fWP.js": {
+    "file": "assets/upload-D81h4fWP.js",
     "name": "upload",
     "imports": [
-      "_createLucideIcon-CTf2TsVd.js"
+      "_createLucideIcon-CfWhKK-f.js"
     ]
   },
   "index.html": {
-    "file": "assets/index-UT4MayGO.js",
+    "file": "assets/index-CDVZ_H21.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-CTf2TsVd.js",
-      "_supabaseClient-CEy6kYK5.js",
-      "_dataLayer-CLq8TXPA.js",
+      "_createLucideIcon-CfWhKK-f.js",
+      "_supabaseClient-ezRf1qsV.js",
+      "_dataLayer-Da1eJMQf.js",
       "_indexedDbHelper-BRF1Ap1s.js",
-      "_e2eeHelper-DmGKKlgC.js",
+      "_e2eeHelper-gDDUpGCk.js",
       "_e2eeTrust-DNKhd_mT.js"
     ],
     "dynamicImports": [
-      "_e2eeHelper-DmGKKlgC.js",
+      "_e2eeHelper-gDDUpGCk.js",
       "_e2eeTrust-DNKhd_mT.js",
       "_indexedDbHelper-BRF1Ap1s.js",
-      "_supabaseClient-CEy6kYK5.js",
-      "_dataLayer-CLq8TXPA.js",
+      "_supabaseClient-ezRf1qsV.js",
+      "_dataLayer-Da1eJMQf.js",
       "src/components/ChatInfo.jsx",
       "src/components/pulse/PulsePanel.jsx",
       "src/components/SettingsModal.jsx",
@@ -134,14 +134,14 @@
     ]
   },
   "src/components/CallOverlay.jsx": {
-    "file": "assets/CallOverlay-CIt7L-CV.js",
+    "file": "assets/CallOverlay-Ca3QyhBX.js",
     "name": "CallOverlay",
     "src": "src/components/CallOverlay.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-CTf2TsVd.js",
-      "_phone-WD9gXvvT.js",
+      "_createLucideIcon-CfWhKK-f.js",
+      "_phone-BQKbIjIn.js",
       "index.html"
     ],
     "css": [
@@ -149,86 +149,86 @@
     ]
   },
   "src/components/ChatInfo.jsx": {
-    "file": "assets/ChatInfo-C4ddgDrU.js",
+    "file": "assets/ChatInfo-5AWLD-bq.js",
     "name": "ChatInfo",
     "src": "src/components/ChatInfo.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-CTf2TsVd.js",
-      "_copy-YdjoO53p.js",
-      "_external-link-DMwgvs-c.js",
-      "_log-out-BzUscZlq.js",
-      "_phone-WD9gXvvT.js",
+      "_createLucideIcon-CfWhKK-f.js",
+      "_copy-Duy0YBBy.js",
+      "_external-link-OVeDJKkI.js",
+      "_log-out-CfsIqteJ.js",
+      "_phone-BQKbIjIn.js",
       "_e2eeTrust-DNKhd_mT.js",
       "index.html"
     ]
   },
   "src/components/CreateStoryModal.jsx": {
-    "file": "assets/CreateStoryModal-CnlMkpfj.js",
+    "file": "assets/CreateStoryModal-B5vsDHa0.js",
     "name": "CreateStoryModal",
     "src": "src/components/CreateStoryModal.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-CTf2TsVd.js",
-      "_supabaseClient-CEy6kYK5.js",
-      "_upload-jznErqWf.js",
+      "_createLucideIcon-CfWhKK-f.js",
+      "_supabaseClient-ezRf1qsV.js",
+      "_upload-D81h4fWP.js",
       "index.html"
     ]
   },
   "src/components/E2EESetupModal.jsx": {
-    "file": "assets/E2EESetupModal-D-0sxFfL.js",
+    "file": "assets/E2EESetupModal-CbqmhtH7.js",
     "name": "E2EESetupModal",
     "src": "src/components/E2EESetupModal.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-CTf2TsVd.js",
-      "_copy-YdjoO53p.js",
-      "_info-cVars3rq.js",
+      "_createLucideIcon-CfWhKK-f.js",
+      "_copy-Duy0YBBy.js",
+      "_info-BbGweHY-.js",
       "index.html"
     ]
   },
   "src/components/MainMenuDrawer.jsx": {
-    "file": "assets/MainMenuDrawer-ClBQfbh_.js",
+    "file": "assets/MainMenuDrawer-CbHmfSNe.js",
     "name": "MainMenuDrawer",
     "src": "src/components/MainMenuDrawer.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-CTf2TsVd.js",
-      "_supabaseClient-CEy6kYK5.js",
-      "_circle-user-q01Jz1xx.js",
+      "_createLucideIcon-CfWhKK-f.js",
+      "_supabaseClient-ezRf1qsV.js",
+      "_circle-user-CVTywcV0.js",
       "index.html"
     ]
   },
   "src/components/NewChatModal.jsx": {
-    "file": "assets/NewChatModal-ks14pTYV.js",
+    "file": "assets/NewChatModal-DI-CnyS9.js",
     "name": "NewChatModal",
     "src": "src/components/NewChatModal.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-CTf2TsVd.js",
-      "_dataLayer-CLq8TXPA.js",
+      "_createLucideIcon-CfWhKK-f.js",
+      "_dataLayer-Da1eJMQf.js",
       "index.html"
     ]
   },
   "src/components/SettingsModal.jsx": {
-    "file": "assets/SettingsModal-B7Gh3-da.js",
+    "file": "assets/SettingsModal-XXL_svwI.js",
     "name": "SettingsModal",
     "src": "src/components/SettingsModal.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-CTf2TsVd.js",
-      "_supabaseClient-CEy6kYK5.js",
-      "_copy-YdjoO53p.js",
-      "_circle-user-q01Jz1xx.js",
-      "_info-cVars3rq.js",
-      "_log-out-BzUscZlq.js",
-      "_upload-jznErqWf.js",
+      "_createLucideIcon-CfWhKK-f.js",
+      "_supabaseClient-ezRf1qsV.js",
+      "_copy-Duy0YBBy.js",
+      "_circle-user-CVTywcV0.js",
+      "_info-BbGweHY-.js",
+      "_log-out-CfsIqteJ.js",
+      "_upload-D81h4fWP.js",
       "_e2eeTrust-DNKhd_mT.js",
       "index.html"
     ],
@@ -237,26 +237,26 @@
     ]
   },
   "src/components/StoryViewer.jsx": {
-    "file": "assets/StoryViewer-PyAKtZSC.js",
+    "file": "assets/StoryViewer-u2u4uRf8.js",
     "name": "StoryViewer",
     "src": "src/components/StoryViewer.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-CTf2TsVd.js",
+      "_createLucideIcon-CfWhKK-f.js",
       "index.html"
     ]
   },
   "src/components/pulse/PulsePanel.jsx": {
-    "file": "assets/PulsePanel-P3eGXMqW.js",
+    "file": "assets/PulsePanel-BLVYNkPw.js",
     "name": "PulsePanel",
     "src": "src/components/pulse/PulsePanel.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-CTf2TsVd.js",
-      "_supabaseClient-CEy6kYK5.js",
-      "_external-link-DMwgvs-c.js",
+      "_createLucideIcon-CfWhKK-f.js",
+      "_supabaseClient-ezRf1qsV.js",
+      "_external-link-OVeDJKkI.js",
       "index.html"
     ],
     "css": [
