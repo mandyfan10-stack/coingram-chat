@@ -1,31 +1,31 @@
 {
-  "_circle-user-CQXCWgTC.js": {
-    "file": "assets/circle-user-CQXCWgTC.js",
+  "_circle-user-Vzyx0sr1.js": {
+    "file": "assets/circle-user-Vzyx0sr1.js",
     "name": "circle-user",
     "imports": [
-      "_createLucideIcon-D45jfd0n.js"
+      "_createLucideIcon-BZuxpQuI.js"
     ]
   },
-  "_copy-nRpwiL90.js": {
-    "file": "assets/copy-nRpwiL90.js",
+  "_copy-BzBn-WDc.js": {
+    "file": "assets/copy-BzBn-WDc.js",
     "name": "copy",
     "imports": [
-      "_createLucideIcon-D45jfd0n.js"
+      "_createLucideIcon-BZuxpQuI.js"
     ]
   },
-  "_createLucideIcon-D45jfd0n.js": {
-    "file": "assets/createLucideIcon-D45jfd0n.js",
+  "_createLucideIcon-BZuxpQuI.js": {
+    "file": "assets/createLucideIcon-BZuxpQuI.js",
     "name": "createLucideIcon",
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
       "_supabaseClient-DKj0T3Dp.js",
-      "_dataLayer-HNZI03K_.js",
+      "_dataLayer-CjpoHqcP.js",
       "_indexedDbHelper-BRF1Ap1s.js",
       "_e2eeHelper-gDDUpGCk.js"
     ]
   },
-  "_dataLayer-HNZI03K_.js": {
-    "file": "assets/dataLayer-HNZI03K_.js",
+  "_dataLayer-CjpoHqcP.js": {
+    "file": "assets/dataLayer-CjpoHqcP.js",
     "name": "dataLayer",
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
@@ -46,11 +46,11 @@
       "_rolldown-runtime-QTnfLwEv.js"
     ]
   },
-  "_external-link-BZXieQ9I.js": {
-    "file": "assets/external-link-BZXieQ9I.js",
+  "_external-link-DZdKEyOo.js": {
+    "file": "assets/external-link-DZdKEyOo.js",
     "name": "external-link",
     "imports": [
-      "_createLucideIcon-D45jfd0n.js"
+      "_createLucideIcon-BZuxpQuI.js"
     ]
   },
   "_indexedDbHelper-BRF1Ap1s.js": {
@@ -60,25 +60,25 @@
       "_rolldown-runtime-QTnfLwEv.js"
     ]
   },
-  "_info-Cnagso_7.js": {
-    "file": "assets/info-Cnagso_7.js",
+  "_info-Cc4B0FZi.js": {
+    "file": "assets/info-Cc4B0FZi.js",
     "name": "info",
     "imports": [
-      "_createLucideIcon-D45jfd0n.js"
+      "_createLucideIcon-BZuxpQuI.js"
     ]
   },
-  "_log-out-rLgQgQqg.js": {
-    "file": "assets/log-out-rLgQgQqg.js",
+  "_log-out-CaXsmexI.js": {
+    "file": "assets/log-out-CaXsmexI.js",
     "name": "log-out",
     "imports": [
-      "_createLucideIcon-D45jfd0n.js"
+      "_createLucideIcon-BZuxpQuI.js"
     ]
   },
-  "_phone-BT7Np_Jm.js": {
-    "file": "assets/phone-BT7Np_Jm.js",
+  "_phone-BI7eMxd6.js": {
+    "file": "assets/phone-BI7eMxd6.js",
     "name": "phone",
     "imports": [
-      "_createLucideIcon-D45jfd0n.js"
+      "_createLucideIcon-BZuxpQuI.js"
     ]
   },
   "_rolldown-runtime-QTnfLwEv.js": {
@@ -92,23 +92,23 @@
       "_rolldown-runtime-QTnfLwEv.js"
     ]
   },
-  "_upload-96OfS6mF.js": {
-    "file": "assets/upload-96OfS6mF.js",
+  "_upload-xMZC3kzL.js": {
+    "file": "assets/upload-xMZC3kzL.js",
     "name": "upload",
     "imports": [
-      "_createLucideIcon-D45jfd0n.js"
+      "_createLucideIcon-BZuxpQuI.js"
     ]
   },
   "index.html": {
-    "file": "assets/index-D-YfUxAF.js",
+    "file": "assets/index-CzsrSzrM.js",
     "name": "index",
     "src": "index.html",
     "isEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-D45jfd0n.js",
+      "_createLucideIcon-BZuxpQuI.js",
       "_supabaseClient-DKj0T3Dp.js",
-      "_dataLayer-HNZI03K_.js",
+      "_dataLayer-CjpoHqcP.js",
       "_indexedDbHelper-BRF1Ap1s.js",
       "_e2eeHelper-gDDUpGCk.js",
       "_e2eeTrust-DNKhd_mT.js"
@@ -118,7 +118,7 @@
       "_e2eeTrust-DNKhd_mT.js",
       "_indexedDbHelper-BRF1Ap1s.js",
       "_supabaseClient-DKj0T3Dp.js",
-      "_dataLayer-HNZI03K_.js",
+      "_dataLayer-CjpoHqcP.js",
       "src/components/ChatInfo.jsx",
       "src/components/pulse/PulsePanel.jsx",
       "src/components/SettingsModal.jsx",
@@ -134,14 +134,14 @@
     ]
   },
   "src/components/CallOverlay.jsx": {
-    "file": "assets/CallOverlay-YcU9uM4N.js",
+    "file": "assets/CallOverlay-oKPmrJDD.js",
     "name": "CallOverlay",
     "src": "src/components/CallOverlay.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-D45jfd0n.js",
-      "_phone-BT7Np_Jm.js",
+      "_createLucideIcon-BZuxpQuI.js",
+      "_phone-BI7eMxd6.js",
       "index.html"
     ],
     "css": [
@@ -149,111 +149,111 @@
     ]
   },
   "src/components/ChatInfo.jsx": {
-    "file": "assets/ChatInfo-i5gobCvL.js",
+    "file": "assets/ChatInfo-3LHla1C9.js",
     "name": "ChatInfo",
     "src": "src/components/ChatInfo.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-D45jfd0n.js",
-      "_copy-nRpwiL90.js",
-      "_external-link-BZXieQ9I.js",
-      "_log-out-rLgQgQqg.js",
-      "_phone-BT7Np_Jm.js",
+      "_createLucideIcon-BZuxpQuI.js",
+      "_copy-BzBn-WDc.js",
+      "_external-link-DZdKEyOo.js",
+      "_log-out-CaXsmexI.js",
+      "_phone-BI7eMxd6.js",
       "_e2eeTrust-DNKhd_mT.js",
       "index.html"
     ]
   },
   "src/components/CreateStoryModal.jsx": {
-    "file": "assets/CreateStoryModal-D04O2xdb.js",
+    "file": "assets/CreateStoryModal-C3N_RFCO.js",
     "name": "CreateStoryModal",
     "src": "src/components/CreateStoryModal.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-D45jfd0n.js",
+      "_createLucideIcon-BZuxpQuI.js",
       "_supabaseClient-DKj0T3Dp.js",
-      "_upload-96OfS6mF.js",
+      "_upload-xMZC3kzL.js",
       "index.html"
     ]
   },
   "src/components/E2EESetupModal.jsx": {
-    "file": "assets/E2EESetupModal-D0IdDzAQ.js",
+    "file": "assets/E2EESetupModal-DGUP_Q01.js",
     "name": "E2EESetupModal",
     "src": "src/components/E2EESetupModal.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-D45jfd0n.js",
-      "_copy-nRpwiL90.js",
-      "_info-Cnagso_7.js",
+      "_createLucideIcon-BZuxpQuI.js",
+      "_copy-BzBn-WDc.js",
+      "_info-Cc4B0FZi.js",
       "index.html"
     ]
   },
   "src/components/MainMenuDrawer.jsx": {
-    "file": "assets/MainMenuDrawer-BavsS2u8.js",
+    "file": "assets/MainMenuDrawer-waWAd1Bw.js",
     "name": "MainMenuDrawer",
     "src": "src/components/MainMenuDrawer.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-D45jfd0n.js",
+      "_createLucideIcon-BZuxpQuI.js",
       "_supabaseClient-DKj0T3Dp.js",
-      "_circle-user-CQXCWgTC.js",
+      "_circle-user-Vzyx0sr1.js",
       "index.html"
     ]
   },
   "src/components/NewChatModal.jsx": {
-    "file": "assets/NewChatModal-DIkxN09T.js",
+    "file": "assets/NewChatModal-BAg7_hia.js",
     "name": "NewChatModal",
     "src": "src/components/NewChatModal.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-D45jfd0n.js",
-      "_dataLayer-HNZI03K_.js",
+      "_createLucideIcon-BZuxpQuI.js",
+      "_dataLayer-CjpoHqcP.js",
       "index.html"
     ]
   },
   "src/components/SettingsModal.jsx": {
-    "file": "assets/SettingsModal-B9nEA_gk.js",
+    "file": "assets/SettingsModal-rCUQ-uM2.js",
     "name": "SettingsModal",
     "src": "src/components/SettingsModal.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-D45jfd0n.js",
+      "_createLucideIcon-BZuxpQuI.js",
       "_supabaseClient-DKj0T3Dp.js",
-      "_copy-nRpwiL90.js",
-      "_circle-user-CQXCWgTC.js",
-      "_info-Cnagso_7.js",
-      "_log-out-rLgQgQqg.js",
-      "_upload-96OfS6mF.js",
+      "_copy-BzBn-WDc.js",
+      "_circle-user-Vzyx0sr1.js",
+      "_info-Cc4B0FZi.js",
+      "_log-out-CaXsmexI.js",
+      "_upload-xMZC3kzL.js",
       "_e2eeTrust-DNKhd_mT.js",
       "index.html"
     ]
   },
   "src/components/StoryViewer.jsx": {
-    "file": "assets/StoryViewer-bTrLtmwM.js",
+    "file": "assets/StoryViewer-DvHex3Ch.js",
     "name": "StoryViewer",
     "src": "src/components/StoryViewer.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-D45jfd0n.js",
+      "_createLucideIcon-BZuxpQuI.js",
       "index.html"
     ]
   },
   "src/components/pulse/PulsePanel.jsx": {
-    "file": "assets/PulsePanel-DJAbwnm5.js",
+    "file": "assets/PulsePanel-DEZuMTYw.js",
     "name": "PulsePanel",
     "src": "src/components/pulse/PulsePanel.jsx",
     "isDynamicEntry": true,
     "imports": [
       "_rolldown-runtime-QTnfLwEv.js",
-      "_createLucideIcon-D45jfd0n.js",
+      "_createLucideIcon-BZuxpQuI.js",
       "_supabaseClient-DKj0T3Dp.js",
-      "_external-link-BZXieQ9I.js",
+      "_external-link-DZdKEyOo.js",
       "index.html"
     ],
     "css": [
