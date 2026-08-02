@@ -59,6 +59,19 @@ export function validateAuthUsername(username: string | null | undefined): Usern
   return { ok: true, username: normalized };
 }
 
+export type AuthEmailValidationResult =
+  | { ok: true; email: string }
+  | { ok: false; error: string };
+
+/** Validate and normalize a real email used for direct Supabase sign-in. */
+export function validateAuthEmail(email: string | null | undefined): AuthEmailValidationResult {
+  const normalized = String(email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    return { ok: false, error: 'Укажите корректный email.' };
+  }
+  return { ok: true, email: normalized };
+}
+
 export function buildLegacyAuthEmail(username: string): string {
   return `${normalizeAuthUsername(username)}@${LEGACY_AUTH_EMAIL_DOMAIN}`;
 }
