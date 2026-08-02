@@ -7,6 +7,7 @@ import {
   LogOut,
   Info,
   Lock,
+  Mail,
   Trash2,
   Upload,
   AlertCircle,
@@ -25,6 +26,11 @@ export default function AppearanceTab({
   notif,
   setNotif,
   currentUser,
+  email,
+  setEmail,
+  emailStatus,
+  emailLoading,
+  emailEditable,
   wallpaperInputRef,
   handleWallpaperUpload,
   isUploadingWallpaper,
@@ -151,6 +157,31 @@ export default function AppearanceTab({
               />
             </div>
           </div>
+
+          {/* Change Password (Supabase only) */}
+          {isSupabaseConfigured && (
+            <div className="settings-section">
+              <h5 className="section-title"><Mail size={16} /> Email аккаунта</h5>
+              <div className="input-group">
+                <label htmlFor="settings-email-input">Email</label>
+                <input
+                  id="settings-email-input"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  disabled={!emailEditable || emailLoading}
+                />
+                <span className="input-help-text">После изменения подтвердите новый адрес по ссылке из письма.</span>
+                {emailStatus.text && (
+                  <div className="password-status-msg" style={{ marginTop: '8px', fontSize: '12.5px', fontWeight: '500', color: emailStatus.type === 'error' ? '#ff4d4f' : '#2ecc71', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {emailStatus.type === 'error' ? <AlertCircle size={15} /> : <CheckCircle2 size={15} />}
+                    <span>{emailStatus.text}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Change Password (Supabase only) */}
           {isSupabaseConfigured && (
