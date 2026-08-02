@@ -6,6 +6,9 @@ const authContext = await readFile(new URL('../src/context/AuthContext.jsx', imp
 const authService = await readFile(new URL('../src/services/authService.js', import.meta.url), 'utf8');
 const authEmail = await readFile(new URL('../src/services/authEmail.ts', import.meta.url), 'utf8');
 const dataLayer = await readFile(new URL('../src/services/dataLayer.js', import.meta.url), 'utf8');
+const settingsModal = await readFile(new URL('../src/components/SettingsModal.jsx', import.meta.url), 'utf8');
+const profileTab = await readFile(new URL('../src/components/settings/ProfileTab.jsx', import.meta.url), 'utf8');
+const appearanceTab = await readFile(new URL('../src/components/settings/AppearanceTab.jsx', import.meta.url), 'utf8');
 
 test('auth state callbacks do not await Supabase profile calls directly', () => {
   assert.doesNotMatch(authContext, /onAuthStateChange\s*\(\s*async/);
@@ -14,6 +17,14 @@ test('auth state callbacks do not await Supabase profile calls directly', () => 
   assert.match(authContext, /signOut\(\{ scope: 'local' \}\)/);
   assert.match(authService, /\.maybeSingle\(\)/);
   assert.match(dataLayer, /fetchProfile:\s*authService\.fetchProfile/);
+  assert.match(authContext, /email: session\.user\.email/);
+  assert.match(authContext, /auth\.updateUser\(\{ email:/);
+});
+
+test('email is exposed and editable from settings', () => {
+  assert.match(settingsModal, /updateEmail/);
+  assert.match(profileTab, /id="email-input"/);
+  assert.match(appearanceTab, /id="settings-email-input"/);
 });
 
 test('auth uses dual-path internal emails without hardcoding only tg-clone on signup', () => {
