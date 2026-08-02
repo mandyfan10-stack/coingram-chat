@@ -54,6 +54,7 @@ export const AuthProvider = ({ children }) => {
 
             setCurrentUser({
               id: profile.id,
+              email: session.user.email || '',
               name: profile.display_name,
               username: profile.username,
               avatarColor: profile.avatar_color,
@@ -113,6 +114,25 @@ export const AuthProvider = ({ children }) => {
 
   const signInWithUsername = signInWithIdentifier;
 
+  const updateEmail = async (email) => {
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail) {
+      return { error: new Error('Email не может быть пустым.') };
+    }
+    if (!dataService.isLive()) {
+      return { error: new Error('Изменение email доступно только в live-режиме Supabase.') };
+    }
+
+    const { data, error } = await supabase.auth.updateUser({ email: normalizedEmail });
+    if (error) return { error };
+
+    setCurrentUser(previous => previous ? {
+      ...previous,
+      email: data.user?.email || normalizedEmail
+    } : previous);
+    return { data };
+  };
+
   const logOut = async () => {
     if (currentUser) {
       await clearE2EECache(currentUser.id);
@@ -139,6 +159,7 @@ export const AuthProvider = ({ children }) => {
       signUpWithUsername,
       signInWithIdentifier,
       signInWithUsername,
+      updateEmail,
       logOut,
       updateProfile
     }}>
