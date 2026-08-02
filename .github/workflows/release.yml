@@ -14,6 +14,8 @@ concurrency:
 
 env:
   NODE_VERSION: '24'
+  VITE_SUPABASE_URL: 'https://nluyrpickspjudxlokqv.supabase.co'
+  VITE_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sdXlycGlja3NwanVkeGxva3F2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTg0MjYsImV4cCI6MjA5ODY5NDQyNn0.PXGzj3AjUftOYd42k8chvHNeVGDU_FqRVlKClXH6QL0'
 
 jobs:
   validate:
