@@ -1,6 +1,7 @@
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import {
   validateAuthUsername,
+  validateAuthEmail,
   buildSignupAuthEmail,
   buildSignInEmailCandidates,
   hashMockPassword,
@@ -63,12 +64,25 @@ export const authService = {
     return { data: publicUser };
   },
 
-  signIn: async (username, password) => {
-    const validated = validateAuthUsername(username);
+  signIn: async (identifier, password) => {
+    const rawIdentifier = String(identifier || '').trim();
+    const isEmailIdentifier = rawIdentifier.includes('@');
+    const validated = isEmailIdentifier
+      ? validateAuthEmail(rawIdentifier)
+      : validateAuthUsername(rawIdentifier);
     if (!validated.ok) return { error: new Error(validated.error) };
-    const cleanUsername = validated.username;
 
     if (isSupabaseConfigured) {
+      if (isEmailIdentifier) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: validated.email,
+          password
+        });
+        if (error) return { error };
+        return { data: { id: data.user.id } };
+      }
+
+      const cleanUsername = validated.username;
       const candidates = buildSignInEmailCandidates(cleanUsername);
       let lastError = null;
 
@@ -89,6 +103,12 @@ export const authService = {
 
       return { error: lastError || new Error('Ошибка при входе. Проверьте логин и пароль.') };
     }
+
+    if (isEmailIdentifier) {
+      return { error: new Error('В демо-режиме вход по email недоступен. Используйте никнейм.') };
+    }
+
+    const cleanUsername = validated.username;
 
     // Mock / offline demo
     let mockUsers = JSON.parse(localStorage.getItem('tg-mock-users') || '[]');
