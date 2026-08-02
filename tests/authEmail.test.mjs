@@ -6,6 +6,7 @@ import {
   buildSignupAuthEmail,
   buildSignInEmailCandidates,
   validateAuthUsername,
+  validateAuthEmail,
   hashMockPassword,
   mockPasswordMatches,
   LEGACY_AUTH_EMAIL_DOMAIN,
@@ -35,6 +36,14 @@ test('username validation rejects invalid local-parts', () => {
   assert.equal(validateAuthUsername('ab').ok, false);
   assert.equal(validateAuthUsername('bad-name').ok, false);
   assert.equal(validateAuthUsername('ok_user1').ok, true);
+});
+
+test('email validation supports direct Supabase sign-in', () => {
+  assert.deepEqual(validateAuthEmail(' User@Example.COM '), {
+    ok: true,
+    email: 'user@example.com'
+  });
+  assert.equal(validateAuthEmail('not-an-email').ok, false);
 });
 
 test('username validation rejects mock-only reserved bot names', () => {
