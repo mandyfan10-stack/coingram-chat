@@ -32,10 +32,13 @@ export default function SettingsModal() {
     importStickerPack
   } = useChat();
 
-  const { currentUser, updateProfile, logOut } = useAuth();
+  const { currentUser, updateProfile, updateEmail, logOut } = useAuth();
   const { e2eePrivateKey, resetE2EE } = useE2EE();
 
   const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [emailStatus, setEmailStatus] = useState({ text: '', type: null });
+  const [settingsSaving, setSettingsSaving] = useState(false);
   const [bio, setBio] = useState('');
   const [notif, setNotif] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -158,6 +161,8 @@ export default function SettingsModal() {
   useEffect(() => {
     if (currentUser && isSettingsOpen) {
       setName(currentUser.name || '');
+      setEmail(currentUser.email || '');
+      setEmailStatus({ text: '', type: null });
       setBio(currentUser.bio || '');
       setNotif(currentUser.notificationsEnabled !== false);
       setCopied(false);
@@ -176,15 +181,33 @@ export default function SettingsModal() {
 
   if (!currentUser) return null;
 
-  const handleSave = () => {
-    updateProfile({
-      name,
-      bio,
-      notificationsEnabled: notif,
-      theme,
-      wallpaper
-    });
-    setIsSettingsOpen(false);
+  const handleSave = async () => {
+    setSettingsSaving(true);
+    setEmailStatus({ text: '', type: null });
+    try {
+      const currentEmail = String(currentUser.email || '').trim().toLowerCase();
+      const nextEmail = String(email || '').trim().toLowerCase();
+
+      if (nextEmail !== currentEmail) {
+        const result = await updateEmail(nextEmail);
+        if (result.error) {
+          setEmailStatus({ text: result.error.message, type: 'error' });
+          return;
+        }
+        setEmailStatus({ text: 'Письмо для подтверждения нового email отправлено.', type: 'success' });
+      }
+
+      await updateProfile({
+        name,
+        bio,
+        notificationsEnabled: notif,
+        theme,
+        wallpaper
+      });
+      setIsSettingsOpen(false);
+    } finally {
+      setSettingsSaving(false);
+    }
   };
 
   const handleCopyInviteLink = () => {
@@ -275,6 +298,11 @@ export default function SettingsModal() {
               renderAvatar={renderAvatar}
               name={name}
               setName={setName}
+              email={email}
+              setEmail={setEmail}
+              emailStatus={emailStatus}
+              emailLoading={settingsSaving}
+              emailEditable={isSupabaseConfigured}
               bio={bio}
               setBio={setBio}
               copied={copied}
@@ -296,6 +324,11 @@ export default function SettingsModal() {
               notif={notif}
               setNotif={setNotif}
               currentUser={currentUser}
+              email={email}
+              setEmail={setEmail}
+              emailStatus={emailStatus}
+              emailLoading={settingsSaving}
+              emailEditable={isSupabaseConfigured}
               wallpaperInputRef={wallpaperInputRef}
               handleWallpaperUpload={handleWallpaperUpload}
               isUploadingWallpaper={isUploadingWallpaper}
@@ -335,8 +368,8 @@ export default function SettingsModal() {
           <button className="settings-btn cancel" onClick={() => setIsSettingsOpen(false)}>
             Отмена
           </button>
-          <button className="settings-btn save" onClick={handleSave}>
-            Сохранить
+          <button className="settings-btn save" onClick={handleSave} disabled={settingsSaving}>
+            {settingsSaving ? 'Сохранение...' : 'Сохранить'}
           </button>
         </div>
       </div>
