@@ -1,1 +1,0 @@
-import{n as e}from"./rolldown-runtime-hePW80VL.js";import"./supabase-D5QWDXzl.js";var t=e({isSupabaseConfigured:()=>n,supabase:()=>r}),n=!1,r=null;export{r as n,t as r,n as t};
