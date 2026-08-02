@@ -4,8 +4,9 @@ import { isSupabaseConfigured } from '../supabaseClient';
 import { Lock, User, UserPlus, LogIn, AlertCircle, Sparkles } from 'lucide-react';
 
 export default function AuthScreen() {
-  const { signInWithUsername, signUpWithUsername } = useAuth();
+  const { signInWithIdentifier, signUpWithUsername } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
+  const [loginIdentifier, setLoginIdentifier] = useState('');
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
@@ -16,18 +17,25 @@ export default function AuthScreen() {
     e.preventDefault();
     setErrorMsg('');
 
-    if (!username.trim() || !password.trim()) {
+    const identifier = (isLogin ? loginIdentifier : username).trim();
+
+    if (!identifier || !password.trim()) {
       setErrorMsg('Пожалуйста, заполните все обязательные поля.');
       return;
     }
 
-    if (username.trim().length < 3) {
-      setErrorMsg('Имя пользователя должно быть не менее 3 символов.');
-      return;
-    }
+    if (!isLogin || !identifier.includes('@')) {
+      if (identifier.length < 3) {
+        setErrorMsg('Имя пользователя должно быть не менее 3 символов.');
+        return;
+      }
 
-    if (!/^[a-zA-Z0-9_]+$/.test(username.trim())) {
-      setErrorMsg('Имя пользователя: только латиница, цифры и _.');
+      if (!/^[a-zA-Z0-9_]+$/.test(identifier)) {
+        setErrorMsg('Имя пользователя: только латиница, цифры и _.');
+        return;
+      }
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)) {
+      setErrorMsg('Укажите корректный email или никнейм.');
       return;
     }
 
@@ -44,7 +52,7 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       if (isLogin) {
-        const { error } = await signInWithUsername(username.trim().toLowerCase(), password);
+        const { error } = await signInWithIdentifier(identifier.toLowerCase(), password);
         if (error) {
           setErrorMsg(error.message || 'Ошибка при входе. Проверьте логин и пароль.');
         }
@@ -114,13 +122,13 @@ export default function AuthScreen() {
                 onMouseOver={(e) => e.target.style.opacity = '0.9'}
                 onMouseOut={(e) => e.target.style.opacity = '1'}
                 onClick={async () => {
-                  setUsername('alex_dev');
+                  setLoginIdentifier('alex_dev');
                   setPassword('123456');
                   setIsLogin(true);
                   setLoading(true);
                   setErrorMsg('');
                   try {
-                    const { error } = await signInWithUsername('alex_dev', '123456');
+                    const { error } = await signInWithIdentifier('alex_dev', '123456');
                     if (error) setErrorMsg(error.message);
                   } finally {
                     setLoading(false);
@@ -166,18 +174,21 @@ export default function AuthScreen() {
           </div>
 
           <form onSubmit={handleSubmit} className="auth-form">
-            {/* Username Input */}
+            {/* Login accepts a real email or a username; registration stays username-first. */}
             <div className="auth-input-group">
-              <label htmlFor="username">Имя пользователя (никнейм) *</label>
+              <label htmlFor={isLogin ? 'loginIdentifier' : 'username'}>
+                {isLogin ? 'Email или имя пользователя *' : 'Имя пользователя (никнейм) *'}
+              </label>
               <div className="auth-input-wrapper">
                 <User size={18} className="input-icon" />
                 <input
-                  id="username"
+                  id={isLogin ? 'loginIdentifier' : 'username'}
                   type="text"
-                  placeholder="alex_dev"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder={isLogin ? 'you@example.com или alex_dev' : 'alex_dev'}
+                  value={isLogin ? loginIdentifier : username}
+                  onChange={(e) => (isLogin ? setLoginIdentifier(e.target.value) : setUsername(e.target.value))}
                   disabled={loading}
+                  autoComplete={isLogin ? 'username' : 'new-username'}
                   required
                 />
               </div>
