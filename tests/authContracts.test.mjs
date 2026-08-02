@@ -17,6 +17,8 @@ test('auth state callbacks do not await Supabase profile calls directly', () => 
 });
 
 test('auth uses dual-path internal emails without hardcoding only tg-clone on signup', () => {
+  assert.match(authService, /validateAuthEmail/);
+  assert.match(authService, /email: validated\.email/);
   assert.match(authService, /buildSignupAuthEmail/);
   assert.match(authService, /buildSignInEmailCandidates/);
   assert.match(authEmail, /coiny\.users\.local/);
