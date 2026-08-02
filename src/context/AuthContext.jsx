@@ -103,13 +103,15 @@ export const AuthProvider = ({ children }) => {
     return await dataService.signUp(username, password, displayName);
   };
 
-  const signInWithUsername = async (username, password) => {
-    const result = await dataService.signIn(username, password);
+  const signInWithIdentifier = async (identifier, password) => {
+    const result = await dataService.signIn(identifier, password);
     if (result.data && !dataService.isLive()) {
       setCurrentUser(result.data);
     }
     return result;
   };
+
+  const signInWithUsername = signInWithIdentifier;
 
   const logOut = async () => {
     if (currentUser) {
@@ -135,6 +137,7 @@ export const AuthProvider = ({ children }) => {
       setCurrentUser,
       authLoading,
       signUpWithUsername,
+      signInWithIdentifier,
       signInWithUsername,
       logOut,
       updateProfile
