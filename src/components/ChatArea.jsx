@@ -75,7 +75,7 @@ export default function ChatArea() {
   const otherMember = activeChat?.type === 'personal'
     ? activeChat.members?.find(m => m.id !== currentUser?.id)
     : null;
-  const requiresE2EE = activeChat?.type === 'personal' && activeChat.name !== 'Избранное';
+  const requiresE2EE = requiresPersonalE2EE(activeChat);
   const recipientMissingE2EE = requiresE2EE && (!otherMember || !otherMember.hasE2ee);
 
   const resolveSharedKeyForUpload = async () => {
@@ -779,7 +779,7 @@ export default function ChatArea() {
         <div className="empty-state">
           <div className="empty-state-logo">💬</div>
           <h3>Выберите чат, чтобы начать общение</h3>
-          <p>Или запустите историю из панели слева!</p>
+          <p>Или откройте историю в списке чатов</p>
         </div>
       </main>
     );

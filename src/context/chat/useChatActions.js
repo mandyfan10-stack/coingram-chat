@@ -7,9 +7,15 @@ import {
   requireE2EEKey
 } from '../../utils/e2eeHelper';
 import { saveOfflineAttachment } from '../../utils/indexedDbHelper';
-import { normalizeReactions } from '../../utils/reactionUtils';
+import {
+  cloneReactions,
+  isAllowedReactionEmoji,
+  normalizeReactions,
+  toggleUserReaction,
+} from '../../utils/reactionUtils';
 import { playSound } from '../../utils/sounds';
 import { createOfflineQueueItem } from '../../services/offlineQueueCore.js';
+import { requiresPersonalE2EE } from '../../utils/savedMessages';
 
 /**
  * Chat mutations: create/delete, send, reactions, members, settings.
@@ -286,7 +292,7 @@ export function useChatActions({
         let textToSend = text;
         let mediaToSend = media;
 
-        const requiresE2EE = activeChat?.type === 'personal' && activeChat.name !== 'Избранное';
+        const requiresE2EE = requiresPersonalE2EE(activeChat);
         if (requiresE2EE) {
           const otherMember = activeChat.members?.find((m) => m.id !== currentUser.id);
           let sharedKey = sharedKeysCacheRef.current[activeChatId];
@@ -376,42 +382,54 @@ export function useChatActions({
   }, [setChats]);
 
   const toggleReaction = useCallback(async (chatId, messageId, emoji) => {
-    let newReactions = [];
-    setChats((prevChats) => prevChats.map((c) => {
-      if (c.id === chatId) {
-        return {
-          ...c,
-          messages: c.messages.map((m) => {
-            if (m.id === messageId) {
-              const reactions = normalizeReactions(m.reactions);
+    if (!isAllowedReactionEmoji(emoji)) return;
 
-              const exist = reactions.find((r) => r.emoji === emoji);
-              const userKey = currentUser ? currentUser.id : 'current';
-              if (exist) {
-                if (exist.users.includes(userKey)) {
-                  exist.users = exist.users.filter((u) => u !== userKey);
-                  exist.count -= 1;
-                } else {
-                  exist.users.push(userKey);
-                  exist.count += 1;
-                }
-              } else {
-                reactions.push({ emoji, count: 1, users: [userKey] });
-              }
-              newReactions = reactions.filter((r) => r.count > 0);
-              return { ...m, reactions: newReactions };
-            }
-            return m;
-          })
-        };
-      }
-      return c;
+    const userKey = currentUser ? currentUser.id : 'current';
+    let previousReactions = null;
+
+    setChats((prevChats) => prevChats.map((c) => {
+      if (c.id !== chatId) return c;
+      return {
+        ...c,
+        messages: c.messages.map((m) => {
+          if (m.id !== messageId) return m;
+          previousReactions = cloneReactions(normalizeReactions(m.reactions));
+          const next = toggleUserReaction(previousReactions, emoji, userKey);
+          return { ...m, reactions: next };
+        }),
+      };
     }));
 
     try {
-      await dataService.toggleReaction(messageId, newReactions);
+      if (dataService.isLive()) {
+        const serverReactions = await dataService.toggleReaction(messageId, emoji);
+        if (Array.isArray(serverReactions)) {
+          setChats((prevChats) => prevChats.map((c) => {
+            if (c.id !== chatId) return c;
+            return {
+              ...c,
+              messages: c.messages.map((m) => (
+                m.id === messageId
+                  ? { ...m, reactions: normalizeReactions(serverReactions) }
+                  : m
+              )),
+            };
+          }));
+        }
+      }
     } catch (err) {
       console.error(err);
+      if (previousReactions) {
+        setChats((prevChats) => prevChats.map((c) => {
+          if (c.id !== chatId) return c;
+          return {
+            ...c,
+            messages: c.messages.map((m) => (
+              m.id === messageId ? { ...m, reactions: previousReactions } : m
+            )),
+          };
+        }));
+      }
     }
   }, [currentUser, setChats]);
 

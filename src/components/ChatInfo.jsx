@@ -5,6 +5,7 @@ import { useCalls } from '../context/CallContext';
 import { useAuth } from '../context/AuthContext';
 import { X, Phone, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut, Camera, Lock } from 'lucide-react';
 import useResolvedMedia from '../hooks/useResolvedMedia';
+import { isSavedMessagesChat } from '../utils/savedMessages';
 
 const computeSafetyNumber = async (keyA, keyB) => {
   if (!keyA || !keyB) return '';
@@ -281,7 +282,7 @@ export default function ChatInfo() {
         <span className="info-status">{getChatStatus(activeChat)}</span>
 
         {/* Action icons */}
-        {(activeChat.type === 'personal' || activeChat.type === 'group') && activeChat.name !== 'Избранное' && (
+        {(activeChat.type === 'personal' || activeChat.type === 'group') && !isSavedMessagesChat(activeChat) && (
           <div className="info-actions">
             <button 
               className="info-action-btn" 
@@ -591,7 +592,7 @@ export default function ChatInfo() {
       {(() => {
         const isPersonal = activeChat.type === 'personal';
         const isCreator = activeChat.createdBy === currentUser?.id;
-        const isSavedMessages = activeChat.name === 'Избранное';
+        const isSavedMessages = isSavedMessagesChat(activeChat);
         
         let buttonIcon = null;
         let buttonLabel = '';

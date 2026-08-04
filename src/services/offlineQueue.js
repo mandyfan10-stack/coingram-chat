@@ -5,6 +5,7 @@ import {
   isNetworkError,
   createOfflineQueueItem
 } from './offlineQueueCore.js';
+import { requiresPersonalE2EE } from '../utils/savedMessages.ts';
 
 export {
   OFFLINE_QUEUE_STORAGE_KEY,
@@ -36,7 +37,7 @@ export async function processOfflineQueueItem(item, deps) {
   } = deps;
 
   let finalMediaUrl = item.media ?? null;
-  const requiresE2EE = chat?.type === 'personal' && chat.name !== 'Избранное';
+  const requiresE2EE = requiresPersonalE2EE(chat);
   const otherMember = requiresE2EE
     ? chat.members?.find((m) => m.id !== currentUser.id)
     : null;

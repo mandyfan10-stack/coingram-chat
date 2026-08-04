@@ -1,5 +1,6 @@
 import React from 'react';
 import { ArrowLeft, Lock, MoreVertical } from 'lucide-react';
+import { isSavedMessagesChat, savedMessagesDisplayName } from '../../utils/savedMessages';
 
 export default function ChatHeader({
   activeChat,
@@ -8,13 +9,13 @@ export default function ChatHeader({
   isTypingText,
   isInfoOpen,
   setIsInfoOpen,
-  setIsPulseOpen,
   setActiveChatId
 }) {
   const toggleInfo = () => {
-    setIsPulseOpen?.(false);
     setIsInfoOpen(!isInfoOpen);
   };
+  const isSaved = isSavedMessagesChat(activeChat);
+  const title = isSaved ? savedMessagesDisplayName(activeChat) : activeChat.name;
 
   return (
     <header className="chat-header" onClick={toggleInfo}>
@@ -35,8 +36,8 @@ export default function ChatHeader({
         </div>
         <div className="chat-header-meta">
           <h4 className="chat-header-name">
-            {activeChat.name}
-            {activeChat.type === 'personal' && (
+            {title}
+            {activeChat.type === 'personal' && !isSaved && (
               <Lock
                 size={15}
                 className="e2ee-header-lock-icon"

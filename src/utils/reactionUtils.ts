@@ -30,3 +30,45 @@ export const normalizeReactions = (
 ): NormalizedReaction[] => (
   Array.isArray(reactions) ? reactions.map(normalizeReaction) : []
 );
+
+export const cloneReactions = (
+  reactions: MessageReactionLike[] | null | undefined,
+): NormalizedReaction[] => (
+  normalizeReactions(reactions).map((r) => ({
+    ...r,
+    users: [...r.users],
+  }))
+);
+
+export const isAllowedReactionEmoji = (emoji: unknown): emoji is string => {
+  if (typeof emoji !== 'string') return false;
+  const t = emoji.trim();
+  if (!t || t.length > 16) return false;
+  // Reject C0 controls
+  if (/[\u0000-\u001F\u007F]/.test(t)) return false;
+  return true;
+};
+
+/** Pure toggle: add or remove userKey for emoji; drop empty reaction rows. */
+export const toggleUserReaction = (
+  reactions: MessageReactionLike[] | null | undefined,
+  emoji: string,
+  userKey: string,
+): NormalizedReaction[] => {
+  const list = cloneReactions(reactions);
+  const idx = list.findIndex((r) => r.emoji === emoji);
+  if (idx >= 0) {
+    const row = list[idx];
+    if (row.users.includes(userKey)) {
+      row.users = row.users.filter((u) => u !== userKey);
+      row.count = row.users.length;
+      if (row.count === 0) list.splice(idx, 1);
+    } else {
+      row.users = [...row.users, userKey];
+      row.count = row.users.length;
+    }
+  } else {
+    list.push({ emoji, count: 1, users: [userKey] });
+  }
+  return list;
+};

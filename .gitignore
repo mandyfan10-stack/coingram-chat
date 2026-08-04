@@ -45,3 +45,5 @@ dist-electron/
 # Playwright artifacts
 test-results/
 playwright-report/
+
+.env.bak*

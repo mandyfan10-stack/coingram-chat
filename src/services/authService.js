@@ -1,4 +1,4 @@
-import { supabase, isSupabaseConfigured } from '../supabaseClient';
+import { supabase, isSupabaseConfigured, isMockMode } from '../supabaseClient';
 import {
   validateAuthUsername,
   validateAuthEmail,
@@ -122,15 +122,10 @@ export const authService = {
     }
 
     // Demo convenience: first-time username+password creates a local account.
-    // Only in non-production or when explicitly offline demo.
+    // Only when mock mode is allowed (never on misconfigured production).
     if (!user) {
-      if (import.meta.env.PROD && mockUsers.length > 0) {
-        // In production mock mode still allow auto-create for empty first user,
-        // but reject wrong password for existing usernames.
-        const existing = mockUsers.find((u) => u.username === cleanUsername);
-        if (existing) {
-          return { error: new Error('Неверный логин или пароль.') };
-        }
+      if (!isMockMode) {
+        return { error: new Error('Неверный логин или пароль.') };
       }
 
       const passwordHash = await hashMockPassword(password);

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
 import { dataService } from '../services/dataLayer';
 import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, Bot, MessageSquarePlus, Eye, Plus, Lock, WifiOff } from 'lucide-react';
+import { isSavedMessagesChat, savedMessagesDisplayName } from '../utils/savedMessages';
 
 export default function Sidebar() {
   const {
@@ -343,8 +344,12 @@ export default function Sidebar() {
                     </p>
 
                     <div className="chat-badges">
-                      {!chat.notifications && <VolumeX size={14} className="mute-icon" />}
-                      {chat.pinned && <Pin size={14} className="pinned-icon" />}
+                      {!(isSavedMessagesChat(chat) && !lastMsg) && !chat.notifications && (
+                        <VolumeX size={14} className="mute-icon" />
+                      )}
+                      {!(isSavedMessagesChat(chat) && !lastMsg) && chat.pinned && (
+                        <Pin size={14} className="pinned-icon" />
+                      )}
                       {unreadCount > 0 && (
                         <span className="unread-badge">{unreadCount}</span>
                       )}

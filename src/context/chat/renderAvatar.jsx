@@ -28,7 +28,7 @@ export function renderAvatar(avatar, fallback = '👤') {
   } else if (val === '📢' || val === 'channel' || val === 'Channel') {
     bg = 'linear-gradient(135deg, #b534fa, #e056fd)';
     icon = <Megaphone className="premium-avatar-icon" />;
-  } else if (val === '🔖' || val === 'saved' || val === 'Saved Messages') {
+  } else if (val === '🔖' || val === 'saved' || val === 'Saved Messages' || val === 'Избранное') {
     bg = 'linear-gradient(135deg, #34d399, #059669)';
     icon = <Bookmark className="premium-avatar-icon" fill="currentColor" />;
   } else if (val === '👤' || val === 'user') {

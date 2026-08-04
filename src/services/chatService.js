@@ -1,11 +1,12 @@
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { isMockOnlyBotProfile, isMockOnlyBotUsername } from '../utils/mockOnlyBots';
+import { isSavedMessagesChat, SAVED_MESSAGES_DISPLAY_NAME } from '../utils/savedMessages';
 
 function buildDefaultMockChats() {
   return [
     {
       id: 'mock-saved-messages',
-      name: 'Saved Messages 🔖',
+      name: SAVED_MESSAGES_DISPLAY_NAME,
       type: 'personal',
       avatar: '🔖',
       avatarColor: '#5a9ae6',
@@ -112,7 +113,13 @@ export const chatService = {
       if (chatErr) throw chatErr;
       if (!rawChats) rawChats = [];
 
-      const hasSaved = rawChats.some(c => c.name === 'Избранное' && c.created_by === userId && c.type === 'personal');
+      const hasSaved = rawChats.some((c) =>
+        isSavedMessagesChat({
+          type: c.type,
+          name: c.name,
+          username: c.username,
+        }) && (c.created_by === userId || !c.created_by)
+      );
       if (!hasSaved) {
         try {
           const { data: savedChatId, error: savedErr } = await supabase

@@ -109,53 +109,35 @@ export const messageService = {
     }
   },
 
-  toggleReaction: async (messageId, newReactions) => {
+  /**
+   * Toggle a reaction via atomic RPC (server merges per-user).
+   * `emoji` is required for live mode; mock may pass precomputed arrays via legacy path.
+   */
+  toggleReaction: async (messageId, emojiOrReactions) => {
     if (isSupabaseConfigured) {
-      const { error } = await supabase
-        .from('messages')
-        .update({ reactions: newReactions })
-        .eq('id', messageId);
+      const emoji = typeof emojiOrReactions === 'string'
+        ? emojiOrReactions
+        : null;
+      if (!emoji) {
+        throw new Error('toggleReaction requires an emoji string in live mode');
+      }
+      const { data, error } = await supabase.rpc('toggle_message_reaction', {
+        p_message_id: messageId,
+        p_emoji: emoji,
+      });
       if (error) throw error;
+      return data;
     }
+    return emojiOrReactions;
   },
 
   markMessagesAsRead: async (chatId, userId) => {
     if (!isSupabaseConfigured) return;
 
-    const { data: unreadMsgs, error: messagesError } = await supabase
-      .from('messages')
-      .select('id')
-      .eq('chat_id', chatId)
-      .neq('sender_id', userId);
-
-    if (messagesError) throw messagesError;
-
-    if (unreadMsgs && unreadMsgs.length > 0) {
-      const ids = unreadMsgs.map((m) => m.id);
-      const readRows = ids.map((id) => ({
-        message_id: id,
-        profile_id: userId
-      }));
-
-      const { error: readsError } = await supabase
-        .from('message_reads')
-        .upsert(readRows, {
-          onConflict: 'message_id,profile_id',
-          ignoreDuplicates: true
-        });
-
-      if (readsError) throw readsError;
-
-      // Also flip messages.read so senders get a postgres UPDATE event.
-      // message_reads INSERT realtime is flaky for some clients; UPDATE on
-      // messages is already subscribed and drives the double blue check UI.
-      const { error: flagError } = await supabase
-        .from('messages')
-        .update({ read: true })
-        .in('id', ids)
-        .eq('read', false);
-
-      if (flagError) throw flagError;
-    }
-  }
+    const { data, error } = await supabase.rpc('mark_chat_as_read', {
+      p_chat_id: chatId,
+    });
+    if (error) throw error;
+    return data;
+  },
 };

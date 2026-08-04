@@ -128,7 +128,18 @@ export default function MessageBubble({
                 }}
               >
                 {/* Bubble */}
-                <div className={`message-bubble ${isMe ? 'bubble-me' : 'bubble-other'} ${isVideo ? 'bubble-video' : ''} ${isSticker ? 'bubble-sticker' : ''}`}>
+                <div
+                  className={`message-bubble ${isMe ? 'bubble-me' : 'bubble-other'} ${isVideo ? 'bubble-video' : ''} ${isSticker ? 'bubble-sticker' : ''}`}
+                  onPointerDown={handleBubblePointerDown}
+                  onPointerMove={handleBubblePointerMove}
+                  onPointerUp={clearLongPress}
+                  onPointerCancel={clearLongPress}
+                  onContextMenu={(event) => {
+                    if (window.matchMedia?.('(hover: none)').matches) {
+                      event.preventDefault();
+                    }
+                  }}
+                >
                   {showSenderName && isFirstInGroup && (
                     <span className="sender-name">{msg.senderName}</span>
                   )}

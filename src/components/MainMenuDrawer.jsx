@@ -13,6 +13,7 @@ import {
   ChevronDown,
   X 
 } from 'lucide-react';
+import { isSavedMessagesChat, SAVED_MESSAGES_DISPLAY_NAME } from '../utils/savedMessages';
 
 export default function MainMenuDrawer() {
   const {
@@ -133,7 +134,7 @@ export default function MainMenuDrawer() {
 
     try {
       // Find if we already have a chat with name "Избранное"
-      const existing = chats.find(c => c.name === 'Избранное' && c.type === 'personal' && c.members.length === 1);
+      const existing = chats.find((c) => isSavedMessagesChat(c));
       if (existing) {
         setActiveChatId(existing.id);
         setIsDrawerOpen(false);
@@ -152,7 +153,7 @@ export default function MainMenuDrawer() {
         // Mock mode
         const newChat = {
           id: `chat-saved-${Date.now()}`,
-          name: 'Избранное',
+          name: SAVED_MESSAGES_DISPLAY_NAME,
           type: 'personal',
           avatar: '🔖',
           avatarColor: 'linear-gradient(135deg, #3a7bd5 0%, #3a6073 100%)',

@@ -1,23 +1,47 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { E2EEProvider, useE2EE } from './context/E2EEContext';
+import { E2EEProvider } from './context/E2EEContext';
 import { ChatProvider, useChat } from './context/ChatContext';
 import { CallProvider, useCalls } from './context/CallContext';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import ChatInfo from './components/ChatInfo';
-import PulsePanel from './components/pulse/PulsePanel';
-import SettingsModal from './components/SettingsModal';
 import StoryViewer from './components/StoryViewer';
 import AuthScreen from './components/AuthScreen';
 import NewChatModal from './components/NewChatModal';
 import CreateStoryModal from './components/CreateStoryModal';
 import MainMenuDrawer from './components/MainMenuDrawer';
-import CallOverlay from './components/CallOverlay';
 import E2EESetupModal from './components/E2EESetupModal';
+import { isMisconfigured } from './supabaseClient';
 import { X } from 'lucide-react';
+// Shared by SettingsModal, NewChatModal, CreateStoryModal — must load with shell
+// so closed overlays never participate in app flex layout.
+import './components/SettingsModal.css';
 
 const CURRENT_VERSION = import.meta.env.APP_VERSION;
+
+const SettingsModal = lazy(() => import('./components/SettingsModal'));
+const CallOverlay = lazy(() => import('./components/CallOverlay'));
+
+function DeferredSettingsModal() {
+  const { isSettingsOpen } = useChat();
+  if (!isSettingsOpen) return null;
+  return (
+    <Suspense fallback={null}>
+      <SettingsModal />
+    </Suspense>
+  );
+}
+
+function DeferredCallOverlay() {
+  const { callState } = useCalls();
+  if (callState.status === 'idle') return null;
+  return (
+    <Suspense fallback={null}>
+      <CallOverlay />
+    </Suspense>
+  );
+}
 
 function UpdateModal({ show, releaseInfo, onClose }) {
   if (!show || !releaseInfo) return null;
@@ -43,11 +67,11 @@ function UpdateModal({ show, releaseInfo, onClose }) {
           </div>
 
           {releaseInfo.body && (
-            <div className="update-changelog" style={{ 
-              background: 'rgba(255, 255, 255, 0.05)', 
-              padding: '12px', 
-              borderRadius: '8px', 
-              maxHeight: '120px', 
+            <div className="update-changelog" style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              padding: '12px',
+              borderRadius: '8px',
+              maxHeight: '120px',
               overflowY: 'auto',
               fontSize: '13px',
               lineHeight: '1.5',
@@ -61,26 +85,26 @@ function UpdateModal({ show, releaseInfo, onClose }) {
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-            <a 
-              href={releaseInfo.downloadUrl} 
-              target="_blank" 
-              rel="noreferrer" 
-              className="add-member-btn" 
-              style={{ 
-                textAlign: 'center', 
-                textDecoration: 'none', 
+            <a
+              href={releaseInfo.downloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="add-member-btn"
+              style={{
+                textAlign: 'center',
+                textDecoration: 'none',
                 display: 'block',
                 padding: '10px'
               }}
             >
               Скачать обновление
             </a>
-            <button 
-              onClick={onClose} 
-              className="picker-tab-btn" 
-              style={{ 
-                background: 'rgba(255, 255, 255, 0.05)', 
-                border: '1px solid var(--border-color)', 
+            <button
+              onClick={onClose}
+              className="picker-tab-btn"
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid var(--border-color)',
                 padding: '10px',
                 borderRadius: '8px',
                 cursor: 'pointer'
@@ -99,7 +123,7 @@ const isNewerVersion = (latest, current) => {
   const parse = (v) => v.split('.').map(Number);
   const latestParts = parse(latest);
   const currentParts = parse(current);
-  
+
   for (let i = 0; i < Math.max(latestParts.length, currentParts.length); i++) {
     const l = latestParts[i] || 0;
     const c = currentParts[i] || 0;
@@ -115,7 +139,6 @@ function MainLayout() {
   const [showUpdate, setShowUpdate] = useState(false);
   const [releaseInfo, setReleaseInfo] = useState(null);
 
-  // Swipe from edge to open MainMenuDrawer
   const touchStartRef = React.useRef({ x: 0, y: 0 });
   const touchMoveRef = React.useRef({ x: 0, y: 0 });
   const isDrawerGestureRef = React.useRef(false);
@@ -179,9 +202,7 @@ function MainLayout() {
         const cleanTagName = tagName.replace(/^v/, '');
 
         if (isNewerVersion(cleanTagName, CURRENT_VERSION)) {
-          // Open releases HTML URL in browser instead of direct .exe download for security
           const downloadUrl = data.html_url;
-
           setReleaseInfo({
             tagName,
             body: data.body,
@@ -190,7 +211,7 @@ function MainLayout() {
           setShowUpdate(true);
         }
       } catch (err) {
-        console.warn("Failed to check for updates:", err);
+        console.warn('Failed to check for updates:', err);
       }
     };
 
@@ -211,7 +232,7 @@ function MainLayout() {
   }
 
   return (
-    <div 
+    <div
       className={`app-container ${activeChatId ? 'active-chat-selected' : ''}`}
       onTouchStart={handleGlobalTouchStart}
       onTouchMove={handleGlobalTouchMove}
@@ -219,22 +240,46 @@ function MainLayout() {
     >
       <h1 className="sr-only" style={{ display: 'none' }}>Coiny</h1>
       <Sidebar />
-      <PulsePanel />
       <ChatArea />
       <ChatInfo />
-      <SettingsModal />
+      <DeferredSettingsModal />
       <StoryViewer />
       <NewChatModal />
       <CreateStoryModal />
       <MainMenuDrawer />
-      <CallOverlay />
+      <DeferredCallOverlay />
       <E2EESetupModal />
       <UpdateModal show={showUpdate} releaseInfo={releaseInfo} onClose={() => setShowUpdate(false)} />
     </div>
   );
 }
 
+function MisconfiguredScreen() {
+  return (
+    <div className="auth-loading-screen" style={{ padding: '24px', textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
+      <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+      <h1 style={{ fontSize: 20, margin: '0 0 12px' }}>Приложение не настроено</h1>
+      <p style={{ color: 'var(--text-secondary)', lineHeight: 1.5, margin: 0 }}>
+        В production-сборке отсутствуют переменные{' '}
+        <code>VITE_SUPABASE_URL</code> и{' '}
+        <code>VITE_SUPABASE_ANON_KEY</code> (или{' '}
+        <code>VITE_SUPABASE_PUBLISHABLE_KEY</code>).
+        Без них клиент не может подключиться к backend.
+      </p>
+      <p style={{ color: 'var(--text-secondary)', lineHeight: 1.5, margin: '12px 0 0' }}>
+        Пересоберите приложение с корректным <code>.env</code>.
+        Для редкого демо без Supabase можно задать{' '}
+        <code>VITE_ALLOW_MOCK=true</code>.
+      </p>
+    </div>
+  );
+}
+
 function App() {
+  if (isMisconfigured) {
+    return <MisconfiguredScreen />;
+  }
+
   return (
     <AuthProvider>
       <E2EEProvider>
