@@ -27,6 +27,7 @@ import {
   requireE2EEKey
 } from '../utils/e2eeHelper';
 import { CHAT_MEDIA_ACCEPT, validateChatMedia } from '../utils/mediaValidation';
+import { requiresPersonalE2EE } from '../utils/savedMessages';
 import ChatHeader from './chat/ChatHeader';
 import MessageBubble from './chat/MessageBubble';
 import ImageViewer from './chat/ImageViewer';
