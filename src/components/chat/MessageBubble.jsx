@@ -54,8 +54,55 @@ export default function MessageBubble({
 
   const smileBtnRef = useRef(null);
   const drawerRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const longPressOriginRef = useRef(null);
   const [drawerStyle, setDrawerStyle] = useState(null);
   const isReactionOpen = showMsgActionsId === msg.id;
+
+  const LONG_PRESS_MS = 450;
+  const LONG_PRESS_MOVE_CANCEL_PX = 12;
+
+  const clearLongPress = useCallback(() => {
+    if (longPressTimerRef.current != null) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressOriginRef.current = null;
+  }, []);
+
+  // Touch/stylus long-press opens message actions / reaction drawer (mobile).
+  const handleBubblePointerDown = useCallback((event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    if (event.target?.closest?.(
+      'button, a, input, textarea, video, audio, .reaction-badge, .failed-message-menu, .hover-action-btn'
+    )) {
+      return;
+    }
+
+    clearLongPress();
+    longPressOriginRef.current = { x: event.clientX, y: event.clientY };
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTimerRef.current = null;
+      longPressOriginRef.current = null;
+      setShowMsgActionsId(msg.id);
+      try {
+        navigator.vibrate?.(12);
+      } catch {
+        /* ignore */
+      }
+    }, LONG_PRESS_MS);
+  }, [clearLongPress, msg.id, setShowMsgActionsId]);
+
+  const handleBubblePointerMove = useCallback((event) => {
+    if (!longPressOriginRef.current || longPressTimerRef.current == null) return;
+    const dx = event.clientX - longPressOriginRef.current.x;
+    const dy = event.clientY - longPressOriginRef.current.y;
+    if ((dx * dx) + (dy * dy) > LONG_PRESS_MOVE_CANCEL_PX * LONG_PRESS_MOVE_CANCEL_PX) {
+      clearLongPress();
+    }
+  }, [clearLongPress]);
+
+  useEffect(() => () => clearLongPress(), [clearLongPress]);
 
   const repositionDrawer = useCallback(() => {
     if (!isReactionOpen || !smileBtnRef.current) return;
