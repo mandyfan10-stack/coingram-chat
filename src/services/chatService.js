@@ -111,7 +111,7 @@ export const chatService = {
         .select('*');
 
       if (chatErr) throw chatErr;
-      if (!rawChats) rawChats = [];
+      if (!Array.isArray(rawChats)) rawChats = [];
 
       const hasSaved = rawChats.some((c) =>
         isSavedMessagesChat({
@@ -251,7 +251,13 @@ export const chatService = {
     }
 
     const saved = localStorage.getItem('tg-chats-mock');
-    let chats = saved ? JSON.parse(saved) : [];
+    let chats = [];
+    try {
+      const parsed = saved ? JSON.parse(saved) : [];
+      chats = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      chats = [];
+    }
 
     if (!chats || chats.length === 0) {
       chats = buildDefaultMockChats();
@@ -259,9 +265,13 @@ export const chatService = {
     }
 
     try {
-      return chats.map(chat => ({
+      return chats.map((chat) => ({
         ...chat,
-        messages: chat.messages.map(m => ({ ...m, timestamp: new Date(m.timestamp) }))
+        members: Array.isArray(chat.members) ? chat.members : [],
+        messages: (Array.isArray(chat.messages) ? chat.messages : []).map((m) => ({
+          ...m,
+          timestamp: new Date(m.timestamp)
+        }))
       }));
     } catch {
       return [];

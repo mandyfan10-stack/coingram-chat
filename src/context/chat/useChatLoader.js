@@ -22,10 +22,14 @@ export function useChatLoader({
     if (!currentUser) return;
     try {
       const data = await dataService.fetchChats(currentUser.id);
+      // Guard non-array payloads (RPC/edge/proxy) so we never throw "X is not iterable".
+      const list = Array.isArray(data) ? data : [];
 
-      const formattedChats = await Promise.all(data.map(async (chat) => {
+      const formattedChats = await Promise.all(list.map(async (chat) => {
+        const members = Array.isArray(chat?.members) ? chat.members : [];
+        const rawMessages = Array.isArray(chat?.messages) ? chat.messages : [];
         const otherMember = chat.type === 'personal'
-          ? chat.members.find((m) => m.id !== currentUser.id)
+          ? members.find((m) => m.id !== currentUser.id)
           : null;
 
         let sharedKey = null;
@@ -34,7 +38,7 @@ export function useChatLoader({
           if (!sharedKey && otherMember.publicKey) {
             sharedKey = await resolveSharedKey({
               chatId: chat.id,
-              chat,
+              chat: { ...chat, members },
               currentUserId: currentUser.id,
               e2eePrivateKey: e2eePrivateKeyRef.current,
               sharedKeysCache: sharedKeysCacheRef.current,
@@ -44,21 +48,22 @@ export function useChatLoader({
         }
 
         const messages = await Promise.all(
-          chat.messages.map((m) => decryptMessageFields(m, sharedKey, chat.type === 'personal'))
+          rawMessages.map((m) => decryptMessageFields(m, sharedKey, chat.type === 'personal'))
         );
 
-        return { ...chat, messages };
+        return { ...chat, members, messages };
       }));
 
       let localQueue = [];
       try {
-        localQueue = JSON.parse(localStorage.getItem('tg-offline-queue') || '[]');
+        const parsed = JSON.parse(localStorage.getItem('tg-offline-queue') || '[]');
+        localQueue = Array.isArray(parsed) ? parsed : [];
       } catch {
-        /* ignore */
+        localQueue = [];
       }
 
       for (const q of localQueue) {
-        if (q.hasOfflineMedia && q.optimisticId) {
+        if (q?.hasOfflineMedia && q.optimisticId) {
           try {
             const blob = await getOfflineAttachment(q.optimisticId);
             if (blob) q.media = URL.createObjectURL(blob);
@@ -69,8 +74,9 @@ export function useChatLoader({
       }
 
       const updatedChats = formattedChats.map((c) => {
+        const baseMessages = Array.isArray(c.messages) ? c.messages : [];
         const pendingMsgs = localQueue
-          .filter((q) => q.chatId === c.id)
+          .filter((q) => q && q.chatId === c.id)
           .map((q) => ({
             id: q.optimisticId,
             senderId: currentUser.id,
@@ -85,44 +91,53 @@ export function useChatLoader({
             isOptimistic: true
           }));
 
-        return pendingMsgs.length > 0 ? { ...c, messages: [...c.messages, ...pendingMsgs] } : c;
+        return pendingMsgs.length > 0
+          ? { ...c, messages: [...baseMessages, ...pendingMsgs] }
+          : { ...c, messages: baseMessages };
       });
 
-      setChats((previousChats) => updatedChats.map((nextChat) => {
-        const existingChat = previousChats.find((chat) => chat.id === nextChat.id);
-        if (!existingChat?.messages?.length) return nextChat;
+      setChats((previousChats) => {
+        const prev = Array.isArray(previousChats) ? previousChats : [];
+        return updatedChats.map((nextChat) => {
+          const existingChat = prev.find((chat) => chat.id === nextChat.id);
+          const nextMessages = Array.isArray(nextChat.messages) ? nextChat.messages : [];
+          if (!existingChat?.messages?.length) {
+            return { ...nextChat, messages: nextMessages };
+          }
 
-        const refreshedById = new Map(nextChat.messages.map((message) => [message.id, message]));
-        const existingMessages = existingChat.messages.map((message) => {
-          const refreshed = refreshedById.get(message.id);
-          if (!refreshed) return message;
+          const existingList = Array.isArray(existingChat.messages) ? existingChat.messages : [];
+          const refreshedById = new Map(nextMessages.map((message) => [message.id, message]));
+          const existingMessages = existingList.map((message) => {
+            const refreshed = refreshedById.get(message.id);
+            if (!refreshed) return message;
 
-          // Prefer decrypted local plaintext when already unlocked; always take
-          // server-side delivery/read/reaction state so receipts survive refresh.
-          const keepLocalBody = !message.isLocked || refreshed.isLocked;
+            // Prefer decrypted local plaintext when already unlocked; always take
+            // server-side delivery/read/reaction state so receipts survive refresh.
+            const keepLocalBody = !message.isLocked || refreshed.isLocked;
+            return {
+              ...message,
+              ...refreshed,
+              text: keepLocalBody ? message.text : refreshed.text,
+              media: keepLocalBody ? message.media : refreshed.media,
+              isLocked: keepLocalBody ? message.isLocked : refreshed.isLocked,
+              read: Boolean(message.read || refreshed.read),
+              reads: refreshed.reads?.length ? refreshed.reads : message.reads,
+              reactions: refreshed.reactions ?? message.reactions
+            };
+          });
+          const knownMessageIds = new Set(existingMessages.map((message) => message.id));
+          const missingPreviewMessages = nextMessages.filter(
+            (message) => !knownMessageIds.has(message.id)
+          );
+
           return {
-            ...message,
-            ...refreshed,
-            text: keepLocalBody ? message.text : refreshed.text,
-            media: keepLocalBody ? message.media : refreshed.media,
-            isLocked: keepLocalBody ? message.isLocked : refreshed.isLocked,
-            read: Boolean(message.read || refreshed.read),
-            reads: refreshed.reads?.length ? refreshed.reads : message.reads,
-            reactions: refreshed.reactions ?? message.reactions
+            ...nextChat,
+            messages: [...existingMessages, ...missingPreviewMessages].sort(
+              (left, right) => new Date(left.timestamp) - new Date(right.timestamp)
+            )
           };
         });
-        const knownMessageIds = new Set(existingMessages.map((message) => message.id));
-        const missingPreviewMessages = nextChat.messages.filter(
-          (message) => !knownMessageIds.has(message.id)
-        );
-
-        return {
-          ...nextChat,
-          messages: [...existingMessages, ...missingPreviewMessages].sort(
-            (left, right) => new Date(left.timestamp) - new Date(right.timestamp)
-          )
-        };
-      }));
+      });
     } catch (e) {
       console.error('Failed to load chats', e);
     }
@@ -131,7 +146,8 @@ export function useChatLoader({
   const loadActiveChatMessages = useCallback(async (chatId) => {
     if (!chatId || !currentUser) return;
     try {
-      const msgs = await dataService.loadChatMessages(chatId, 30);
+      const msgsRaw = await dataService.loadChatMessages(chatId, 30);
+      const msgs = Array.isArray(msgsRaw) ? msgsRaw : [];
       const chat = chatsRef.current.find((c) => c.id === chatId);
       if (!chat) return;
 
@@ -148,7 +164,7 @@ export function useChatLoader({
         msgs.map((m) => decryptMessageFields(m, sharedKey, chat.type === 'personal'))
       );
 
-      setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, messages: decryptedMsgs } : c)));
+      setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => (c.id === chatId ? { ...c, messages: decryptedMsgs } : c)));
       setMessagePagination((prev) => ({ ...prev, [chatId]: { loading: false, hasMore: msgs.length === 30 } }));
     } catch (e) {
       console.error(e);
@@ -163,7 +179,8 @@ export function useChatLoader({
     setMessagePagination((prev) => ({ ...prev, [chatId]: { ...prev[chatId], loading: true } }));
     try {
       const oldestTimestamp = chat.messages[0]?.timestamp;
-      const older = await dataService.loadChatMessages(chatId, 30, oldestTimestamp);
+      const olderRaw = await dataService.loadChatMessages(chatId, 30, oldestTimestamp);
+      const older = Array.isArray(olderRaw) ? olderRaw : [];
 
       const sharedKey = await resolveSharedKey({
         chatId,
@@ -178,10 +195,11 @@ export function useChatLoader({
         older.map((message) => decryptMessageFields(message, sharedKey, chat.type === 'personal'))
       );
 
-      setChats((prev) => prev.map((c) => {
+      setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => {
         if (c.id !== chatId) return c;
-        const known = new Set(c.messages.map((message) => message.id));
-        return { ...c, messages: [...decrypted.filter((message) => !known.has(message.id)), ...c.messages] };
+        const currentMessages = Array.isArray(c.messages) ? c.messages : [];
+        const known = new Set(currentMessages.map((message) => message.id));
+        return { ...c, messages: [...decrypted.filter((message) => !known.has(message.id)), ...currentMessages] };
       }));
       setMessagePagination((prev) => ({ ...prev, [chatId]: { loading: false, hasMore: older.length === 30 } }));
       return decrypted.length;

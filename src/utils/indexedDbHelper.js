@@ -1,28 +1,45 @@
 const DB_NAME = 'CoinyOfflineDB';
-const DB_VERSION = 2;
+/**
+ * Must never decrease. Some clients already have v3 (local/experimental builds).
+ * Opening with a lower version throws VersionError and breaks E2EE restore + offline media.
+ */
+const DB_VERSION = 3;
 const STORE_NAME = 'offline-attachments';
 const KEY_STORE_NAME = 'e2ee-keys';
 
 let dbPromise = null;
 
-export function initOfflineDB() {
-  if (dbPromise) return dbPromise;
+function ensureStores(db) {
+  if (!db.objectStoreNames.contains(STORE_NAME)) {
+    db.createObjectStore(STORE_NAME);
+  }
+  if (!db.objectStoreNames.contains(KEY_STORE_NAME)) {
+    db.createObjectStore(KEY_STORE_NAME);
+  }
+}
 
-  dbPromise = new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+/**
+ * @param {number | undefined} version
+ *   Pass a number to open/upgrade; omit to open the existing DB at its current version
+ *   (recovery path when the client DB is newer than this build expected).
+ */
+function openDatabase(version) {
+  return new Promise((resolve, reject) => {
+    const request =
+      typeof version === 'number' ? indexedDB.open(DB_NAME, version) : indexedDB.open(DB_NAME);
 
     request.onupgradeneeded = (event) => {
-      const db = event.target.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-      if (!db.objectStoreNames.contains(KEY_STORE_NAME)) {
-        db.createObjectStore(KEY_STORE_NAME);
-      }
+      ensureStores(event.target.result);
     };
 
     request.onsuccess = (event) => {
       const db = event.target.result;
+      // Defensive: older DBs may lack a store without a version bump path.
+      try {
+        ensureStores(db);
+      } catch {
+        // createObjectStore only allowed in versionchange; ignore if already open.
+      }
       db.onversionchange = () => {
         db.close();
         dbPromise = null;
@@ -34,12 +51,37 @@ export function initOfflineDB() {
     };
 
     request.onerror = (event) => {
-      dbPromise = null;
-      reject(event.target.error);
+      reject(event.target.error || new Error('IndexedDB open failed'));
     };
+
+    request.onblocked = () => {
+      console.warn('IndexedDB open blocked; close other Coiny tabs to upgrade the database.');
+    };
+  });
+}
+
+export function initOfflineDB() {
+  if (dbPromise) return dbPromise;
+
+  dbPromise = openDatabase(DB_VERSION).catch((error) => {
+    // VersionError: requested version < existing (e.g. code at v2, browser already at v3).
+    if (error && error.name === 'VersionError') {
+      console.warn(
+        `IndexedDB VersionError (requested ${DB_VERSION}); reopening at existing schema version.`,
+        error
+      );
+      return openDatabase(undefined);
+    }
+    dbPromise = null;
+    throw error;
   });
 
   return dbPromise;
+}
+
+/** Test/ops helper — current app schema version constant. */
+export function getOfflineDbSchemaVersion() {
+  return DB_VERSION;
 }
 
 export function saveOfflineAttachment(optimisticId, blob) {
