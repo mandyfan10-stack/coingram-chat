@@ -47,3 +47,6 @@ test-results/
 playwright-report/
 
 .env.bak*
+
+dist-pages/
+
