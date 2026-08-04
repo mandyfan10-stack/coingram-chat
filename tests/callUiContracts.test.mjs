@@ -13,11 +13,12 @@ const callPip = await readFile(new URL('../src/components/call/useCallLocalPrevi
 const indexCss = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
 const stableExport = await readFile(new URL('../src/components/CallOverlay.jsx', import.meta.url), 'utf8');
 
-test('V4: ChatHeader exposes call button with startCall (not saved-only path)', () => {
-  assert.match(chatHeader, /title="Звонок"/);
-  assert.match(chatHeader, /startCall\(activeChat\.id\)/);
-  assert.match(chatHeader, /isSavedMessagesChat/);
-  assert.match(chatHeader, /canCall/);
+test('ChatHeader has info action only — call entry stays in ChatInfo', () => {
+  assert.match(chatHeader, /title="Информация"/);
+  assert.doesNotMatch(chatHeader, /title="Звонок"/);
+  assert.doesNotMatch(chatHeader, /startCall/);
+  assert.doesNotMatch(chatHeader, /useCalls/);
+  assert.doesNotMatch(chatHeader, /from 'lucide-react'[\s\S]*Phone|Phone[\s\S]*from 'lucide-react'/);
 });
 
 test('V5: call stack has no alert(); mediaError surface exists', () => {
