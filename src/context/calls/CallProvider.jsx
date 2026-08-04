@@ -11,33 +11,43 @@ import { useCallMedia } from './useCallMedia';
 
 const CallContext = createContext();
 
+/** Outgoing/incoming ring auto-end (C8). */
+export const CALL_RING_TIMEOUT_MS = 60_000;
+
+const IDLE_CALL_STATE = {
+  status: 'idle',
+  chatId: null,
+  duration: 0,
+  muted: false,
+  isOutgoing: false,
+  callerInfo: null,
+  otherUserId: null,
+  webrtcState: 'disconnected',
+  isRemoteScreenSharing: false,
+  isLocalSpeaking: false,
+  isRemoteSpeaking: false
+};
+
+const BUSY_CALL_STATUSES = new Set(['calling', 'incoming', 'connected']);
+
 export const CallProvider = ({ children }) => {
   const { currentUser } = useAuth();
   const { chats } = useChat();
 
-  const [callState, setCallState] = useState({
-    status: 'idle',
-    chatId: null,
-    duration: 0,
-    muted: false,
-    isOutgoing: false,
-    callerInfo: null,
-    otherUserId: null,
-    webrtcState: 'disconnected',
-    isRemoteScreenSharing: false,
-    isLocalSpeaking: false,
-    isRemoteSpeaking: false
-  });
+  const [callState, setCallState] = useState(() => ({ ...IDLE_CALL_STATE }));
 
   const [groupCallParticipants, setGroupCallParticipants] = useState([]);
   const groupCallTimersRef = useRef([]);
   const pcsRef = useRef({});
   const candidateQueuesRef = useRef({});
   const audioAnalyzersRef = useRef({});
+  const endCallLocallyRef = useRef(() => {});
 
   const [localVideoStream, setLocalVideoStream] = useState(null);
   const [remoteVideoStream, setRemoteVideoStream] = useState(null);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  /** V5: in-overlay media permission / capture errors (no window.alert). */
+  const [mediaError, setMediaError] = useState(null);
   const screenStreamRef = useRef(null);
   const wasCameraActiveRef = useRef(false);
 
@@ -55,21 +65,10 @@ export const CallProvider = ({ children }) => {
   callChatRef.current = callChat;
   callStateRef.current = callState;
 
-  const { sendSignalingMessage } = useCallSignaling({
-    currentUser,
-    chats,
-    signalingChatIds,
-    setCallState,
-    currentUserRef
-  });
-
-  const endCallLocally = useCallback(() => {
-    setCallState(prev => ({
-      ...prev,
-      status: 'ended'
-    }));
+  /** Shared media/PC teardown used by hangup, reject, remote end, and effect cleanup (C4). */
+  const teardownMedia = useCallback(() => {
     if (groupCallTimersRef.current) {
-      groupCallTimersRef.current.forEach(t => {
+      groupCallTimersRef.current.forEach((t) => {
         clearTimeout(t);
         clearInterval(t);
       });
@@ -77,48 +76,111 @@ export const CallProvider = ({ children }) => {
     }
     setGroupCallParticipants([]);
 
-    // Close and clear group peer connections
-    Object.keys(pcsRef.current).forEach(peerId => {
-      if (pcsRef.current[peerId]) {
-        pcsRef.current[peerId].close();
+    Object.keys(pcsRef.current).forEach((peerId) => {
+      try {
+        pcsRef.current[peerId]?.close();
+      } catch {
+        /* ignore */
       }
     });
     pcsRef.current = {};
 
-    // Stop and clear all audio analyzers
-    Object.keys(audioAnalyzersRef.current).forEach(key => {
-      if (audioAnalyzersRef.current[key]) {
-        audioAnalyzersRef.current[key].stop();
+    Object.keys(audioAnalyzersRef.current).forEach((key) => {
+      try {
+        audioAnalyzersRef.current[key]?.stop?.();
+      } catch {
+        /* ignore */
       }
     });
     audioAnalyzersRef.current = {};
 
-    setTimeout(() => {
-      setCallState({
-        status: 'idle',
-        chatId: null,
-        duration: 0,
-        muted: false,
-        isOutgoing: false,
-        callerInfo: null,
-        otherUserId: null,
-        webrtcState: 'disconnected',
-        isRemoteScreenSharing: false,
-        isLocalSpeaking: false,
-        isRemoteSpeaking: false
-      });
-    }, 1500);
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track) => track.stop());
+      localStreamRef.current = null;
+    }
+    if (localVideoStreamRef.current) {
+      localVideoStreamRef.current.getTracks().forEach((track) => track.stop());
+      localVideoStreamRef.current = null;
+    }
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current = null;
+    }
+    setIsScreenSharing(false);
+    setLocalVideoStream(null);
+    setRemoteVideoStream(null);
+    wasCameraActiveRef.current = false;
+    candidateQueuesRef.current = {};
+
+    if (pcRef.current) {
+      try {
+        pcRef.current.close();
+      } catch {
+        /* ignore */
+      }
+      pcRef.current = null;
+    }
+    if (activeCallChannelRef.current) {
+      try {
+        activeCallChannelRef.current.unsubscribe();
+      } catch {
+        /* ignore */
+      }
+      activeCallChannelRef.current = null;
+    }
+    document.querySelectorAll('.webrtc-remote-audio-feed').forEach((el) => {
+      el.srcObject = null;
+      el.remove();
+    });
   }, []);
+
+  const endCallLocally = useCallback(() => {
+    teardownMedia();
+    setCallState((prev) => {
+      if (prev.status === 'idle') return prev;
+      return { ...prev, status: 'ended' };
+    });
+    // C1: only return to idle if still on the ended flash — never wipe a new call.
+    setTimeout(() => {
+      setCallState((prev) => (prev.status === 'ended' ? { ...IDLE_CALL_STATE } : prev));
+    }, 1500);
+  }, [teardownMedia]);
+
+  endCallLocallyRef.current = endCallLocally;
+
+  const { sendSignalingMessage } = useCallSignaling({
+    currentUser,
+    chats,
+    signalingChatIds,
+    setCallState,
+    currentUserRef,
+    onRemoteEnd: () => endCallLocallyRef.current()
+  });
+
+  // C8: auto-end unanswered outgoing / missed incoming after ring timeout.
+  useEffect(() => {
+    if (callState.status !== 'calling' && callState.status !== 'incoming') return undefined;
+    const statusAtStart = callState.status;
+    const timer = setTimeout(() => {
+      if (callStateRef.current.status !== statusAtStart) return;
+      if (dataService.isLive() && callStateRef.current.chatId) {
+        sendSignalingMessage(callStateRef.current.chatId, 'call-rejected', {});
+      }
+      endCallLocally();
+    }, CALL_RING_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [callState.status, endCallLocally, sendSignalingMessage]);
 
   // WebRTC Connection and Streaming Effect
   useEffect(() => {
+    let cancelled = false;
     let activeCallChannel = null;
     let localStream = null;
     let pc = null;
     const candidateQueue = [];
 
     const processCandidateQueue = async () => {
-      if (!pc) return;
+      if (!pc || cancelled) return;
       console.log(`Processing ICE candidate queue (${candidateQueue.length} items)...`);
       while (candidateQueue.length > 0) {
         const candidate = candidateQueue.shift();
@@ -132,12 +194,16 @@ export const CallProvider = ({ children }) => {
     };
 
     const initWebRTC = async () => {
-      if (callStateRef.current.status !== 'connected') return;
+      if (callStateRef.current.status !== 'connected' || cancelled) return;
 
       console.log("Initializing WebRTC call...");
 
       try {
         localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        if (cancelled || callStateRef.current.status !== 'connected') {
+          localStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
         localStreamRef.current = localStream;
         console.log("Local audio stream captured successfully.");
 
@@ -162,7 +228,7 @@ export const CallProvider = ({ children }) => {
         audioAnalyzersRef.current['local'] = localAnalyzer;
       } catch (err) {
         console.error("Failed to capture local audio:", err);
-        alert("Не удалось получить доступ к микрофону!");
+        setMediaError('Не удалось получить доступ к микрофону. Проверьте разрешения браузера.');
         endCallLocally();
         return;
       }
@@ -318,9 +384,8 @@ export const CallProvider = ({ children }) => {
                 });
                 audioAnalyzersRef.current[peerId] = analyzer;
               } else if (event.track.kind === 'video') {
-                setRemoteVideoStream(remoteStream);
-                const isScreen = isScreenTrack(event.track);
-                setCallState(prev => ({ ...prev, isRemoteScreenSharing: isScreen }));
+                // C6: group UI is voice-stage only — do not surface remote video.
+                event.track.enabled = false;
               }
             };
 
@@ -329,6 +394,7 @@ export const CallProvider = ({ children }) => {
                 pcInstance.addTrack(track, localStream);
               });
             }
+            // Keep mesh video track attach for renegotiation contracts; UI still audio-only (C6).
             const activeVideoStream = localVideoStreamRef.current;
             if (activeVideoStream) {
               activeVideoStream.getVideoTracks()
@@ -611,43 +677,20 @@ export const CallProvider = ({ children }) => {
     initWebRTC();
 
     return () => {
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach(track => track.stop());
-        localStreamRef.current = null;
-      }
-      if (localVideoStreamRef.current) {
-        localVideoStreamRef.current.getTracks().forEach(track => track.stop());
-        localVideoStreamRef.current = null;
-      }
-      if (screenStreamRef.current) {
-        screenStreamRef.current.getTracks().forEach(track => track.stop());
-        screenStreamRef.current = null;
-      }
-      setIsScreenSharing(false);
-      candidateQueuesRef.current = {};
-      wasCameraActiveRef.current = false;
-      setLocalVideoStream(null);
-      setRemoteVideoStream(null);
-      if (pcRef.current) {
-        pcRef.current.close();
-        pcRef.current = null;
-      }
-      if (activeCallChannelRef.current) {
-        activeCallChannelRef.current.unsubscribe();
-        activeCallChannelRef.current = null;
-      }
-      document.querySelectorAll('.webrtc-remote-audio-feed').forEach(el => {
-        el.srcObject = null;
-        el.remove();
-      });
+      cancelled = true;
+      // Full media teardown on leave-connected (C4); idempotent with endCallLocally.
+      teardownMedia();
     };
-  }, [callState.status, endCallLocally]);
+  }, [callState.status, endCallLocally, teardownMedia]);
 
   const startCall = useCallback((chatId) => {
     if (!currentUser) return;
     const chat = chats.find(c => c.id === chatId);
     if (!chat) return;
+    // Do not start a second call while busy (pairs with C2 busy incoming).
+    if (BUSY_CALL_STATUSES.has(callStateRef.current.status)) return;
 
+    setMediaError(null);
     const otherMember = chat.members.find(m => m.id !== currentUser.id && m.id !== 'current');
     const otherUserId = chat.type === 'personal' ? (otherMember ? otherMember.id : null) : null;
     const isGroup = chat.type === 'group';
@@ -660,7 +703,10 @@ export const CallProvider = ({ children }) => {
       isOutgoing: true,
       otherUserId,
       callerInfo: null,
-      webrtcState: isGroup ? 'connected' : 'disconnected'
+      webrtcState: isGroup ? 'connected' : 'disconnected',
+      isRemoteScreenSharing: false,
+      isLocalSpeaking: false,
+      isRemoteSpeaking: false
     });
 
     if (isGroup) {
@@ -726,6 +772,7 @@ export const CallProvider = ({ children }) => {
   }, [currentUser, chats, sendSignalingMessage]);
 
   const acceptCall = useCallback(() => {
+    setMediaError(null);
     const chat = chats.find(c => c.id === callState.chatId);
     const isGroup = chat && chat.type === 'group';
 
@@ -781,6 +828,32 @@ export const CallProvider = ({ children }) => {
     endCallLocally();
   }, [callState.chatId, callState.otherUserId, endCallLocally, currentUser, sendSignalingMessage]);
 
+  /** C7: best-effort ICE restart (STUN-only; may still fail behind symmetric NAT). */
+  const retryCallConnection = useCallback(() => {
+    setCallState((prev) => (
+      prev.status === 'connected'
+        ? { ...prev, webrtcState: 'connecting' }
+        : prev
+    ));
+    try {
+      if (pcRef.current && typeof pcRef.current.restartIce === 'function') {
+        pcRef.current.restartIce();
+      }
+    } catch {
+      /* ignore */
+    }
+    Object.keys(pcsRef.current).forEach((peerId) => {
+      try {
+        const pcInstance = pcsRef.current[peerId];
+        if (pcInstance && typeof pcInstance.restartIce === 'function') {
+          pcInstance.restartIce();
+        }
+      } catch {
+        /* ignore */
+      }
+    });
+  }, []);
+
   const toggleCallMute = useCallback(() => {
     const nextMuted = !callState.muted;
     setCallState(prev => ({ ...prev, muted: nextMuted }));
@@ -824,8 +897,11 @@ export const CallProvider = ({ children }) => {
     wasCameraActiveRef,
     pcRef,
     pcsRef,
-    activeCallChannelRef
+    activeCallChannelRef,
+    setMediaError
   });
+
+  const clearMediaError = useCallback(() => setMediaError(null), []);
 
   return (
     <CallContext.Provider value={{
@@ -836,13 +912,16 @@ export const CallProvider = ({ children }) => {
       toggleCallMute,
       acceptCall,
       rejectCall,
+      retryCallConnection,
       localVideoStream,
       remoteVideoStream,
       toggleCallVideo,
       isScreenSharing,
       toggleCallScreenShare,
       groupCallParticipants,
-      setGroupCallParticipants
+      setGroupCallParticipants,
+      mediaError,
+      clearMediaError
     }}>
       {children}
     </CallContext.Provider>

@@ -17,8 +17,12 @@ export function useCallMedia({
   wasCameraActiveRef,
   pcRef,
   pcsRef,
-  activeCallChannelRef
+  activeCallChannelRef,
+  setMediaError
 }) {
+  const reportMediaError = useCallback((message) => {
+    if (typeof setMediaError === 'function') setMediaError(message);
+  }, [setMediaError]);
   const triggerRenegotiation = useCallback(async () => {
     const isGroup = chats.find((c) => c.id === callState.chatId)?.type === 'group';
     if (isGroup) {
@@ -158,6 +162,7 @@ export function useCallMedia({
         const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
         setLocalVideoStream(stream);
         localVideoStreamRef.current = stream;
+        reportMediaError(null);
 
         const videoTrack = stream.getVideoTracks()[0];
 
@@ -172,10 +177,10 @@ export function useCallMedia({
         }
       } catch (err) {
         console.error('Failed to capture video:', err);
-        alert('Не удалось получить доступ к камере!');
+        reportMediaError('Не удалось получить доступ к камере. Проверьте разрешения.');
       }
     }
-  }, [callState.status, localVideoStream, callState.chatId, chats, triggerRenegotiation, localVideoStreamRef, screenStreamRef, wasCameraActiveRef, setIsScreenSharing, setLocalVideoStream, pcsRef, pcRef, activeCallChannelRef]);
+  }, [callState.status, localVideoStream, callState.chatId, chats, triggerRenegotiation, localVideoStreamRef, screenStreamRef, wasCameraActiveRef, setIsScreenSharing, setLocalVideoStream, pcsRef, pcRef, activeCallChannelRef, reportMediaError]);
 
   const toggleCallScreenShare = useCallback(async () => {
     if (callState.status !== 'connected') return;
@@ -215,10 +220,13 @@ export function useCallMedia({
           }));
           await triggerRenegotiation();
         } else if (pcRef.current) {
+          // Renegotiate after addTrack/replace so peer receives screen without prior camera (C3).
           await replaceOrAddVideoTrack(pcRef.current, screenTrack, screenStream);
+          await triggerRenegotiation();
         }
       } catch (err) {
         console.error('Failed screen share:', err);
+        reportMediaError('Не удалось начать демонстрацию экрана.');
         if (wasCameraActiveRef.current) {
           try {
             const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
@@ -244,7 +252,7 @@ export function useCallMedia({
         wasCameraActiveRef.current = false;
       }
     }
-  }, [callState.status, isScreenSharing, localVideoStream, stopScreenSharing, triggerRenegotiation, callState.chatId, chats, wasCameraActiveRef, localVideoStreamRef, screenStreamRef, setIsScreenSharing, setLocalVideoStream, pcsRef, pcRef]);
+  }, [callState.status, isScreenSharing, localVideoStream, stopScreenSharing, triggerRenegotiation, callState.chatId, chats, wasCameraActiveRef, localVideoStreamRef, screenStreamRef, setIsScreenSharing, setLocalVideoStream, pcsRef, pcRef, reportMediaError]);
 
   return {
     triggerRenegotiation,

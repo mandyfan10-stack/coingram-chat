@@ -2,12 +2,24 @@ import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { dataService } from '../../services/dataLayer';
 
+const BUSY_CALL_STATUSES = new Set(['calling', 'incoming', 'connected']);
+
 /**
  * Private chat-scoped call signaling (incoming / accepted / rejected) + queue flush.
+ * @param {{ onRemoteEnd?: () => void }} options onRemoteEnd tears down media when peer rejects.
  */
-export function useCallSignaling({ currentUser, chats, signalingChatIds, setCallState, currentUserRef }) {
+export function useCallSignaling({
+  currentUser,
+  chats,
+  signalingChatIds,
+  setCallState,
+  currentUserRef,
+  onRemoteEnd
+}) {
   const globalSignalingChannelRef = useRef(null);
   const pendingSignalingMessagesRef = useRef(new Map());
+  const onRemoteEndRef = useRef(onRemoteEnd);
+  onRemoteEndRef.current = onRemoteEnd;
 
   useEffect(() => {
     const previousChannels = Array.isArray(globalSignalingChannelRef.current)
@@ -24,10 +36,22 @@ export function useCallSignaling({ currentUser, chats, signalingChatIds, setCall
         .on('broadcast', { event: 'incoming-call' }, (payload) => {
           const { callerId, callerName, callerAvatar, callerAvatarColor, chatId } = payload.payload;
           if (callerId === currentUserRef.current?.id) return;
-          setCallState({
-            status: 'incoming', chatId, duration: 0, muted: false, isOutgoing: false,
-            callerInfo: { name: callerName, avatar: callerAvatar, avatarColor: callerAvatarColor },
-            otherUserId: callerId, webrtcState: 'disconnected'
+          // Busy guard: never clobber an active call (C2).
+          setCallState((prev) => {
+            if (BUSY_CALL_STATUSES.has(prev.status)) return prev;
+            return {
+              status: 'incoming',
+              chatId,
+              duration: 0,
+              muted: false,
+              isOutgoing: false,
+              callerInfo: { name: callerName, avatar: callerAvatar, avatarColor: callerAvatarColor },
+              otherUserId: callerId,
+              webrtcState: 'disconnected',
+              isRemoteScreenSharing: false,
+              isLocalSpeaking: false,
+              isRemoteSpeaking: false
+            };
           });
         })
         .on('broadcast', { event: 'call-accepted' }, (payload) => {
@@ -38,12 +62,14 @@ export function useCallSignaling({ currentUser, chats, signalingChatIds, setCall
             : prev));
         })
         .on('broadcast', { event: 'call-rejected' }, () => {
-          setCallState((prev) => ((prev.status === 'calling' || prev.status === 'connected')
-            ? { ...prev, status: 'ended' }
-            : prev));
-          setTimeout(() => setCallState((prev) => (prev.status === 'ended'
-            ? { status: 'idle', chatId: null, duration: 0, muted: false, isOutgoing: false, callerInfo: null, otherUserId: null, webrtcState: 'disconnected' }
-            : prev)), 1500);
+          // Full teardown via shared end path (C4), not status-only reset.
+          if (typeof onRemoteEndRef.current === 'function') {
+            onRemoteEndRef.current();
+          } else {
+            setCallState((prev) => ((prev.status === 'calling' || prev.status === 'connected')
+              ? { ...prev, status: 'ended' }
+              : prev));
+          }
         })
         .subscribe((status) => {
           signalingChannel.callSubscriptionStatus = status;

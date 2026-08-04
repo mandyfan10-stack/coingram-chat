@@ -1,6 +1,9 @@
 import React from 'react';
-import { ArrowLeft, Lock, MoreVertical } from 'lucide-react';
+import { ArrowLeft, Lock, MoreVertical, Phone } from 'lucide-react';
 import { isSavedMessagesChat, savedMessagesDisplayName } from '../../utils/savedMessages';
+import { useCalls } from '../../context/CallContext';
+
+const BUSY_CALL_STATUSES = new Set(['calling', 'incoming', 'connected']);
 
 export default function ChatHeader({
   activeChat,
@@ -11,11 +14,16 @@ export default function ChatHeader({
   setIsInfoOpen,
   setActiveChatId
 }) {
+  const { startCall, callState } = useCalls();
   const toggleInfo = () => {
     setIsInfoOpen(!isInfoOpen);
   };
   const isSaved = isSavedMessagesChat(activeChat);
   const title = isSaved ? savedMessagesDisplayName(activeChat) : activeChat.name;
+  const canCall =
+    (activeChat.type === 'personal' || activeChat.type === 'group') &&
+    !isSaved;
+  const callBusy = BUSY_CALL_STATUSES.has(callState?.status);
 
   return (
     <header className="chat-header" onClick={toggleInfo}>
@@ -52,7 +60,18 @@ export default function ChatHeader({
         </div>
       </div>
       <div className="chat-header-actions" onClick={(e) => e.stopPropagation()}>
-        <button className="chat-header-btn" onClick={toggleInfo} title="Информация">
+        {canCall && (
+          <button
+            type="button"
+            className="chat-header-btn"
+            title="Звонок"
+            disabled={callBusy}
+            onClick={() => startCall(activeChat.id)}
+          >
+            <Phone size={20} />
+          </button>
+        )}
+        <button type="button" className="chat-header-btn" onClick={toggleInfo} title="Информация">
           <MoreVertical size={20} />
         </button>
       </div>
