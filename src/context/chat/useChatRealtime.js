@@ -309,18 +309,9 @@ export function useChatRealtime({
         };
       }
     } else if (currentUser) {
-      const saved = localStorage.getItem('tg-chats-mock');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved).map((chat) => ({
-            ...chat,
-            messages: chat.messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }))
-          }));
-          setChats(parsed);
-        } catch {
-          setChats([]);
-        }
-      }
+      // Use the same loader as the rest of the app so a fresh mock profile gets
+      // the default chat fixtures when localStorage has not been initialized.
+      fetchChats();
     }
   }, [
     currentUser,

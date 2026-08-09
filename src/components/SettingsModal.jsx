@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { lazy, Suspense, useState, useEffect } from 'react';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { useE2EE } from '../context/E2EEContext';
@@ -7,9 +7,10 @@ import { isSupabaseConfigured, supabase } from '../supabaseClient';
 import { X } from 'lucide-react';
 import ProfileTab from './settings/ProfileTab';
 import AppearanceTab from './settings/AppearanceTab';
-import StickersTab from './settings/StickersTab';
 import E2EETab from './settings/E2EETab';
 import { uploadSanitizedPublicImage } from '../services/publicMediaService';
+
+const StickersTab = lazy(() => import('./settings/StickersTab'));
 
 const TAB_TITLES = {
   profile: 'Профиль',
@@ -323,14 +324,16 @@ export default function SettingsModal() {
           )}
 
           {settingsTab === 'stickers' && (
-            <StickersTab
-              stickerPackInput={stickerPackInput}
-              setStickerPackInput={setStickerPackInput}
-              importLoading={importLoading}
-              importStatus={importStatus}
-              handleImportStickers={handleImportStickers}
-              installedStickers={installedStickers}
-            />
+            <Suspense fallback={null}>
+              <StickersTab
+                stickerPackInput={stickerPackInput}
+                setStickerPackInput={setStickerPackInput}
+                importLoading={importLoading}
+                importStatus={importStatus}
+                handleImportStickers={handleImportStickers}
+                installedStickers={installedStickers}
+              />
+            </Suspense>
           )}
 
           {settingsTab === 'e2ee' && (

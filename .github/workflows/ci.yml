@@ -62,46 +62,100 @@ jobs:
       E2E_PASSWORD_B: ${{ secrets.E2E_PASSWORD_B }}
       E2E_ENCRYPTION_PASSWORD_B: ${{ secrets.E2E_ENCRYPTION_PASSWORD_B }}
     steps:
-      - name: Require QA secrets on protected main
-        if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Check complete live E2E configuration
         run: |
-          test -n "$VITE_SUPABASE_URL"
-          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
-          test -n "$E2E_USER_A"
-          test -n "$E2E_PASSWORD_A"
-          test -n "$E2E_ENCRYPTION_PASSWORD_A"
-          test -n "$E2E_USER_B"
-          test -n "$E2E_PASSWORD_B"
-          test -n "$E2E_ENCRYPTION_PASSWORD_B"
+          missing=()
+          for name in \
+            VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY \
+            E2E_USER_A E2E_PASSWORD_A E2E_ENCRYPTION_PASSWORD_A \
+            E2E_USER_B E2E_PASSWORD_B E2E_ENCRYPTION_PASSWORD_B; do
+            if [ -z "${!name:-}" ]; then missing+=("$name"); fi
+          done
+
+          if [ "${#missing[@]}" -eq 0 ]; then
+            echo "LIVE_E2E_READY=true" >> "$GITHUB_ENV"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "Missing required protected-main live E2E secrets: ${missing[*]}" >&2
+            exit 1
+          else
+            echo "LIVE_E2E_READY=false" >> "$GITHUB_ENV"
+            echo "Skipping live two-user E2E; incomplete secret set: ${missing[*]}"
+          fi
 
       - name: Checkout
-        if: ${{ env.E2E_USER_A != '' && env.E2E_USER_B != '' }}
+        if: ${{ env.LIVE_E2E_READY == 'true' }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Node.js
-        if: ${{ env.E2E_USER_A != '' && env.E2E_USER_B != '' }}
+        if: ${{ env.LIVE_E2E_READY == 'true' }}
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
           cache: npm
 
       - name: Install dependencies
-        if: ${{ env.E2E_USER_A != '' && env.E2E_USER_B != '' }}
+        if: ${{ env.LIVE_E2E_READY == 'true' }}
         run: npm ci
 
       - name: Install Chromium
-        if: ${{ env.E2E_USER_A != '' && env.E2E_USER_B != '' }}
+        if: ${{ env.LIVE_E2E_READY == 'true' }}
         run: npx playwright install --with-deps chromium
 
       - name: Run live E2E
-        if: ${{ env.E2E_USER_A != '' && env.E2E_USER_B != '' }}
-        run: npm run test:e2e
+        if: ${{ env.LIVE_E2E_READY == 'true' }}
+        run: |
+          npm run build
+          npx playwright test \
+            tests/e2e/two-user-call.spec.mjs \
+            tests/e2e/two-user-read-receipt.spec.mjs \
+            tests/e2e/reaction-drawer-layout.spec.mjs
+
+      - name: Upload failure artifacts
+        if: ${{ failure() && env.LIVE_E2E_READY == 'true' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report
+          path: |
+            playwright-report
+            test-results
+          retention-days: 7
+
+  mock-ui-e2e:
+    name: Mock UI E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VITE_ALLOW_MOCK: 'true'
+      VITE_SUPABASE_URL: 'your-supabase-project-url'
+      VITE_SUPABASE_PUBLISHABLE_KEY: 'your-supabase-publishable-key'
+      VITE_SUPABASE_ANON_KEY: 'your-supabase-anon-key'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Build mock client
+        run: npm run build
+
+      - name: Run mock UI E2E
+        run: npx playwright test tests/e2e/lazy-loading.spec.mjs
 
       - name: Upload failure artifacts
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report
+          name: playwright-mock-report
           path: |
             playwright-report
             test-results
@@ -135,6 +189,12 @@ jobs:
 
             if [ "$status" -eq 0 ]; then
               exit 0
+            fi
+
+            if grep -Eqi \
+              'SQLSTATE|failed to apply migration|error running migrations|migration .* failed|function .* does not exist|relation .* does not exist|syntax error at or near' \
+              supabase-start.log; then
+              exit "$status"
             fi
 
             if [ "$attempt" -eq "$attempts" ] || ! grep -Eqi \
