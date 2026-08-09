@@ -4,11 +4,28 @@
 
 -- Move legacy encrypted private-key backups out of the globally visible
 -- profiles table before removing the obsolete column.
-insert into public.user_private_keys (id, encrypted_private_key)
-select id, encrypted_private_key
-from public.profiles
-where encrypted_private_key is not null
-on conflict (id) do nothing;
+-- The source column existed only on some live deployments, not in the
+-- historical fresh bootstrap. Dynamic SQL prevents PostgreSQL from resolving
+-- an absent source column before the existence guard can run.
+do $block$
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'profiles'
+      and column_name = 'encrypted_private_key'
+  ) then
+    execute $sql$
+      insert into public.user_private_keys (id, encrypted_private_key)
+      select profile.id, profile.encrypted_private_key
+      from public.profiles as profile
+      where profile.encrypted_private_key is not null
+      on conflict (id) do nothing
+    $sql$;
+  end if;
+end;
+$block$;
 
 alter table public.profiles
   drop column if exists encrypted_private_key;

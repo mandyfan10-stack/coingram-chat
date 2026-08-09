@@ -11,6 +11,10 @@ const optimizationMigration = await readFile(
   new URL('../supabase/migrations/20260722101600_optimize_rls_and_foreign_keys.sql', import.meta.url),
   'utf8'
 );
+const messengerHardeningMigration = await readFile(
+  new URL('../supabase/migrations/20260723114811_harden_messenger_security_and_limits.sql', import.meta.url),
+  'utf8'
+);
 
 test('live E2E requires the complete secret set and runs only live specs', () => {
   for (const name of [
@@ -69,4 +73,31 @@ test('RLS optimization is independent of historical policy names', () => {
   assert.match(optimizationMigration, /\(tablename, cmd\) in/);
   assert.match(optimizationMigration, /execute format\('alter policy %I/);
   assert.doesNotMatch(optimizationMigration, /alter policy "(?:Users can insert their own stories|chat_members_delete_policy|profiles_update_policy)"/);
+});
+
+test('legacy profile key migration is conditional and source-qualified', () => {
+  const guard = messengerHardeningMigration.indexOf("column_name = 'encrypted_private_key'");
+  const copy = messengerHardeningMigration.indexOf('select profile.id, profile.encrypted_private_key');
+  const drop = messengerHardeningMigration.indexOf('drop column if exists encrypted_private_key');
+  assert.ok(guard > 0 && copy > guard && drop > copy);
+  assert.match(messengerHardeningMigration, /execute \$sql\$[\s\S]*from public\.profiles as profile/);
+  assert.doesNotMatch(messengerHardeningMigration, /\nselect id, encrypted_private_key\nfrom public\.profiles/);
+});
+
+test('messenger hardening creates or repairs objects before referencing them', () => {
+  const addExpiry = messengerHardeningMigration.indexOf('add column if not exists expires_at');
+  const expiryIndex = messengerHardeningMigration.indexOf('create index if not exists stories_expires_at_idx');
+  const messageValidator = messengerHardeningMigration.indexOf('create or replace function public.validate_message_update()');
+  const messageTrigger = messengerHardeningMigration.indexOf('create trigger on_message_updated');
+  const chatValidator = messengerHardeningMigration.indexOf('create or replace function public.validate_chat_update()');
+  const chatTrigger = messengerHardeningMigration.indexOf('create trigger on_chat_updated');
+  const memberValidator = messengerHardeningMigration.indexOf('create or replace function public.validate_chat_member_update()');
+  const memberTrigger = messengerHardeningMigration.indexOf('create trigger on_chat_member_updated');
+  const limiter = messengerHardeningMigration.indexOf('create or replace function public.enforce_message_rate_limit()');
+  const limiterTrigger = messengerHardeningMigration.indexOf('create trigger before_message_rate_limit');
+  assert.ok(addExpiry > 0 && expiryIndex > addExpiry);
+  assert.ok(messageValidator > 0 && messageTrigger > messageValidator);
+  assert.ok(chatValidator > 0 && chatTrigger > chatValidator);
+  assert.ok(memberValidator > 0 && memberTrigger > memberValidator);
+  assert.ok(limiter > 0 && limiterTrigger > limiter);
 });
