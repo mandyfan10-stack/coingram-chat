@@ -15,6 +15,10 @@ const messengerHardeningMigration = await readFile(
   new URL('../supabase/migrations/20260723114811_harden_messenger_security_and_limits.sql', import.meta.url),
   'utf8'
 );
+const e2eeSecuritySql = await readFile(
+  new URL('../supabase/tests/e2ee_v2_security.test.sql', import.meta.url),
+  'utf8'
+);
 
 test('live E2E requires the complete secret set and runs only live specs', () => {
   for (const name of [
@@ -100,4 +104,12 @@ test('messenger hardening creates or repairs objects before referencing them', (
   assert.ok(chatValidator > 0 && chatTrigger > chatValidator);
   assert.ok(memberValidator > 0 && memberTrigger > memberValidator);
   assert.ok(limiter > 0 && limiterTrigger > limiter);
+});
+
+test('schema-qualified pgTAP assertions use unambiguous descriptions', () => {
+  assert.doesNotMatch(e2eeSecuritySql, /has_table\('public',\s*'[^']+'\s*\)/);
+  assert.doesNotMatch(e2eeSecuritySql, /has_column\('public',\s*'[^']+',\s*'[^']+'\s*\)/);
+  assert.doesNotMatch(e2eeSecuritySql, /col_is_null\('public',\s*'[^']+',\s*'[^']+'\s*\)/);
+  assert.equal((e2eeSecuritySql.match(/has_table\('public',/g) || []).length, 8);
+  assert.equal((e2eeSecuritySql.match(/has_column\('public',\s*'messages'/g) || []).length, 3);
 });

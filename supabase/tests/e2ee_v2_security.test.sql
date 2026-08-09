@@ -4,14 +4,14 @@ set local search_path = public, extensions;
 
 select plan(25);
 
-select has_table('public', 'e2ee_identities');
-select has_table('public', 'e2ee_recovery_backups');
-select has_table('public', 'user_devices');
-select has_table('public', 'e2ee_key_packages');
-select has_table('public', 'e2ee_conversations');
-select has_table('public', 'e2ee_handshake_events');
-select has_table('public', 'e2ee_welcomes');
-select has_table('public', 'device_transfers');
+select has_table('public', 'e2ee_identities', 'E2EE identities table exists');
+select has_table('public', 'e2ee_recovery_backups', 'E2EE recovery backups table exists');
+select has_table('public', 'user_devices', 'E2EE user devices table exists');
+select has_table('public', 'e2ee_key_packages', 'E2EE key packages table exists');
+select has_table('public', 'e2ee_conversations', 'E2EE conversations table exists');
+select has_table('public', 'e2ee_handshake_events', 'E2EE handshake events table exists');
+select has_table('public', 'e2ee_welcomes', 'E2EE welcomes table exists');
+select has_table('public', 'device_transfers', 'E2EE device transfers table exists');
 
 select is(
   (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -23,10 +23,10 @@ select is(
   'all E2EE v2 API tables have RLS enabled'
 );
 
-select has_column('public', 'messages', 'crypto_version');
-select has_column('public', 'messages', 'sender_device_id');
-select has_column('public', 'messages', 'encrypted_payload');
-select col_is_null('public', 'messages', 'text');
+select has_column('public', 'messages', 'crypto_version', 'messages route crypto versions');
+select has_column('public', 'messages', 'sender_device_id', 'messages identify the sending device');
+select has_column('public', 'messages', 'encrypted_payload', 'messages store the v2 encrypted payload');
+select col_is_null('public', 'messages', 'text', 'v2 messages may omit legacy plaintext');
 
 select ok(
   (select not p.prosecdef from pg_proc p join pg_namespace n on n.oid = p.pronamespace
