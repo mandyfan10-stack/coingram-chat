@@ -7,6 +7,10 @@ const hardeningMigration = await readFile(
   new URL('../supabase/migrations/20260722101500_harden_remaining_security_definers.sql', import.meta.url),
   'utf8'
 );
+const optimizationMigration = await readFile(
+  new URL('../supabase/migrations/20260722101600_optimize_rls_and_foreign_keys.sql', import.meta.url),
+  'utf8'
+);
 
 test('live E2E requires the complete secret set and runs only live specs', () => {
   for (const name of [
@@ -49,4 +53,20 @@ test('optional legacy and later RPC hardening is safe on a fresh schema', () => 
     assert.match(hardeningMigration, new RegExp(`to_regprocedure\\('public\\.${signature.replace(/[()]/g, '\\$&')}`));
   }
   assert.match(hardeningMigration, /do \$block\$/);
+});
+
+test('RLS/index optimization restores the pinned-message schema before using it', () => {
+  const addColumn = optimizationMigration.indexOf('add column if not exists pinned_message_id uuid');
+  const addForeignKey = optimizationMigration.indexOf('foreign key (pinned_message_id)');
+  const createIndex = optimizationMigration.indexOf('create index if not exists chats_pinned_message_id_idx');
+  assert.ok(addColumn > 0 && addForeignKey > addColumn && createIndex > addForeignKey);
+  assert.match(optimizationMigration, /references public\.messages\(id\)[\s\S]*on delete set null/);
+  assert.match(optimizationMigration, /constraint_record\.contype = 'f'/);
+});
+
+test('RLS optimization is independent of historical policy names', () => {
+  assert.match(optimizationMigration, /from pg_policies/);
+  assert.match(optimizationMigration, /\(tablename, cmd\) in/);
+  assert.match(optimizationMigration, /execute format\('alter policy %I/);
+  assert.doesNotMatch(optimizationMigration, /alter policy "(?:Users can insert their own stories|chat_members_delete_policy|profiles_update_policy)"/);
 });
