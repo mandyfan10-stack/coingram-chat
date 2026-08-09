@@ -4,10 +4,13 @@ import { useChat } from '../ChatContext';
 import { supabase } from '../../supabaseClient';
 import { dataService } from '../../services/dataLayer';
 import { startAudioAnalyzer } from './audioAnalyzer';
-import { createPeerConnection } from './iceServers';
+import { createPeerConnection, refreshIceConfiguration } from './iceServers';
 import { isScreenTrack, attachRemoteAudioElement } from './mediaTrackHelpers';
 import { useCallSignaling } from './useCallSignaling';
 import { useCallMedia } from './useCallMedia';
+import { useE2EE } from '../E2EEContext';
+import { secureCallChannel } from './secureCallChannel';
+import { CALL_AUDIO_CONSTRAINTS, VoiceEnhancementPipeline } from './voiceEnhancement';
 
 const CallContext = createContext();
 
@@ -33,6 +36,7 @@ const BUSY_CALL_STATUSES = new Set(['calling', 'incoming', 'connected']);
 export const CallProvider = ({ children }) => {
   const { currentUser } = useAuth();
   const { chats } = useChat();
+  const { encryptEvent, decryptEvent } = useE2EE();
 
   const [callState, setCallState] = useState(() => ({ ...IDLE_CALL_STATE }));
 
@@ -48,6 +52,8 @@ export const CallProvider = ({ children }) => {
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   /** V5: in-overlay media permission / capture errors (no window.alert). */
   const [mediaError, setMediaError] = useState(null);
+  const [voiceEnhancementEnabled, setVoiceEnhancementEnabled] = useState(false);
+  const voiceEnhancementRef = useRef(new VoiceEnhancementPipeline());
   const screenStreamRef = useRef(null);
   const wasCameraActiveRef = useRef(false);
 
@@ -67,6 +73,8 @@ export const CallProvider = ({ children }) => {
 
   /** Shared media/PC teardown used by hangup, reject, remote end, and effect cleanup (C4). */
   const teardownMedia = useCallback(() => {
+    voiceEnhancementRef.current.dispose(pcRef.current, pcsRef.current);
+    setVoiceEnhancementEnabled(false);
     if (groupCallTimersRef.current) {
       groupCallTimersRef.current.forEach((t) => {
         clearTimeout(t);
@@ -154,7 +162,9 @@ export const CallProvider = ({ children }) => {
     signalingChatIds,
     setCallState,
     currentUserRef,
-    onRemoteEnd: () => endCallLocallyRef.current()
+    onRemoteEnd: () => endCallLocallyRef.current(),
+    encryptEvent,
+    decryptEvent
   });
 
   // C8: auto-end unanswered outgoing / missed incoming after ring timeout.
@@ -199,7 +209,8 @@ export const CallProvider = ({ children }) => {
       console.log("Initializing WebRTC call...");
 
       try {
-        localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        await refreshIceConfiguration({ allowDirectConnection: false });
+        localStream = await navigator.mediaDevices.getUserMedia({ audio: CALL_AUDIO_CONSTRAINTS });
         if (cancelled || callStateRef.current.status !== 'connected') {
           localStream.getTracks().forEach((track) => track.stop());
           return;
@@ -237,15 +248,14 @@ export const CallProvider = ({ children }) => {
       pcRef.current = pc;
 
       pc.oniceconnectionstatechange = () => {
-        console.log("WebRTC ICE Connection State Changed:", pc.iceConnectionState);
-        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        const state = pc.iceConnectionState;
+        console.log(`[WebRTC Telemetry] 1:1 ICE Connection State Changed: ${state}`);
+        if (state === 'connected' || state === 'completed') {
           setCallState(prev => ({ ...prev, webrtcState: 'connected' }));
-        } else if (pc.iceConnectionState === 'failed') {
+        } else if (state === 'failed') {
           setCallState(prev => ({ ...prev, webrtcState: 'failed' }));
-          console.error("WebRTC ICE connection failed.");
-        } else if (pc.iceConnectionState === 'checking') {
-          setCallState(prev => ({ ...prev, webrtcState: 'connecting' }));
-        } else if (pc.iceConnectionState === 'disconnected') {
+          console.error("[WebRTC Telemetry] 1:1 ICE connection failed.");
+        } else if (state === 'connecting' || state === 'checking' || state === 'disconnected') {
           setCallState(prev => ({ ...prev, webrtcState: 'connecting' }));
         }
       };
@@ -269,7 +279,12 @@ export const CallProvider = ({ children }) => {
           attachRemoteAudioElement(elementId, remoteStream);
 
           if (audioAnalyzersRef.current['remote']) {
-            audioAnalyzersRef.current['remote'].stop();
+            try {
+              audioAnalyzersRef.current['remote'].stop();
+            } catch {
+              /* ignore */
+            }
+            delete audioAnalyzersRef.current['remote'];
           }
           const remoteAnalyzer = startAudioAnalyzer(remoteStream, (isSpeaking) => {
             setCallState(prev => {
@@ -280,6 +295,22 @@ export const CallProvider = ({ children }) => {
             });
           });
           audioAnalyzersRef.current['remote'] = remoteAnalyzer;
+
+          event.track.onended = () => {
+            const el = document.getElementById(elementId);
+            if (el) {
+              el.srcObject = null;
+              el.remove();
+            }
+            if (audioAnalyzersRef.current['remote']) {
+              try {
+                audioAnalyzersRef.current['remote'].stop();
+              } catch {
+                /* ignore */
+              }
+              delete audioAnalyzersRef.current['remote'];
+            }
+          };
         } else if (event.track.kind === 'video') {
           setRemoteVideoStream(remoteStream);
           const isScreen = isScreenTrack(event.track);
@@ -295,11 +326,16 @@ export const CallProvider = ({ children }) => {
         const isGroup = callChatRef.current?.type === 'group';
 
         if (isGroup) {
-          activeCallChannel = supabase.channel(`call:chat:${callStateRef.current.chatId}:media`, {
+          activeCallChannel = secureCallChannel(supabase.channel(`call:chat:${callStateRef.current.chatId}:media`, {
             config: {
               private: true,
               presence: { key: currentUserRef.current.id }
             }
+          }), {
+            chatId: callStateRef.current.chatId,
+            cryptoVersion: callChatRef.current?.cryptoVersion,
+            encryptEvent,
+            decryptEvent
           });
           activeCallChannelRef.current = activeCallChannel;
 
@@ -314,6 +350,31 @@ export const CallProvider = ({ children }) => {
                 console.error(`Error adding queued ICE candidate for peer ${peerId}:`, e);
               }
             }
+          };
+
+          const teardownPeer = (peerId) => {
+            if (pcsRef.current[peerId]) {
+              try {
+                pcsRef.current[peerId].close();
+              } catch {
+                /* ignore */
+              }
+              delete pcsRef.current[peerId];
+            }
+            delete candidateQueuesRef.current[peerId];
+            if (audioAnalyzersRef.current[peerId]) {
+              try {
+                audioAnalyzersRef.current[peerId].stop();
+              } catch {
+                /* ignore */
+              }
+              delete audioAnalyzersRef.current[peerId];
+            }
+            document.querySelectorAll(`[id^="webrtc-audio-${peerId}-"]`).forEach(el => {
+              el.srcObject = null;
+              el.remove();
+            });
+            setGroupCallParticipants(prev => prev.filter(p => p.id !== peerId));
           };
 
           const ensureGroupParticipant = (peerId) => {
@@ -344,8 +405,14 @@ export const CallProvider = ({ children }) => {
             const pcInstance = createPeerConnection();
 
             pcInstance.oniceconnectionstatechange = () => {
-              if (pcInstance.iceConnectionState === 'connected' || pcInstance.iceConnectionState === 'completed') {
+              const state = pcInstance.iceConnectionState;
+              console.log(`[WebRTC Telemetry] Group ICE Connection State Changed for peer ${peerId}: ${state}`);
+              if (state === 'connected' || state === 'completed') {
                 setCallState(prev => ({ ...prev, webrtcState: 'connected' }));
+              } else if (state === 'failed') {
+                console.error(`[WebRTC Telemetry] Group ICE connection failed for peer ${peerId}.`);
+              } else if (state === 'connecting' || state === 'checking' || state === 'disconnected') {
+                setCallState(prev => ({ ...prev, webrtcState: 'connecting' }));
               }
             };
 
@@ -372,7 +439,12 @@ export const CallProvider = ({ children }) => {
                 attachRemoteAudioElement(elementId, remoteStream);
 
                 if (audioAnalyzersRef.current[peerId]) {
-                  audioAnalyzersRef.current[peerId].stop();
+                  try {
+                    audioAnalyzersRef.current[peerId].stop();
+                  } catch {
+                    /* ignore */
+                  }
+                  delete audioAnalyzersRef.current[peerId];
                 }
                 const analyzer = startAudioAnalyzer(remoteStream, (isSpeaking) => {
                   setGroupCallParticipants(prev => prev.map(p => {
@@ -383,6 +455,22 @@ export const CallProvider = ({ children }) => {
                   }));
                 });
                 audioAnalyzersRef.current[peerId] = analyzer;
+
+                event.track.onended = () => {
+                  const el = document.getElementById(elementId);
+                  if (el) {
+                    el.srcObject = null;
+                    el.remove();
+                  }
+                  if (audioAnalyzersRef.current[peerId]) {
+                    try {
+                      audioAnalyzersRef.current[peerId].stop();
+                    } catch {
+                      /* ignore */
+                    }
+                    delete audioAnalyzersRef.current[peerId];
+                  }
+                };
               } else if (event.track.kind === 'video') {
                 // C6: group UI is voice-stage only — do not surface remote video.
                 event.track.enabled = false;
@@ -431,6 +519,21 @@ export const CallProvider = ({ children }) => {
                 });
               });
 
+              // Teardown resources for peers who left presence without hangup message
+              Object.keys(pcsRef.current).forEach(peerId => {
+                if (!syncedParticipants.has(peerId) && peerId !== currentUserRef.current?.id) {
+                  teardownPeer(peerId);
+                }
+              });
+              Object.keys(audioAnalyzersRef.current).forEach(key => {
+                if (key !== 'local' && key !== 'remote' && !syncedParticipants.has(key) && key !== currentUserRef.current?.id) {
+                  if (audioAnalyzersRef.current[key]) {
+                    try { audioAnalyzersRef.current[key].stop(); } catch { /* ignore */ }
+                    delete audioAnalyzersRef.current[key];
+                  }
+                }
+              });
+
               setGroupCallParticipants(previous => (
                 [...syncedParticipants.values()]
                   .map(participant => {
@@ -457,6 +560,7 @@ export const CallProvider = ({ children }) => {
               
               const pcInstance = getOrCreatePeerConnection(senderId);
               try {
+                pcInstance.makingOffer = true;
                 const offer = await pcInstance.createOffer();
                 await pcInstance.setLocalDescription(offer);
                 activeCallChannel.send({
@@ -471,6 +575,8 @@ export const CallProvider = ({ children }) => {
                 });
               } catch (err) {
                 console.error(`Error generating offer for peer ${senderId}:`, err);
+              } finally {
+                pcInstance.makingOffer = false;
               }
             })
             .on('broadcast', { event: 'signal' }, async (payload) => {
@@ -483,6 +589,23 @@ export const CallProvider = ({ children }) => {
               const pcInstance = getOrCreatePeerConnection(senderId);
 
               if (signal.type === 'offer') {
+                const currentUserId = currentUserRef.current?.id || '';
+                const isPolite = String(currentUserId) < String(senderId);
+                const offerCollision = Boolean(pcInstance.makingOffer) || pcInstance.signalingState !== 'stable';
+
+                if (offerCollision) {
+                  if (!isPolite) {
+                    console.log(`[PerfectNegotiation] Glare detected with peer ${senderId}: impolite peer ignoring offer`);
+                    return;
+                  }
+                  console.log(`[PerfectNegotiation] Glare detected with peer ${senderId}: polite peer rolling back local offer`);
+                  try {
+                    await pcInstance.setLocalDescription({ type: 'rollback' });
+                  } catch (rollbackErr) {
+                    console.warn(`[PerfectNegotiation] Rollback failed for peer ${senderId}:`, rollbackErr);
+                  }
+                }
+
                 try {
                   await pcInstance.setRemoteDescription(new RTCSessionDescription({ type: 'offer', sdp: signal.sdp }));
                   const answer = await pcInstance.createAnswer();
@@ -525,16 +648,7 @@ export const CallProvider = ({ children }) => {
             .on('broadcast', { event: 'hangup' }, (payload) => {
               const { senderId } = payload.payload || {};
               if (senderId) {
-                if (pcsRef.current[senderId]) {
-                  pcsRef.current[senderId].close();
-                  delete pcsRef.current[senderId];
-                }
-                delete candidateQueuesRef.current[senderId];
-                document.querySelectorAll(`[id^="webrtc-audio-${senderId}-"]`).forEach(el => {
-                  el.srcObject = null;
-                  el.remove();
-                });
-                setGroupCallParticipants(prev => prev.filter(p => p.id !== senderId));
+                teardownPeer(senderId);
               }
             })
             .subscribe(async (status) => {
@@ -554,7 +668,15 @@ export const CallProvider = ({ children }) => {
               }
             });
         } else {
-          activeCallChannel = supabase.channel(`call:chat:${callStateRef.current.chatId}:media`, { config: { private: true } });
+          activeCallChannel = secureCallChannel(
+            supabase.channel(`call:chat:${callStateRef.current.chatId}:media`, { config: { private: true } }),
+            {
+              chatId: callStateRef.current.chatId,
+              cryptoVersion: callChatRef.current?.cryptoVersion,
+              encryptEvent,
+              decryptEvent
+            }
+          );
           activeCallChannelRef.current = activeCallChannel;
 
           const sendOffer = async () => {
@@ -681,7 +803,7 @@ export const CallProvider = ({ children }) => {
       // Full media teardown on leave-connected (C4); idempotent with endCallLocally.
       teardownMedia();
     };
-  }, [callState.status, endCallLocally, teardownMedia]);
+  }, [callState.status, endCallLocally, teardownMedia, encryptEvent, decryptEvent]);
 
   const startCall = useCallback((chatId) => {
     if (!currentUser) return;
@@ -829,29 +951,65 @@ export const CallProvider = ({ children }) => {
   }, [callState.chatId, callState.otherUserId, endCallLocally, currentUser, sendSignalingMessage]);
 
   /** C7: best-effort ICE restart (STUN-only; may still fail behind symmetric NAT). */
-  const retryCallConnection = useCallback(() => {
+  const retryCallConnection = useCallback(async () => {
     setCallState((prev) => (
       prev.status === 'connected'
         ? { ...prev, webrtcState: 'connecting' }
         : prev
     ));
-    try {
-      if (pcRef.current && typeof pcRef.current.restartIce === 'function') {
-        pcRef.current.restartIce();
-      }
-    } catch {
-      /* ignore */
-    }
-    Object.keys(pcsRef.current).forEach((peerId) => {
+
+    // 1:1 Call ICE restart
+    if (pcRef.current) {
       try {
-        const pcInstance = pcsRef.current[peerId];
-        if (pcInstance && typeof pcInstance.restartIce === 'function') {
-          pcInstance.restartIce();
+        console.log(`[WebRTC Telemetry] Initiating ICE restart for 1:1 connection (state: ${pcRef.current.iceConnectionState})`);
+        if (typeof pcRef.current.restartIce === 'function') {
+          pcRef.current.restartIce();
         }
-      } catch {
-        /* ignore */
+        const offer = await pcRef.current.createOffer({ iceRestart: true });
+        await pcRef.current.setLocalDescription(offer);
+        if (activeCallChannelRef.current) {
+          activeCallChannelRef.current.send({
+            type: 'broadcast',
+            event: 'signal',
+            payload: { type: 'renegotiate-offer', sdp: offer.sdp }
+          });
+        }
+      } catch (err) {
+        console.error('[WebRTC Telemetry] 1:1 ICE restart offer failed:', err);
       }
-    });
+    }
+
+    // Group mesh Call ICE restart
+    const peerIds = Object.keys(pcsRef.current);
+    if (peerIds.length > 0 && activeCallChannelRef.current) {
+      await Promise.all(Object.keys(pcsRef.current).map(async (peerId) => {
+        const pcInstance = pcsRef.current[peerId];
+        if (!pcInstance) return;
+        try {
+          console.log(`[WebRTC Telemetry] Initiating ICE restart for group peer ${peerId} (state: ${pcInstance.iceConnectionState})`);
+          if (typeof pcInstance.restartIce === 'function') {
+            pcInstance.restartIce();
+          }
+          pcInstance.makingOffer = true;
+          const offer = await pcInstance.createOffer({ iceRestart: true });
+          await pcInstance.setLocalDescription(offer);
+          await activeCallChannelRef.current.send({
+            type: 'broadcast',
+            event: 'signal',
+            payload: {
+              type: 'offer',
+              sdp: offer.sdp,
+              senderId: currentUserRef.current?.id,
+              targetId: peerId
+            }
+          });
+        } catch (err) {
+          console.error(`[WebRTC Telemetry] Group ICE restart offer failed for peer ${peerId}:`, err);
+        } finally {
+          if (pcInstance) pcInstance.makingOffer = false;
+        }
+      }));
+    }
   }, []);
 
   const toggleCallMute = useCallback(() => {
@@ -880,6 +1038,24 @@ export const CallProvider = ({ children }) => {
       }).catch(error => console.error('Failed to update group call presence:', error));
     }
   }, [callState.chatId, callState.muted, chats, currentUser]);
+
+  const toggleVoiceEnhancement = useCallback(async () => {
+    if (callState.status !== 'connected' || !localStreamRef.current) return;
+    try {
+      if (voiceEnhancementRef.current.active) {
+        await voiceEnhancementRef.current.disable(pcRef.current, pcsRef.current);
+        setVoiceEnhancementEnabled(false);
+      } else {
+        await voiceEnhancementRef.current.enable(localStreamRef.current, pcRef.current, pcsRef.current);
+        setVoiceEnhancementEnabled(true);
+      }
+      setMediaError(null);
+    } catch (error) {
+      console.error('Voice enhancement failed:', error);
+      setVoiceEnhancementEnabled(false);
+      setMediaError('Не удалось переключить улучшение голоса.');
+    }
+  }, [callState.status]);
 
   const {
     toggleCallVideo,
@@ -921,7 +1097,9 @@ export const CallProvider = ({ children }) => {
       groupCallParticipants,
       setGroupCallParticipants,
       mediaError,
-      clearMediaError
+      clearMediaError,
+      voiceEnhancementEnabled,
+      toggleVoiceEnhancement
     }}>
       {children}
     </CallContext.Provider>

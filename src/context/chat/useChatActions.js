@@ -7,6 +7,7 @@ import {
   requireE2EEKey
 } from '../../utils/e2eeHelper';
 import { saveOfflineAttachment } from '../../utils/indexedDbHelper';
+import { createManagedObjectUrl } from '../../utils/objectUrlRegistry';
 import {
   cloneReactions,
   isAllowedReactionEmoji,
@@ -211,8 +212,8 @@ export function useChatActions({
 
     if (offlineMediaBlob) {
       try {
-        await saveOfflineAttachment(messageId, offlineMediaBlob);
-        tempMediaUrl = URL.createObjectURL(offlineMediaBlob);
+        await saveOfflineAttachment(messageId, offlineMediaBlob, currentUser.id);
+        tempMediaUrl = createManagedObjectUrl(`offline:${messageId}`, offlineMediaBlob);
         optimisticMsg.media = tempMediaUrl;
         hasOfflineMedia = true;
         optimisticMsg.isPending = true;

@@ -34,3 +34,10 @@ test('latest-message RPC is batched and keeps caller RLS', () => {
   assert.match(latestMessagesMigration, /revoke execute[\s\S]*from public, anon/i);
   assert.match(latestMessagesMigration, /grant execute[\s\S]*to authenticated/i);
 });
+
+test('presence uses auth ids and typing expiry is isolated per chat and cleaned up', () => {
+  assert.match(chatRealtime, /presence:\s*\{\s*key:\s*currentUser\.id\s*\}/);
+  assert.match(chatRealtime, /const timeoutKey = `\$\{chatId\}:\$\{userId\}`/);
+  assert.match(chatRealtime, /Object\.values\(typingTimeoutsRef\.current\)/);
+  assert.match(chatRealtime, /typingTimeoutsRef\.current = \{\}/);
+});

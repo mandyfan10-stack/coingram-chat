@@ -12,6 +12,7 @@ import { authService } from './authService';
 import { chatService } from './chatService';
 import { messageService } from './messageService';
 import { mediaService } from './mediaService';
+import { v1MessageCompatibilityAdapter } from './v1MessageCompatibilityAdapter.js';
 
 /** @type {{ isLive: () => boolean } & Record<string, Function>} */
 export const dataService = {
@@ -40,7 +41,11 @@ export const dataService = {
   // Messages
   loadChatMessages: messageService.loadChatMessages,
   clearChatMessages: messageService.clearChatMessages,
-  sendMessage: messageService.sendMessage,
+  sendMessage: (...args) => (
+    args[0] && typeof args[0] === 'object'
+      ? messageService.sendMessage(args[0])
+      : v1MessageCompatibilityAdapter.sendMessage(...args)
+  ),
   deleteMessage: messageService.deleteMessage,
   toggleReaction: messageService.toggleReaction,
   markMessagesAsRead: messageService.markMessagesAsRead,

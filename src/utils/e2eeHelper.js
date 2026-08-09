@@ -1,3 +1,5 @@
+import { argon2id } from 'hash-wasm';
+
 if (typeof window === 'undefined') {
   globalThis.window = { crypto: globalThis.crypto };
 }
@@ -12,11 +14,12 @@ function bufToHex(buffer) {
 
 // Helper to convert Hex String to Uint8Array
 function hexToBuf(hexString) {
-  const badCharacters = /[^0-9a-fA-F]/g;
-  const cleanHex = hexString.replace(badCharacters, '');
-  const result = new Uint8Array(cleanHex.length / 2);
-  for (let i = 0; i < cleanHex.length; i += 2) {
-    result[i / 2] = parseInt(cleanHex.substring(i, i + 2), 16);
+  if (typeof hexString !== 'string' || hexString.length % 2 !== 0 || /[^0-9a-fA-F]/.test(hexString)) {
+    throw new Error('Invalid hexadecimal crypto payload.');
+  }
+  const result = new Uint8Array(hexString.length / 2);
+  for (let i = 0; i < hexString.length; i += 2) {
+    result[i / 2] = parseInt(hexString.substring(i, i + 2), 16);
   }
   return result;
 }
@@ -59,7 +62,7 @@ export async function exportPrivateKey(key) {
   return JSON.stringify(jwk);
 }
 
-export async function importPrivateKey(jwkString) {
+export async function importPrivateKey(jwkString, extractable = true) {
   const jwk = JSON.parse(jwkString);
   return await window.crypto.subtle.importKey(
     'jwk',
@@ -68,7 +71,7 @@ export async function importPrivateKey(jwkString) {
       name: 'ECDH',
       namedCurve: 'P-256'
     },
-    true,
+    extractable,
     ['deriveKey', 'deriveBits']
   );
 }
@@ -100,9 +103,53 @@ async function derivePasswordKey(password, salt) {
   );
 }
 
+const ARGON2ID_PARAMETERS = Object.freeze({
+  memorySize: 65536,
+  iterations: 3,
+  parallelism: 1,
+  hashLength: 32
+});
+
+async function deriveArgon2idKey(secret, salt, parameters = ARGON2ID_PARAMETERS) {
+  if (
+    typeof secret !== 'string' || secret.length < 1 || secret.length > 1024
+    || !(salt instanceof Uint8Array) || salt.length !== 16
+    || !Number.isInteger(parameters?.memorySize) || parameters.memorySize < 8192 || parameters.memorySize > 262144
+    || !Number.isInteger(parameters?.iterations) || parameters.iterations < 1 || parameters.iterations > 10
+    || !Number.isInteger(parameters?.parallelism) || parameters.parallelism < 1 || parameters.parallelism > 4
+    || parameters?.hashLength !== 32
+  ) {
+    throw new Error('Unsafe Argon2id parameters.');
+  }
+  const rawKey = await argon2id({
+    password: secret,
+    salt,
+    parallelism: parameters.parallelism,
+    iterations: parameters.iterations,
+    memorySize: parameters.memorySize,
+    hashLength: parameters.hashLength,
+    outputType: 'binary'
+  });
+  return window.crypto.subtle.importKey('raw', rawKey, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
+}
+
+async function createArgon2idEnvelope(rawJwk, secret) {
+  const salt = window.crypto.getRandomValues(new Uint8Array(16));
+  const iv = window.crypto.getRandomValues(new Uint8Array(12));
+  const key = await deriveArgon2idKey(secret, salt);
+  const ciphertext = await window.crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, rawJwk);
+  return {
+    kdf: 'argon2id',
+    parameters: ARGON2ID_PARAMETERS,
+    salt: bufToHex(salt),
+    iv: bufToHex(iv),
+    ciphertext: bufToHex(ciphertext)
+  };
+}
+
 // 4.5 Generate 24-character Recovery Code
 export function generateRecoveryCode() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ23456789';
+  const chars = 'ABCDEFGHJKMNPQRSTVWXYZ2345678901';
   const array = new Uint8Array(24);
   window.crypto.getRandomValues(array);
   let result = '';
@@ -110,7 +157,7 @@ export function generateRecoveryCode() {
     if (i > 0 && i % 4 === 0) {
       result += '-';
     }
-    const val = array[i] % chars.length;
+    const val = array[i] & 31;
     result += chars[val];
   }
   return result;
@@ -120,49 +167,42 @@ export function generateRecoveryCode() {
 export async function backupPrivateKey(privateKey, password, recoveryCode) {
   const privateKeyJwk = await exportPrivateKey(privateKey);
   const rawJwk = encoder.encode(privateKeyJwk);
-
-  // 1. Password backup
-  const saltPwd = window.crypto.getRandomValues(new Uint8Array(16));
-  const ivPwd = window.crypto.getRandomValues(new Uint8Array(12));
-  const aesKeyPwd = await derivePasswordKey(password, saltPwd);
-  const encryptedContentPwd = await window.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: ivPwd },
-    aesKeyPwd,
-    rawJwk
-  );
-
-  const pwdBackup = {
-    ciphertext: bufToHex(encryptedContentPwd),
-    salt: bufToHex(saltPwd),
-    iv: bufToHex(ivPwd)
-  };
-
-  // 2. Recovery code backup (clean formatting dashes first)
   const cleanRecoveryCode = recoveryCode.replace(/-/g, '').toUpperCase();
-  const saltRec = window.crypto.getRandomValues(new Uint8Array(16));
-  const ivRec = window.crypto.getRandomValues(new Uint8Array(12));
-  const aesKeyRec = await derivePasswordKey(cleanRecoveryCode, saltRec);
-  const encryptedContentRec = await window.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: ivRec },
-    aesKeyRec,
-    rawJwk
-  );
-
-  const recBackup = {
-    ciphertext: bufToHex(encryptedContentRec),
-    salt: bufToHex(saltRec),
-    iv: bufToHex(ivRec)
-  };
-
   return JSON.stringify({
-    password_backup: pwdBackup,
-    recovery_backup: recBackup
+    version: 2,
+    password_backup: await createArgon2idEnvelope(rawJwk, password),
+    recovery_backup: await createArgon2idEnvelope(rawJwk, cleanRecoveryCode)
   });
 }
 
 // 6. Decrypt Private Key (Restore Backup)
 export async function restorePrivateKey(backupJsonString, secret, isRecovery = false) {
+  if (typeof backupJsonString !== 'string' || backupJsonString.length > 1048576 || typeof secret !== 'string') {
+    throw new Error('Invalid recovery backup input.');
+  }
   const backup = JSON.parse(backupJsonString);
+
+  if (backup.version === 2) {
+    const target = isRecovery ? backup.recovery_backup : backup.password_backup;
+    if (!target || target.kdf !== 'argon2id' || !target.parameters) {
+      throw new Error('Invalid Argon2id recovery backup.');
+    }
+    if (
+      typeof target.salt !== 'string' || target.salt.length !== 32
+      || typeof target.iv !== 'string' || target.iv.length !== 24
+      || typeof target.ciphertext !== 'string' || target.ciphertext.length < 32 || target.ciphertext.length > 2097152
+    ) {
+      throw new Error('Invalid Argon2id recovery envelope.');
+    }
+    const cleanSecret = isRecovery ? secret.replace(/-/g, '').toUpperCase() : secret;
+    const key = await deriveArgon2idKey(cleanSecret, hexToBuf(target.salt), target.parameters);
+    const plaintext = await window.crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: hexToBuf(target.iv) },
+      key,
+      hexToBuf(target.ciphertext)
+    );
+    return importPrivateKey(decoder.decode(plaintext));
+  }
 
   // Backward compatibility: check if it's the old single-backup format
   if (backup.ciphertext && backup.salt && backup.iv) {

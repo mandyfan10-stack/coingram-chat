@@ -167,6 +167,12 @@ export const chatService = {
 
       if (chatIds.length === 0) return [];
 
+      const { data: e2eeConversations } = await supabase
+        .from('e2ee_conversations')
+        .select('chat_id, protocol_version, activation_epoch')
+        .in('chat_id', chatIds);
+      const e2eeConversationMap = new Map((e2eeConversations || []).map((row) => [row.chat_id, row]));
+
       const { data: allMembersRaw } = await supabase
         .from('chat_members')
         .select('chat_id, profile_id, role, profiles(display_name, username, avatar, avatar_color, bio, last_seen, public_key, has_e2ee)')
@@ -208,6 +214,7 @@ export const chatService = {
         }
 
         const latestMsg = latestMessagesMap[chat.id] || null;
+        const cryptoConversation = e2eeConversationMap.get(chat.id) || null;
         let messages = [];
         if (latestMsg) {
           messages = [{
@@ -216,6 +223,10 @@ export const chatService = {
             senderName: formattedMembers.find(member => member.id === latestMsg.sender_id)?.name || 'Пользователь',
             text: latestMsg.text,
             media: latestMsg.media,
+            cryptoVersion: latestMsg.crypto_version || 1,
+            senderDeviceId: latestMsg.sender_device_id,
+            encryptedPayload: latestMsg.encrypted_payload,
+            requiresUpdate: latestMsg.crypto_version === 2 && import.meta.env.VITE_E2EE_V2_ENABLED !== 'true',
             replyTo: latestMsg.reply_to,
             read: latestMsg.legacy_read || (latestMsg.read_by || []).length > 0,
             reads: latestMsg.read_by || [],
@@ -244,6 +255,9 @@ export const chatService = {
           notifications: membership?.notifications ?? true,
           members: formattedMembers,
           settings: chat.settings ? { ...defaultSettings, ...chat.settings } : defaultSettings,
+          cryptoVersion: cryptoConversation?.protocol_version || 1,
+          cryptoEpoch: cryptoConversation?.activation_epoch ?? null,
+          requiresUpdate: Boolean(cryptoConversation && import.meta.env.VITE_E2EE_V2_ENABLED !== 'true'),
           lastSeen: otherMember ? otherMember.lastSeen : null,
           messages
         };

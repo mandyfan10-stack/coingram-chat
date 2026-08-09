@@ -30,6 +30,7 @@ export function useCallMedia({
         const pcInstance = pcsRef.current[peerId];
         if (pcInstance && activeCallChannelRef.current) {
           try {
+            pcInstance.makingOffer = true;
             const offer = await pcInstance.createOffer();
             await pcInstance.setLocalDescription(offer);
             await activeCallChannelRef.current.send({
@@ -44,6 +45,8 @@ export function useCallMedia({
             });
           } catch (e) {
             console.error(e);
+          } finally {
+            pcInstance.makingOffer = false;
           }
         }
       }));

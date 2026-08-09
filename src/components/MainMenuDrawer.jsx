@@ -14,6 +14,7 @@ import {
   X 
 } from 'lucide-react';
 import { isSavedMessagesChat, SAVED_MESSAGES_DISPLAY_NAME } from '../utils/savedMessages';
+import { uploadSanitizedPublicImage } from '../services/publicMediaService';
 
 export default function MainMenuDrawer() {
   const {
@@ -97,19 +98,8 @@ export default function MainMenuDrawer() {
       setIsUploading(true);
       try {
         if (isSupabaseConfigured) {
-          const fileExt = file.name.split('.').pop() || 'jpg';
-          const fileName = `${currentUser.id}/avatar_${Date.now()}.${fileExt}`;
-          const { data, error } = await supabase.storage
-            .from('public-media')
-            .upload(fileName, file);
-
-          if (error) throw error;
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('public-media')
-            .getPublicUrl(fileName);
-
-          await updateProfile({ avatar: publicUrl });
+          const { reference } = await uploadSanitizedPublicImage(file, 'avatar');
+          await updateProfile({ avatar: reference });
         } else {
           const reader = new FileReader();
           reader.onload = async (event) => {

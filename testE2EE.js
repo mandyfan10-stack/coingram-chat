@@ -29,11 +29,11 @@ async function runTests() {
 
   try {
     assert(
-      getPrivateAttachmentPath('https://example.test/storage/v1/object/public/chat-attachments/chat/user/file%20name.png?x=1') === 'chat/user/file name.png',
+      getPrivateAttachmentPath('storage://chat-attachments/chat/user/file%20name.png') === 'chat/user/file name.png',
       "Private attachment paths are extracted and decoded"
     );
     assert(
-      getPrivateAttachmentPath('https://example.test/storage/v1/object/public/public-media/user/story.png') === null,
+      getPrivateAttachmentPath('https://example.supabase.co/storage/v1/object/public/public-media/user/story.png') === null,
       "Public media URLs bypass private attachment loading"
     );
     assert(

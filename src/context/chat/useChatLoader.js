@@ -1,6 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { dataService } from '../../services/dataLayer';
 import { getOfflineAttachment } from '../../utils/indexedDbHelper';
+import { loadOfflineQueue } from '../../services/offlineQueue';
+import { createManagedObjectUrl } from '../../utils/objectUrlRegistry';
 import { decryptMessageFields, resolveSharedKey } from './decryptHelpers';
 
 /**
@@ -54,19 +56,14 @@ export function useChatLoader({
         return { ...chat, members, messages };
       }));
 
-      let localQueue = [];
-      try {
-        const parsed = JSON.parse(localStorage.getItem('tg-offline-queue') || '[]');
-        localQueue = Array.isArray(parsed) ? parsed : [];
-      } catch {
-        localQueue = [];
-      }
+      const parsed = await loadOfflineQueue(currentUser.id);
+      const localQueue = Array.isArray(parsed) ? parsed : [];
 
       for (const q of localQueue) {
         if (q?.hasOfflineMedia && q.optimisticId) {
           try {
-            const blob = await getOfflineAttachment(q.optimisticId);
-            if (blob) q.media = URL.createObjectURL(blob);
+            const blob = await getOfflineAttachment(q.optimisticId, currentUser.id);
+            if (blob) q.media = createManagedObjectUrl(`offline:${q.optimisticId}`, blob);
           } catch (e) {
             console.error(e);
           }

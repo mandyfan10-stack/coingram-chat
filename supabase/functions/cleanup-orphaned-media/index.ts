@@ -1,5 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2.112.2";
 
 type StorageEntry = {
   name: string;
@@ -20,11 +20,29 @@ function isOlderThan(entry: StorageEntry, ageMs: number): boolean {
 
 function referencedPath(value: unknown, bucket: string): string | null {
   if (typeof value !== "string" || !value) return null;
+  const canonicalPrefix = `storage://${bucket}/`;
+  if (value.startsWith(canonicalPrefix)) return safePath(value.slice(canonicalPrefix.length));
   for (const marker of [`/storage/v1/object/public/${bucket}/`, `/storage/v1/object/sign/${bucket}/`]) {
     const index = value.indexOf(marker);
-    if (index >= 0) return decodeURIComponent(value.slice(index + marker.length).split("?")[0]);
+    if (index >= 0) return safePath(value.slice(index + marker.length).split("?")[0]);
   }
   return null;
+}
+
+function safePath(value: string): string | null {
+  try {
+    let decoded = value;
+    for (let pass = 0; pass < 3; pass += 1) {
+      const next = decodeURIComponent(decoded);
+      if (next === decoded) break;
+      decoded = next;
+    }
+    if (!decoded || decoded.startsWith("/") || decoded.includes("\\") || decoded.includes("\0")) return null;
+    if (decoded.split("/").some((segment) => !segment || segment === "." || segment === "..")) return null;
+    return decoded;
+  } catch {
+    return null;
+  }
 }
 
 Deno.serve(async (request: Request) => {
@@ -70,28 +88,63 @@ Deno.serve(async (request: Request) => {
       .filter(file => !existingIds.has(file.path.match(/\/msg_([0-9a-f-]{36})\./i)?.[1] || ""))
       .map(file => file.path);
 
-    const [profiles, chats, stories, publicFiles] = await Promise.all([
-      supabase.from("profiles").select("avatar,wallpaper"),
-      supabase.from("chats").select("avatar"),
-      supabase.from("stories").select("media"),
-      listFiles("public-media")
+    const [profiles, chats, stories] = await Promise.all([
+      supabase.from("profiles").select("avatar,avatar_path,wallpaper,wallpaper_path"),
+      supabase.from("chats").select("avatar,avatar_path"),
+      supabase.from("stories").select("media,media_path,expires_at")
     ]);
     if (profiles.error || chats.error || stories.error) throw profiles.error || chats.error || stories.error;
-    const publicReferences = new Set<string>();
-    for (const row of profiles.data || []) for (const value of [row.avatar, row.wallpaper]) {
-      const path = referencedPath(value, "public-media"); if (path) publicReferences.add(path);
+
+    const references = new Map<string, Set<string>>([
+      ["public-media", new Set()], ["avatars", new Set()], ["wallpapers", new Set()],
+      ["group-avatars", new Set()], ["stories", new Set()]
+    ]);
+    const remember = (bucket: string, value: unknown) => {
+      const path = referencedPath(value, bucket);
+      if (path) references.get(bucket)?.add(path);
+    };
+    for (const row of profiles.data || []) {
+      remember("public-media", row.avatar); remember("public-media", row.wallpaper);
+      remember("avatars", row.avatar_path); remember("wallpapers", row.wallpaper_path);
     }
-    for (const row of chats.data || []) { const path = referencedPath(row.avatar, "public-media"); if (path) publicReferences.add(path); }
-    for (const row of stories.data || []) { const path = referencedPath(row.media, "public-media"); if (path) publicReferences.add(path); }
-    const orphanPublicPaths = publicFiles.filter(file => isOlderThan(file, PUBLIC_GRACE_MS) && !publicReferences.has(file.path)).map(file => file.path);
+    for (const row of chats.data || []) {
+      remember("public-media", row.avatar); remember("group-avatars", row.avatar_path);
+    }
+    for (const row of stories.data || []) {
+      if (new Date(row.expires_at).getTime() > Date.now()) {
+        remember("public-media", row.media); remember("stories", row.media_path);
+      }
+    }
+
+    const orphanByBucket = new Map<string, string[]>();
+    for (const [bucket, bucketReferences] of references) {
+      const files = await listFiles(bucket);
+      orphanByBucket.set(bucket, files
+        .filter((file) => isOlderThan(file, PUBLIC_GRACE_MS) && !bucketReferences.has(file.path))
+        .map((file) => file.path));
+    }
 
     const chatDeletes = orphanChatPaths.slice(0, MAX_DELETE_PER_RUN);
-    const remaining = MAX_DELETE_PER_RUN - chatDeletes.length;
-    const publicDeletes = orphanPublicPaths.slice(0, Math.max(0, remaining));
     if (chatDeletes.length) { const { error } = await supabase.storage.from("chat-attachments").remove(chatDeletes); if (error) throw error; }
-    if (publicDeletes.length) { const { error } = await supabase.storage.from("public-media").remove(publicDeletes); if (error) throw error; }
+    let remaining = MAX_DELETE_PER_RUN - chatDeletes.length;
+    const deletedByBucket: Record<string, number> = {};
+    for (const [bucket, paths] of orphanByBucket) {
+      const selected = paths.slice(0, Math.max(0, remaining));
+      if (selected.length) {
+        const { error } = await supabase.storage.from(bucket).remove(selected);
+        if (error) throw error;
+      }
+      deletedByBucket[bucket] = selected.length;
+      remaining -= selected.length;
+    }
 
-    return Response.json({ deleted: { chatAttachments: chatDeletes.length, publicMedia: publicDeletes.length }, candidates: { chatAttachments: orphanChatPaths.length, publicMedia: orphanPublicPaths.length } });
+    return Response.json({
+      deleted: { chatAttachments: chatDeletes.length, ...deletedByBucket },
+      candidates: {
+        chatAttachments: orphanChatPaths.length,
+        ...Object.fromEntries(Array.from(orphanByBucket, ([bucket, paths]) => [bucket, paths.length]))
+      }
+    });
   } catch (error) {
     console.error("media cleanup failed", error);
     return Response.json({ error: "Cleanup failed safely; no further files were removed." }, { status: 500 });

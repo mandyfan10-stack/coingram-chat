@@ -9,6 +9,7 @@ import ProfileTab from './settings/ProfileTab';
 import AppearanceTab from './settings/AppearanceTab';
 import StickersTab from './settings/StickersTab';
 import E2EETab from './settings/E2EETab';
+import { uploadSanitizedPublicImage } from '../services/publicMediaService';
 
 const TAB_TITLES = {
   profile: 'Профиль',
@@ -88,19 +89,8 @@ export default function SettingsModal() {
       setIsUploadingAvatar(true);
       try {
         if (isSupabaseConfigured) {
-          const fileExt = file.name.split('.').pop() || 'jpg';
-          const fileName = `${currentUser.id}/avatar_${Date.now()}.${fileExt}`;
-          const { error } = await supabase.storage
-            .from('public-media')
-            .upload(fileName, file);
-
-          if (error) throw error;
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('public-media')
-            .getPublicUrl(fileName);
-
-          await updateProfile({ avatar: publicUrl });
+          const { reference } = await uploadSanitizedPublicImage(file, 'avatar');
+          await updateProfile({ avatar: reference });
         } else {
           const reader = new FileReader();
           reader.onload = async (event) => {
@@ -123,20 +113,9 @@ export default function SettingsModal() {
       setIsUploadingWallpaper(true);
       try {
         if (isSupabaseConfigured) {
-          const fileExt = file.name.split('.').pop() || 'jpg';
-          const fileName = `${currentUser.id}/wallpaper_${Date.now()}.${fileExt}`;
-          const { error } = await supabase.storage
-            .from('public-media')
-            .upload(fileName, file);
-
-          if (error) throw error;
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('public-media')
-            .getPublicUrl(fileName);
-
-          setWallpaper(publicUrl);
-          setCustomWallpaperUrl(publicUrl);
+          const { reference } = await uploadSanitizedPublicImage(file, 'wallpaper');
+          setWallpaper(reference);
+          setCustomWallpaperUrl(reference);
         } else {
           const reader = new FileReader();
           reader.onload = (ev) => {

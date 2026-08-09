@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useChat } from '../../context/ChatContext';
 import { useCalls } from '../../context/CallContext';
 import './CallOverlay.css';
-import { Mic, MicOff, PhoneOff, Phone, Video, VideoOff, Monitor, Minimize2, Maximize2, RefreshCw, X } from 'lucide-react';
+import { Mic, MicOff, PhoneOff, Phone, Video, VideoOff, Monitor, Minimize2, Maximize2, RefreshCw, SlidersHorizontal, X } from 'lucide-react';
 import {
   playCallConnect,
   playCallDisconnect,
@@ -38,7 +38,9 @@ export default function CallOverlay() {
     toggleCallScreenShare,
     groupCallParticipants,
     mediaError,
-    clearMediaError
+    clearMediaError,
+    voiceEnhancementEnabled,
+    toggleVoiceEnhancement
   } = useCalls();
 
   const { chats, renderAvatar } = useChat();
@@ -501,6 +503,15 @@ export default function CallOverlay() {
                 title={callState.muted ? 'Включить микрофон' : 'Отключить микрофон'}
               >
                 {callState.muted ? <MicOff size={20} /> : <Mic size={20} />}
+              </button>
+              <button
+                type="button"
+                className={`call-ctrl-btn ctrl-secondary ${voiceEnhancementEnabled ? 'active-video' : ''}`}
+                onClick={toggleVoiceEnhancement}
+                disabled={callState.status !== 'connected'}
+                title={voiceEnhancementEnabled ? 'Отключить улучшение голоса' : 'Включить улучшение голоса'}
+              >
+                <SlidersHorizontal size={20} />
               </button>
               {showVideoControls && isScreenShareSupported && (
                 <button

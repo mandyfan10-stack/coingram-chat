@@ -37,7 +37,7 @@ export async function generateOfflineQueueKey() {
   );
 }
 
-/** Encrypt queue metadata before it is persisted to localStorage. */
+/** Encrypt queue metadata before it is persisted to IndexedDB. */
 export async function encryptOfflineQueuePayload(payload, key, context) {
   const cryptoApi = getCryptoApi();
   const iv = cryptoApi.getRandomValues(new Uint8Array(12));

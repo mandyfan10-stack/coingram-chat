@@ -3,7 +3,10 @@
 interface ImportMetaEnv {
   readonly APP_VERSION: string;
   readonly VITE_SUPABASE_URL?: string;
+  readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   readonly VITE_SUPABASE_ANON_KEY?: string;
+  readonly VITE_E2EE_V2_ENABLED?: string;
+  readonly VITE_E2EE_V2_AUDIT_APPROVED?: string;
   readonly VITE_GITHUB_REPO?: string;
   /** YouTube Data API v3 key for infinite Pulse catalog (restrict by HTTP referrer). */
   readonly VITE_YOUTUBE_API_KEY?: string;

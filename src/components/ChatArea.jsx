@@ -31,6 +31,8 @@ import { requiresPersonalE2EE } from '../utils/savedMessages';
 import ChatHeader from './chat/ChatHeader';
 import MessageBubble from './chat/MessageBubble';
 import ImageViewer from './chat/ImageViewer';
+import { createStorageReference } from '../utils/urlSecurity';
+import useResolvedMedia from '../hooks/useResolvedMedia';
 
 export default function ChatArea() {
   const {
@@ -63,10 +65,10 @@ export default function ChatArea() {
     activeChat.createdBy === 'current'
   );
 
-  const canPost = !activeChat || 
-    activeChat.type === 'personal' || 
-    isOwner || 
-    (activeChat.type === 'group' && !activeChat.settings?.only_admins_can_post);
+  const canPost = !activeChat?.requiresUpdate && (!activeChat ||
+    activeChat.type === 'personal' ||
+    isOwner ||
+    (activeChat.type === 'group' && !activeChat.settings?.only_admins_can_post));
 
   const canSendMedia = !activeChat ||
     activeChat.type === 'personal' ||
@@ -97,8 +99,13 @@ export default function ChatArea() {
   };
 
   const isCustomWallpaper = wallpaper && !['classic', 'sunset', 'space', 'mint', 'cyber'].includes(wallpaper);
+  const { url: resolvedWallpaper } = useResolvedMedia(
+    isCustomWallpaper ? wallpaper : null,
+    activeChat?.id,
+    'image/webp'
+  );
   const chatBodyStyle = isCustomWallpaper ? {
-    backgroundImage: `url(${wallpaper})`,
+    backgroundImage: resolvedWallpaper ? `url(${resolvedWallpaper})` : 'none',
     backgroundSize: 'cover',
     backgroundPosition: 'center',
     backgroundRepeat: 'no-repeat'
@@ -188,11 +195,14 @@ export default function ChatArea() {
           });
 
         if (error) throw error;
-        const { data: { publicUrl } } = supabase.storage
-          .from('chat-attachments')
-          .getPublicUrl(filePath);
-
-        sendMessage(msgText, replyingTo?.id, publicUrl, null, null, messageId);
+        sendMessage(
+          msgText,
+          replyingTo?.id,
+          createStorageReference('chat-attachments', filePath),
+          null,
+          null,
+          messageId
+        );
       } else {
         const reader = new FileReader();
         reader.onload = (event) => sendMessage(msgText, replyingTo?.id, event.target.result, null, null, messageId);
@@ -366,10 +376,10 @@ export default function ChatArea() {
       let recorder;
       try {
         recorder = new MediaRecorder(stream, options);
-      } catch (e) {
+      } catch {
         try {
           recorder = new MediaRecorder(stream, { mimeType: recordMode === 'video' ? 'video/webm' : 'audio/ogg' });
-        } catch (e2) {
+        } catch {
           recorder = new MediaRecorder(stream);
         }
       }
@@ -509,10 +519,6 @@ export default function ChatArea() {
     setRecordDuration(0);
     if (videoPreviewRef.current) {
       try {
-        if (videoPreviewRef.current.src) {
-          URL.revokeObjectURL(videoPreviewRef.current.src);
-          videoPreviewRef.current.src = '';
-        }
         videoPreviewRef.current.srcObject = null;
       } catch (e) {
         console.error("Failed to clean up video preview:", e);
@@ -557,11 +563,11 @@ export default function ChatArea() {
 
         if (error) throw error;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('chat-attachments')
-          .getPublicUrl(filePath);
-
-        sendMessage(msgText, replyingTo?.id, publicUrl);
+        sendMessage(
+          msgText,
+          replyingTo?.id,
+          createStorageReference('chat-attachments', filePath)
+        );
       } else {
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -912,7 +918,11 @@ export default function ChatArea() {
       {!canPost ? (
         <footer className="chat-footer-input restricted" style={{ padding: '8px 16px' }}>
           <div className="restricted-input-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '12px', color: 'var(--text-secondary)', fontSize: '13px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px', border: '1px solid var(--border-color)', width: '100%', textAlign: 'center', boxSizing: 'border-box' }}>
-            <span>{activeChat?.type === 'channel' ? 'Только администраторы могут отправлять сообщения в этот канал' : 'Только администраторы могут отправлять сообщения в эту группу'}</span>
+            <span>{activeChat?.requiresUpdate
+              ? 'Для этого чата требуется версия Coiny с поддержкой E2EE v2. Отправка заблокирована.'
+              : activeChat?.type === 'channel'
+                ? 'Только администраторы могут отправлять сообщения в этот канал'
+                : 'Только администраторы могут отправлять сообщения в эту группу'}</span>
           </div>
         </footer>
       ) : (

@@ -27,7 +27,7 @@ export function useCallCardChrome(callStatus) {
     if (!isResizing.current) return;
     const dx = e.clientX - resizeStart.current.x;
     const dy = e.clientY - resizeStart.current.y;
-    setCardSize((prevSize) => {
+    setCardSize(() => {
       // cardPos read via closure on mousedown path — use functional width clamp with window
       const maxW = window.innerWidth - 12;
       const maxH = window.innerHeight - 12;

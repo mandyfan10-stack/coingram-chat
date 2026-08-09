@@ -31,6 +31,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Dependency audit
+        run: |
+          npm audit --audit-level=low
+          npm audit --omit=dev --audit-level=low
+
       - name: Lint
         run: npm run lint
 
@@ -48,6 +53,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
       E2E_USER_A: ${{ secrets.E2E_USER_A }}
       E2E_PASSWORD_A: ${{ secrets.E2E_PASSWORD_A }}
       E2E_ENCRYPTION_PASSWORD_A: ${{ secrets.E2E_ENCRYPTION_PASSWORD_A }}
@@ -55,9 +62,17 @@ jobs:
       E2E_PASSWORD_B: ${{ secrets.E2E_PASSWORD_B }}
       E2E_ENCRYPTION_PASSWORD_B: ${{ secrets.E2E_ENCRYPTION_PASSWORD_B }}
     steps:
-      - name: Explain skipped live E2E
-        if: ${{ env.E2E_USER_A == '' || env.E2E_USER_B == '' }}
-        run: echo 'Live E2E skipped because QA account secrets are not configured.'
+      - name: Require QA secrets on protected main
+        if: ${{ github.ref == 'refs/heads/main' }}
+        run: |
+          test -n "$VITE_SUPABASE_URL"
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
+          test -n "$E2E_USER_A"
+          test -n "$E2E_PASSWORD_A"
+          test -n "$E2E_ENCRYPTION_PASSWORD_A"
+          test -n "$E2E_USER_B"
+          test -n "$E2E_PASSWORD_B"
+          test -n "$E2E_ENCRYPTION_PASSWORD_B"
 
       - name: Checkout
         if: ${{ env.E2E_USER_A != '' && env.E2E_USER_B != '' }}
@@ -84,10 +99,38 @@ jobs:
 
       - name: Upload failure artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: playwright-report
           path: |
             playwright-report
             test-results
           retention-days: 7
+
+  supabase:
+    name: Supabase reset, tests and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Start local Supabase
+        run: npx supabase start
+
+      - name: Reset schema and run pgTAP
+        run: |
+          npx supabase db reset --local --no-seed
+          npx supabase test db supabase/tests --local
+
+      - name: Database lint
+        run: npx supabase db lint --local --level warning --fail-on warning

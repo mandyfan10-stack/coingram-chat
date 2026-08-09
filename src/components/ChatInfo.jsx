@@ -3,9 +3,10 @@ import { useChat } from '../context/ChatContext';
 import { formatLastSeen } from '../utils/formatLastSeen';
 import { useCalls } from '../context/CallContext';
 import { useAuth } from '../context/AuthContext';
-import { X, Phone, AlertCircle, FileText, ExternalLink, Image as ImageIcon, Check, Copy, Trash2, LogOut, Camera, Lock } from 'lucide-react';
+import { X, Phone, FileText, ExternalLink, Check, Copy, Trash2, LogOut, Camera, Lock } from 'lucide-react';
 import useResolvedMedia from '../hooks/useResolvedMedia';
 import { isSavedMessagesChat } from '../utils/savedMessages';
+import { normalizeExternalHttpsUrl } from '../utils/urlSecurity';
 
 const computeSafetyNumber = async (keyA, keyB) => {
   if (!keyA || !keyB) return '';
@@ -17,11 +18,11 @@ const computeSafetyNumber = async (keyA, keyB) => {
   const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
   const view = new DataView(hashBuffer);
   
-  const segment1 = String(Math.abs(view.getInt32(0)) % 100000).padStart(5, '0');
-  const segment2 = String(Math.abs(view.getInt32(4)) % 100000).padStart(5, '0');
-  const segment3 = String(Math.abs(view.getInt32(8)) % 100000).padStart(5, '0');
-  const segment4 = String(Math.abs(view.getInt32(12)) % 100000).padStart(5, '0');
-  const segment5 = String(Math.abs(view.getInt32(16)) % 100000).padStart(5, '0');
+  const segment1 = String(view.getUint32(0) % 100000).padStart(5, '0');
+  const segment2 = String(view.getUint32(4) % 100000).padStart(5, '0');
+  const segment3 = String(view.getUint32(8) % 100000).padStart(5, '0');
+  const segment4 = String(view.getUint32(12) % 100000).padStart(5, '0');
+  const segment5 = String(view.getUint32(16) % 100000).padStart(5, '0');
   
   return `${segment1} ${segment2} ${segment3} ${segment4} ${segment5}`;
 };
@@ -178,13 +179,15 @@ export default function ChatInfo() {
           if (matches) {
             matches.forEach(url => {
               try {
-                const parsed = new URL(url);
+                const safeUrl = normalizeExternalHttpsUrl(url);
+                if (!safeUrl) return;
+                const parsed = new URL(safeUrl);
                 lList.push({
-                  title: url,
-                  url: url,
+                  title: safeUrl,
+                  url: safeUrl,
                   host: parsed.hostname
                 });
-              } catch (e) {
+              } catch {
                 // ignore
               }
             });
@@ -485,7 +488,7 @@ export default function ChatInfo() {
                 <div
                   key={member.id}
                   className="member-row-item"
-                  onClick={(e) => handleMemberClick(member)}
+                  onClick={() => handleMemberClick(member)}
                   style={{ cursor: isOwner && !isMe ? 'pointer' : (member.id !== 'current' && member.id !== currentUser?.id ? 'pointer' : 'default') }}
                 >
                   <div className="member-avatar">

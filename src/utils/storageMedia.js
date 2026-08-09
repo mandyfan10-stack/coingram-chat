@@ -1,11 +1,14 @@
+import { supabaseProjectUrl } from '../supabaseClient.js';
+import { getStorageObjectPath, getStorageReference } from './urlSecurity.js';
+
+const PRIVATE_MEDIA_BUCKETS = ['chat-attachments', 'avatars', 'stories', 'wallpapers', 'group-avatars'];
+
 export function getPrivateAttachmentPath(url) {
-  if (typeof url !== 'string') return null;
+  return getStorageObjectPath(url, 'chat-attachments', supabaseProjectUrl);
+}
 
-  const marker = 'chat-attachments/';
-  const markerIndex = url.indexOf(marker);
-  if (markerIndex === -1) return null;
-
-  return decodeURIComponent(url.slice(markerIndex + marker.length).split('?')[0]);
+export function getPrivateMediaReference(url) {
+  return getStorageReference(url, PRIVATE_MEDIA_BUCKETS, supabaseProjectUrl);
 }
 
 export function getAttachmentMimeType(mediaUrl, fallbackMimeType) {

@@ -8,8 +8,9 @@ export function useTyping(currentUser) {
 
   const sendTypingStatus = useCallback((chatId, isTyping) => {
     if (!currentUser) return;
-    if (dataService.isLive() && typingChannelRef.current) {
-      typingChannelRef.current.send({
+    const channel = typingChannelRef.current?.get(chatId);
+    if (dataService.isLive() && channel) {
+      channel.send({
         type: 'broadcast',
         event: 'typing',
         payload: {

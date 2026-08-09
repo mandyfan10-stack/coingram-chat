@@ -1,0 +1,8 @@
+{
+  "repository": "https://github.com/openmls/openmls",
+  "tag": "openmls-v0.8.1",
+  "commit": "47dbedecad0c1fd8eb5368d582250ebfcc1e1ce6",
+  "protocol": "MLS 1.0 / RFC 9420",
+  "ciphersuite": "MLS_128_DHKEMX25519_AES128GCM_SHA256_Ed25519",
+  "sensitiveDebugFeaturesAllowed": false
+}

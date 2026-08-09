@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { dataService } from '../services/dataLayer';
-import { 
+import {
   generateE2EEKeyPair, 
   exportPublicKey, 
   backupPrivateKey, 
@@ -13,8 +13,14 @@ import {
   savePrivateKey,
   getPrivateKey,
   deletePrivateKey,
-  isPrivateKeyRecordCurrent
+  isPrivateKeyRecordCurrent,
+  getCurrentE2EEDeviceId,
+  saveCurrentE2EEDeviceId,
+  commitConversationCryptoTransition
 } from '../utils/indexedDbHelper';
+import { isE2EEV2Enabled, e2eeV2ReleaseChannel, requireE2EEV2Enabled } from '../config/e2eeV2';
+import { e2eeV2Client } from '../crypto/e2eeV2Client';
+import { e2eeV2Service } from '../services/e2eeV2Service';
 
 const E2EEContext = createContext();
 
@@ -23,6 +29,7 @@ export const E2EEProvider = ({ children }) => {
   const [e2eePrivateKey, setE2eePrivateKey] = useState(null);
   const [sharedKeysCache, setSharedKeysCache] = useState({});
   const [isE2EESetupRequired, setIsE2EESetupRequired] = useState(false);
+  const [currentDeviceId, setCurrentDeviceId] = useState(null);
 
   // Monitor currentUser E2EE setup requirements
   useEffect(() => {
@@ -85,6 +92,18 @@ export const E2EEProvider = ({ children }) => {
     };
     tryRestorePrivateKey();
   }, [currentUser, e2eePrivateKey]);
+
+  useEffect(() => {
+    let active = true;
+    if (!currentUser || !isE2EEV2Enabled) {
+      setCurrentDeviceId(null);
+      return undefined;
+    }
+    getCurrentE2EEDeviceId(currentUser.id)
+      .then((deviceId) => { if (active) setCurrentDeviceId(deviceId || null); })
+      .catch(() => { if (active) setCurrentDeviceId(null); });
+    return () => { active = false; };
+  }, [currentUser]);
 
   const setupE2EE = useCallback(async (password) => {
     if (!currentUser) return null;
@@ -209,6 +228,97 @@ export const E2EEProvider = ({ children }) => {
     }
   }, [currentUser, setCurrentUser]);
 
+  const registerDevice = useCallback(async (deviceName) => {
+    requireE2EEV2Enabled();
+    if (!currentUser) throw new Error('Authentication is required.');
+    await e2eeV2Client.initialize();
+    const registration = await e2eeV2Client.call('register_device', {
+      userId: currentUser.id,
+      deviceName
+    });
+    const device = await e2eeV2Service.registerDevice(currentUser.id, {
+      deviceName,
+      ...registration
+    });
+    await saveCurrentE2EEDeviceId(currentUser.id, device.deviceId);
+    setCurrentDeviceId(device.deviceId);
+    return device;
+  }, [currentUser]);
+
+  const approveDevice = useCallback(async (deviceId) => {
+    requireE2EEV2Enabled();
+    if (!currentUser || !currentDeviceId) throw new Error('An active local device is required.');
+    await e2eeV2Client.call('approve_device', { approverDeviceId: currentDeviceId, targetDeviceId: deviceId });
+    await e2eeV2Service.approveDevice(currentDeviceId, deviceId);
+  }, [currentDeviceId, currentUser]);
+
+  const revokeDevice = useCallback(async (deviceId) => {
+    requireE2EEV2Enabled();
+    if (!currentUser || !currentDeviceId) throw new Error('An active local device is required.');
+    // The worker must create removal commits for every conversation before the
+    // server marks the device revoked. Any failure leaves the device active.
+    await e2eeV2Client.call('remove_device_from_all_conversations', {
+      approverDeviceId: currentDeviceId,
+      targetDeviceId: deviceId
+    });
+    await e2eeV2Service.revokeDevice(currentDeviceId, deviceId);
+  }, [currentDeviceId, currentUser]);
+
+  const encryptEvent = useCallback(async (chatId, eventType, payload) => {
+    requireE2EEV2Enabled();
+    if (!currentUser || !currentDeviceId) throw new Error('An active local device is required.');
+    return e2eeV2Client.encryptEvent(currentUser.id, currentDeviceId, chatId, eventType, payload);
+  }, [currentDeviceId, currentUser]);
+
+  const decryptEvent = useCallback(async (envelope) => {
+    requireE2EEV2Enabled();
+    if (!currentUser) throw new Error('Authentication is required.');
+    return e2eeV2Client.decryptEvent(currentUser.id, envelope.chatId, envelope);
+  }, [currentUser]);
+
+  const migrateConversation = useCallback(async (chatId) => {
+    requireE2EEV2Enabled();
+    if (!currentUser || !currentDeviceId) throw new Error('An active local device is required.');
+    const transition = await e2eeV2Client.call('migrate_conversation', {
+      chatId,
+      userId: currentUser.id,
+      deviceId: currentDeviceId
+    });
+    await commitConversationCryptoTransition(currentUser.id, chatId, transition.state.serializedState, {
+      id: crypto.randomUUID(),
+      chatId,
+      type: 'mls-commit',
+      encryptedPayload: transition.initialCommit
+    });
+    await e2eeV2Service.activateConversation(transition.state, currentUser.id, transition.initialCommit);
+    return transition.state;
+  }, [currentDeviceId, currentUser]);
+
+  const exportHistoryTransfer = useCallback(async (toDeviceId) => {
+    requireE2EEV2Enabled();
+    if (!currentUser || !currentDeviceId) throw new Error('An active local device is required.');
+    const transfer = await e2eeV2Client.call('export_history_transfer', {
+      userId: currentUser.id,
+      fromDeviceId: currentDeviceId,
+      toDeviceId
+    });
+    await e2eeV2Service.createHistoryTransfer(
+      currentUser.id,
+      transfer.manifest,
+      transfer.encryptedManifest,
+      transfer.objectPrefix
+    );
+    return transfer.manifest;
+  }, [currentDeviceId, currentUser]);
+
+  const importHistoryTransfer = useCallback(async (manifest) => {
+    requireE2EEV2Enabled();
+    if (!currentUser || !currentDeviceId || manifest.toDeviceId !== currentDeviceId) {
+      throw new Error('History transfer is not addressed to this device.');
+    }
+    await e2eeV2Client.call('import_history_transfer', { manifest, userId: currentUser.id });
+  }, [currentDeviceId, currentUser]);
+
   return (
     <E2EEContext.Provider value={{
       e2eePrivateKey,
@@ -219,7 +329,18 @@ export const E2EEProvider = ({ children }) => {
       setupE2EE,
       unlockE2EE,
       changePasswordAfterRecovery,
-      resetE2EE
+      resetE2EE,
+      isE2EEV2Enabled,
+      e2eeV2ReleaseChannel,
+      currentDeviceId,
+      registerDevice,
+      approveDevice,
+      revokeDevice,
+      encryptEvent,
+      decryptEvent,
+      migrateConversation,
+      exportHistoryTransfer,
+      importHistoryTransfer
     }}>
       {children}
     </E2EEContext.Provider>

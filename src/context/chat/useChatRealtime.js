@@ -13,6 +13,7 @@ import { playSound } from '../../utils/sounds';
  */
 export function useChatRealtime({
   currentUser,
+  realtimeChatIds,
   setChats,
   fetchChats,
   fetchStories,
@@ -205,7 +206,14 @@ export function useChatRealtime({
           })
           .subscribe();
 
-        const presenceChannel = supabase.channel('online-users');
+        const presenceChannel = supabase.channel('online-users', {
+          config: {
+            private: true,
+            // Presence groups every connection using this key into one array.
+            // That keeps the user online until their last device disconnects.
+            presence: { key: currentUser.id }
+          }
+        });
         presenceChannel
           .on('presence', { event: 'sync' }, () => {
             const state = presenceChannel.presenceState();
@@ -245,27 +253,25 @@ export function useChatRealtime({
             }
           });
 
-        const typingChannel = supabase.channel('typing-status');
-        typingChannelRef.current = typingChannel;
-        typingChannel
-          .on('broadcast', { event: 'typing' }, (payload) => {
+        const handleTyping = (payload) => {
             const { userId, chatId, isTyping, userName } = payload.payload;
-            if (typingTimeoutsRef.current[userId]) {
-              clearTimeout(typingTimeoutsRef.current[userId]);
-              delete typingTimeoutsRef.current[userId];
+            const timeoutKey = `${chatId}:${userId}`;
+            if (typingTimeoutsRef.current[timeoutKey]) {
+              clearTimeout(typingTimeoutsRef.current[timeoutKey]);
+              delete typingTimeoutsRef.current[timeoutKey];
             }
             if (isTyping) {
               setTypingStatuses((prev) => {
                 const chatStatuses = { ...prev[chatId], [userId]: userName };
                 return { ...prev, [chatId]: chatStatuses };
               });
-              typingTimeoutsRef.current[userId] = setTimeout(() => {
+              typingTimeoutsRef.current[timeoutKey] = setTimeout(() => {
                 setTypingStatuses((prev) => {
                   const chatStatuses = { ...prev[chatId] };
                   delete chatStatuses[userId];
                   return { ...prev, [chatId]: chatStatuses };
                 });
-                delete typingTimeoutsRef.current[userId];
+                delete typingTimeoutsRef.current[timeoutKey];
               }, 6000);
             } else {
               setTypingStatuses((prev) => {
@@ -274,8 +280,15 @@ export function useChatRealtime({
                 return { ...prev, [chatId]: chatStatuses };
               });
             }
+          };
+        const typingChannels = new Map(
+          String(realtimeChatIds || '').split(',').filter(Boolean).map((chatId) => {
+            const channel = supabase.channel(`typing:chat:${chatId}`, { config: { private: true } });
+            channel.on('broadcast', { event: 'typing' }, handleTyping).subscribe();
+            return [chatId, channel];
           })
-          .subscribe();
+        );
+        typingChannelRef.current = typingChannels;
 
         const storiesChannel = supabase
           .channel('db-stories')
@@ -285,10 +298,12 @@ export function useChatRealtime({
           .subscribe();
 
         return () => {
+          for (const timeout of Object.values(typingTimeoutsRef.current)) clearTimeout(timeout);
+          typingTimeoutsRef.current = {};
           msgChannel.unsubscribe();
           memberChannel.unsubscribe();
           presenceChannel.unsubscribe();
-          typingChannel.unsubscribe();
+          for (const channel of typingChannels.values()) channel.unsubscribe();
           storiesChannel.unsubscribe();
           typingChannelRef.current = null;
         };
@@ -309,6 +324,7 @@ export function useChatRealtime({
     }
   }, [
     currentUser,
+    realtimeChatIds,
     fetchChats,
     fetchStories,
     markMessagesAsRead,

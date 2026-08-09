@@ -1,7 +1,8 @@
 import React, { useState, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
-import { isSupabaseConfigured, supabase } from '../supabaseClient';
+import { isSupabaseConfigured } from '../supabaseClient';
 import { X, Sparkles, Upload, FileImage } from 'lucide-react';
+import { uploadSanitizedPublicImage } from '../services/publicMediaService';
 
 export default function CreateStoryModal() {
   const {
@@ -65,21 +66,8 @@ export default function CreateStoryModal() {
 
   const uploadImageToSupabase = async (file) => {
     if (isSupabaseConfigured) {
-      const fileExt = file.name.split('.').pop() || 'png';
-      const fileName = `${currentUser.id}/story_${Date.now()}.${fileExt}`;
-      const { data, error } = await supabase.storage
-        .from('public-media')
-        .upload(fileName, file);
-
-      if (error) {
-        throw error;
-      }
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('public-media')
-        .getPublicUrl(fileName);
-
-      return publicUrl;
+      const { reference } = await uploadSanitizedPublicImage(file, 'story');
+      return reference;
     } else {
       // In mock mode, the FileReader loaded preview is already Base64
       return imagePreview;

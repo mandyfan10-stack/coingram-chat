@@ -224,9 +224,19 @@ export const authService = {
 
   saveE2EEBackup: async (userId, encryptedPrivKeyStr) => {
     if (isSupabaseConfigured) {
-      const { error } = await supabase
-        .from('user_private_keys')
-        .upsert({ id: userId, encrypted_private_key: encryptedPrivKeyStr });
+      const parsed = JSON.parse(encryptedPrivKeyStr);
+      const targetTable = parsed.version === 2 ? 'e2ee_recovery_backups' : 'user_private_keys';
+      const record = parsed.version === 2
+        ? {
+            user_id: userId,
+            format_version: 2,
+            kdf: 'argon2id',
+            kdf_parameters: parsed.password_backup?.parameters || {},
+            encrypted_backup: encryptedPrivKeyStr,
+            updated_at: new Date().toISOString()
+          }
+        : { id: userId, encrypted_private_key: encryptedPrivKeyStr };
+      const { error } = await supabase.from(targetTable).upsert(record);
       if (error) throw error;
     } else {
       localStorage.setItem(`coingram-backup-privkey-${userId}`, encryptedPrivKeyStr);
@@ -235,24 +245,31 @@ export const authService = {
 
   getE2EEBackup: async (userId) => {
     if (isSupabaseConfigured) {
-      const { data, error } = await supabase
+      const { data: current, error: currentError } = await supabase
+        .from('e2ee_recovery_backups')
+        .select('encrypted_backup')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (currentError) throw currentError;
+      if (current?.encrypted_backup) return current.encrypted_backup;
+      const { data: legacy, error: legacyError } = await supabase
         .from('user_private_keys')
         .select('encrypted_private_key')
         .eq('id', userId)
         .maybeSingle();
-      if (error) throw error;
-      return data ? data.encrypted_private_key : null;
+      if (legacyError) throw legacyError;
+      return legacy?.encrypted_private_key || null;
     }
     return localStorage.getItem(`coingram-backup-privkey-${userId}`);
   },
 
   deleteE2EEBackup: async (userId) => {
     if (isSupabaseConfigured) {
-      const { error } = await supabase
-        .from('user_private_keys')
-        .delete()
-        .eq('id', userId);
-      if (error) throw error;
+      const [current, legacy] = await Promise.all([
+        supabase.from('e2ee_recovery_backups').delete().eq('user_id', userId),
+        supabase.from('user_private_keys').delete().eq('id', userId)
+      ]);
+      if (current.error || legacy.error) throw current.error || legacy.error;
     } else {
       localStorage.removeItem(`coingram-backup-privkey-${userId}`);
     }

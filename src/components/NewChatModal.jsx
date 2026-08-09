@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useChat } from '../context/ChatContext';
 import { dataService } from '../services/dataLayer';
-import { X, Search, UserPlus, Users, MessageSquare } from 'lucide-react';
+import { X, Search, Users, MessageSquare } from 'lucide-react';
 
 export default function NewChatModal() {
   const {

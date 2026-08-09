@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { useE2EE } from '../context/E2EEContext';
 import { LockKeyhole, ShieldAlert, Eye, EyeOff, Copy, Check, AlertTriangle, KeyRound, Info, Lock } from 'lucide-react';

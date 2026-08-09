@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { isSupabaseConfigured } from '../../supabaseClient';
 import { SETTINGS_THEMES as themes, SETTINGS_WALLPAPERS as wallpapers } from './themesData';
+import { clearLocalAppData } from '../../utils/localDataCleanup';
 
 export default function AppearanceTab({
   theme,
@@ -254,11 +255,15 @@ export default function AppearanceTab({
             <button
               type="button"
               className="logout-btn"
-              onClick={() => {
+              onClick={async () => {
                 if (window.confirm("Вы уверены, что хотите сбросить кэш и данные приложения? Это действие необратимо.")) {
-                  localStorage.clear();
-                  sessionStorage.clear();
-                  window.location.reload();
+                  try {
+                    await clearLocalAppData();
+                    window.location.reload();
+                  } catch (error) {
+                    console.error('Failed to clear local application data:', error);
+                    alert('Не удалось полностью очистить локальные данные. Закройте другие окна Coiny и повторите попытку.');
+                  }
                 }
               }}
               style={{ borderColor: '#ff4d4f', color: '#ff4d4f', background: 'none' }}

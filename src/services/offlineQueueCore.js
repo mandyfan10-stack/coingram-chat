@@ -1,19 +1,3 @@
-export const OFFLINE_QUEUE_STORAGE_KEY = 'tg-offline-queue';
-
-/** @returns {Array<object>} */
-export function loadOfflineQueue() {
-  try {
-    return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_STORAGE_KEY) || '[]');
-  } catch {
-    return [];
-  }
-}
-
-/** @param {Array<object>} queue */
-export function saveOfflineQueue(queue) {
-  localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, JSON.stringify(queue));
-}
-
 /** @param {unknown} err */
 export function isNetworkError(err) {
   const message = err?.message || '';

@@ -1,3 +1,8 @@
+-- HISTORICAL SNAPSHOT ONLY. The executable baseline is
+-- supabase/migrations/20260704000000_initial_schema.sql; all later changes
+-- live in timestamped migrations. Replace this file only from a verified,
+-- linked production `supabase db dump` before adopting declarative schemas.
+
 -- Скрипт создания структуры базы данных для Telegram Clone в Supabase
 -- Скопируйте этот код и запустите его в разделе SQL Editor панели управления Supabase.
 

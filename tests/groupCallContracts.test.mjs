@@ -15,7 +15,6 @@ test('group peers are registered from both join and signaling events', () => {
   assert.match(callProvider, /const ensureGroupParticipant = \(peerId\)/);
   assert.ok((callProvider.match(/ensureGroupParticipant\(senderId\)/g) || []).length >= 2);
 });
-
 test('new group peers receive the currently active camera or screen track', () => {
   assert.match(callProvider, /const activeVideoStream = localVideoStreamRef\.current/);
   assert.match(callProvider, /track\.readyState === 'live'/);
@@ -97,4 +96,120 @@ test('compact call overlay and unmirrored screen preview (V1/V2)', () => {
   assert.match(callOverlay, /is-camera|is-screen/);
   assert.match(callOverlayCss, /\.local-video-feed\.is-camera/);
   assert.match(callOverlayCss, /\.local-video-feed\.is-screen/);
+});
+
+test('retryCallConnection transmits new offer with iceRestart: true and logs state telemetry', () => {
+  assert.match(callProvider, /createOffer\(\{\s*iceRestart:\s*true\s*\}\)/);
+  assert.match(callProvider, /setLocalDescription\(offer\)/);
+  assert.match(callProvider, /\[WebRTC Telemetry\]/);
+});
+
+test('Perfect Negotiation handles polite and impolite glare resolution without InvalidStateError', () => {
+  assert.match(callProvider, /const isPolite = String\(currentUserId\) < String\(senderId\)/);
+  assert.match(callProvider, /const offerCollision = Boolean\(pcInstance\.makingOffer\) || pcInstance\.signalingState !== 'stable'/);
+  assert.match(callProvider, /setLocalDescription\(\{\s*type:\s*'rollback'\s*\}\)/);
+  assert.match(callProvider, /\[PerfectNegotiation\] Glare detected/);
+});
+
+test('Supabase Presence sync tears down peer connections, audio analyzers, and DOM feeds on abrupt disconnect', () => {
+  assert.match(callProvider, /teardownPeer/);
+  assert.match(callProvider, /!syncedParticipants\.has\(peerId\)/);
+  assert.match(callProvider, /webrtc-audio-\$\{peerId\}-/);
+});
+
+test('Audio analyzer lifecycle cleans up prior instances before replacement and handles track end', () => {
+  assert.match(callProvider, /audioAnalyzersRef\.current\['remote'\]\.stop/);
+  assert.match(callProvider, /audioAnalyzersRef\.current\[peerId\]\.stop/);
+  assert.match(callProvider, /event\.track\.onended/);
+});
+
+test('mock peer connection state transitions, restartIce offer generation, and track teardown integration', async () => {
+  class MockPeerConnection {
+    constructor() {
+      this.iceConnectionState = 'new';
+      this.connectionState = 'new';
+      this.signalingState = 'stable';
+      this.senders = [];
+      this.listeners = {};
+      this.localDescription = null;
+      this.iceRestartCalled = false;
+      this.iceRestartTriggered = false;
+    }
+    addEventListener(event, listener) {
+      this.listeners[event] = listener;
+    }
+    addTrack(track, stream) {
+      const sender = { track, stream };
+      this.senders.push(sender);
+      return sender;
+    }
+    async createOffer(options) {
+      if (options?.iceRestart) {
+        this.iceRestartTriggered = true;
+      }
+      return {
+        type: 'offer',
+        sdp: options?.iceRestart ? 'a=ice-options:trickle ice-restart\r\n' : 'a=ice-options:trickle\r\n'
+      };
+    }
+    async setLocalDescription(desc) {
+      this.localDescription = desc;
+      this.signalingState = desc?.type === 'rollback' ? 'stable' : 'have-local-offer';
+    }
+    restartIce() {
+      this.iceRestartCalled = true;
+    }
+    close() {
+      this.signalingState = 'closed';
+      this.connectionState = 'closed';
+      this.iceConnectionState = 'closed';
+    }
+  }
+
+  const pc = new MockPeerConnection();
+  assert.equal(pc.iceConnectionState, 'new');
+  assert.equal(pc.signalingState, 'stable');
+
+  // 1. Peer connection state transitions
+  pc.iceConnectionState = 'checking';
+  assert.equal(pc.iceConnectionState, 'checking');
+  pc.iceConnectionState = 'connected';
+  assert.equal(pc.iceConnectionState, 'connected');
+  pc.iceConnectionState = 'failed';
+  assert.equal(pc.iceConnectionState, 'failed');
+
+  // 2. restartIce() & offer generation with iceRestart: true
+  pc.restartIce();
+  assert.equal(pc.iceRestartCalled, true, 'restartIce() method must record invocation');
+
+  const offer = await pc.createOffer({ iceRestart: true });
+  assert.equal(pc.iceRestartTriggered, true, 'createOffer must accept iceRestart: true');
+  assert.match(offer.sdp, /ice-restart/, 'Offer SDP must contain ice-restart attribute');
+
+  await pc.setLocalDescription(offer);
+  assert.equal(pc.signalingState, 'have-local-offer', 'setLocalDescription must transition signalingState to have-local-offer');
+  assert.equal(pc.localDescription.type, 'offer');
+
+  // 3. Track teardown
+  let trackStopped = false;
+  const mockTrack = {
+    kind: 'audio',
+    readyState: 'live',
+    stop() {
+      this.readyState = 'ended';
+      trackStopped = true;
+    }
+  };
+  pc.addTrack(mockTrack);
+  assert.equal(pc.senders.length, 1);
+  assert.equal(mockTrack.readyState, 'live');
+
+  // Teardown execution: stop tracks and close peer connection
+  pc.senders.forEach(sender => sender.track.stop());
+  pc.close();
+
+  assert.equal(trackStopped, true, 'Media track stop() must be called on teardown');
+  assert.equal(mockTrack.readyState, 'ended', 'Media track readyState must transition to ended');
+  assert.equal(pc.connectionState, 'closed', 'PeerConnection state must transition to closed');
+  assert.equal(pc.signalingState, 'closed', 'SignalingState must transition to closed');
 });

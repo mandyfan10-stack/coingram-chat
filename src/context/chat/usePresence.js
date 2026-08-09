@@ -55,19 +55,8 @@ export function usePresence(currentUser) {
     updateLastSeen();
     const interval = setInterval(updateLastSeen, 60000);
 
-    const handleUnload = () => {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      if (!supabaseUrl || !supabaseAnonKey) return;
-      const url = `${supabaseUrl}/rest/v1/profiles?id=eq.${currentUser.id}`;
-      navigator.sendBeacon(url, JSON.stringify({ last_seen: new Date().toISOString() }));
-    };
-
-    window.addEventListener('beforeunload', handleUnload);
-
     return () => {
       clearInterval(interval);
-      window.removeEventListener('beforeunload', handleUnload);
       updateLastSeen();
     };
   }, [currentUser]);

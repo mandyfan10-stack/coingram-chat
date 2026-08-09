@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { dataService } from '../../services/dataLayer';
+import { secureCallChannel } from './secureCallChannel';
 
 const BUSY_CALL_STATUSES = new Set(['calling', 'incoming', 'connected']);
 
@@ -14,7 +15,9 @@ export function useCallSignaling({
   signalingChatIds,
   setCallState,
   currentUserRef,
-  onRemoteEnd
+  onRemoteEnd,
+  encryptEvent,
+  decryptEvent
 }) {
   const globalSignalingChannelRef = useRef(null);
   const pendingSignalingMessagesRef = useRef(new Map());
@@ -31,7 +34,10 @@ export function useCallSignaling({
     if (!dataService.isLive() || !currentUser) return;
 
     const channels = chats.map((chat) => {
-      const signalingChannel = supabase.channel(`call:chat:${chat.id}`, { config: { private: true } });
+      const signalingChannel = secureCallChannel(
+        supabase.channel(`call:chat:${chat.id}`, { config: { private: true } }),
+        { chatId: chat.id, cryptoVersion: chat.cryptoVersion, encryptEvent, decryptEvent }
+      );
       signalingChannel
         .on('broadcast', { event: 'incoming-call' }, (payload) => {
           const { callerId, callerName, callerAvatar, callerAvatarColor, chatId } = payload.payload;
@@ -90,7 +96,7 @@ export function useCallSignaling({
       channels.forEach((channel) => channel.unsubscribe());
       if (globalSignalingChannelRef.current === channels) globalSignalingChannelRef.current = [];
     };
-  }, [currentUser?.id, signalingChatIds, currentUser, chats, setCallState, currentUserRef]);
+  }, [currentUser?.id, signalingChatIds, currentUser, chats, setCallState, currentUserRef, encryptEvent, decryptEvent]);
 
   const sendSignalingMessage = useCallback((chatId, event, payload) => {
     if (!dataService.isLive() || !chatId) return;

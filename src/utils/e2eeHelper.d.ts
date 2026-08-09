@@ -4,7 +4,7 @@ export function generateE2EEKeyPair(): Promise<CryptoKeyPair>;
 export function exportPublicKey(key: CryptoKey): Promise<string>;
 export function importPublicKey(jwkString: string): Promise<CryptoKey>;
 export function exportPrivateKey(key: CryptoKey): Promise<string>;
-export function importPrivateKey(jwkString: string): Promise<CryptoKey>;
+export function importPrivateKey(jwkString: string, extractable?: boolean): Promise<CryptoKey>;
 export function generateRecoveryCode(): string;
 export function backupPrivateKey(
   privateKey: CryptoKey,

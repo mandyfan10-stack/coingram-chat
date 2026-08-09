@@ -76,13 +76,15 @@ export const ChatProvider = ({ children }) => {
     sharedKeysCacheRef,
     setSharedKeysCache
   });
+  const { markMessagesAsRead } = actions;
 
   useChatRealtime({
     currentUser,
+    realtimeChatIds: chats.map((chat) => chat.id).sort().join(','),
     setChats,
     fetchChats: loader.fetchChats,
     fetchStories: stories.fetchStories,
-    markMessagesAsRead: actions.markMessagesAsRead,
+    markMessagesAsRead,
     setSharedKeysCache,
     e2eePrivateKeyRef,
     sharedKeysCacheRef,
@@ -104,9 +106,9 @@ export const ChatProvider = ({ children }) => {
   const activeChatMessagesLength = activeChat?.messages?.length || 0;
   useEffect(() => {
     if (activeChatId) {
-      actions.markMessagesAsRead(activeChatId);
+      markMessagesAsRead(activeChatId);
     }
-  }, [activeChatId, activeChatMessagesLength, actions.markMessagesAsRead]);
+  }, [activeChatId, activeChatMessagesLength, markMessagesAsRead]);
 
   const renderAvatar = useCallback((avatar, fallback = '👤') => renderAvatarView(avatar, fallback), []);
 
@@ -161,7 +163,7 @@ export const ChatProvider = ({ children }) => {
       updateChatSettings: actions.updateChatSettings,
       typingStatuses: typing.typingStatuses,
       sendTypingStatus: typing.sendTypingStatus,
-      markMessagesAsRead: actions.markMessagesAsRead,
+      markMessagesAsRead,
       deleteChat: actions.deleteChat,
       clearChatMessages: actions.clearChatMessages,
       installedStickers: stickers.installedStickers,

@@ -1,19 +1,29 @@
 import {
-  OFFLINE_QUEUE_STORAGE_KEY,
-  loadOfflineQueue,
-  saveOfflineQueue,
   isNetworkError,
   createOfflineQueueItem
 } from './offlineQueueCore.js';
+import {
+  loadEncryptedOfflineQueue,
+  saveEncryptedOfflineQueue
+} from '../utils/indexedDbHelper.js';
 import { requiresPersonalE2EE } from '../utils/savedMessages.ts';
+import { extensionForMedia as defaultExtensionForMedia } from '../utils/mediaValidation.ts';
 
 export {
-  OFFLINE_QUEUE_STORAGE_KEY,
-  loadOfflineQueue,
-  saveOfflineQueue,
   isNetworkError,
   createOfflineQueueItem
 };
+
+export const loadOfflineQueue = loadEncryptedOfflineQueue;
+export const saveOfflineQueue = saveEncryptedOfflineQueue;
+
+function isAlreadyUploaded(error) {
+  return Number(error?.statusCode ?? error?.status) === 409;
+}
+
+function isDuplicateMessageId(error) {
+  return error?.code === '23505';
+}
 
 /**
  * Upload offline media (if any), optionally E2EE-encrypt, and send the message.
@@ -69,15 +79,13 @@ export async function processOfflineQueueItem(item, deps) {
 
   if (item.hasOfflineMedia) {
     const getAttachment = deps.getAttachment
-      ?? (await import('../utils/indexedDbHelper.js')).getOfflineAttachment;
+      ?? ((id) => import('../utils/indexedDbHelper.js')
+        .then(({ getOfflineAttachment }) => getOfflineAttachment(id, currentUser.id)));
 
     const blob = await getAttachment(item.optimisticId);
     if (!blob) throw new Error('Файл вложения не найден в локальном хранилище.');
 
-    const deleteAttachment = deps.deleteAttachment
-      ?? (await import('../utils/indexedDbHelper.js')).deleteOfflineAttachment;
-    const extensionForMedia = deps.extensionForMedia
-      ?? (await import('../utils/mediaValidation.ts')).extensionForMedia;
+    const extensionForMedia = deps.extensionForMedia ?? defaultExtensionForMedia;
     const storage = deps.storage
       ?? (await import('../supabaseClient.js')).supabase.storage;
 
@@ -94,10 +102,11 @@ export async function processOfflineQueueItem(item, deps) {
         contentType: requiresE2EE ? 'application/octet-stream' : blob.type
       });
 
-    if (uploadError) throw uploadError;
-    const { data: { publicUrl } } = storage.from('chat-attachments').getPublicUrl(filePath);
-    finalMediaUrl = publicUrl;
-    await deleteAttachment(item.optimisticId);
+    // The object path is deterministic. A 409 means an earlier attempt uploaded
+    // this same queue item's object before its response/message insert failed.
+    if (uploadError && !isAlreadyUploaded(uploadError)) throw uploadError;
+    const { createStorageReference } = await import('../utils/urlSecurity.js');
+    finalMediaUrl = createStorageReference('chat-attachments', filePath);
   }
 
   let textToSend = item.text;
@@ -120,14 +129,47 @@ export async function processOfflineQueueItem(item, deps) {
       (await import('./dataLayer.js')).dataService
     );
 
-  const data = await sendMessage(
-    item.chatId,
-    item.senderId,
-    textToSend,
-    item.replyToId,
-    mediaToSend,
-    item.optimisticId
-  );
+  let data;
+  try {
+    data = await sendMessage(
+      item.chatId,
+      item.senderId,
+      textToSend,
+      item.replyToId,
+      mediaToSend,
+      item.optimisticId
+    );
+  } catch (error) {
+    if (!isDuplicateMessageId(error)) throw error;
+    const findMessageById = deps.findMessageById ?? (async (messageId) => {
+      const client = (await import('../supabaseClient.js')).supabase;
+      const { data: existing, error: lookupError } = await client
+        .from('messages')
+        .select('*')
+        .eq('id', messageId)
+        .maybeSingle();
+      if (lookupError) throw lookupError;
+      return existing;
+    });
+    const existing = await findMessageById(item.optimisticId);
+    if (!existing || existing.id !== item.optimisticId
+      || existing.chat_id !== item.chatId || existing.sender_id !== item.senderId) {
+      throw error;
+    }
+    data = existing;
+  }
+
+  if (data && item.hasOfflineMedia) {
+    const deleteAttachment = deps.deleteAttachment
+      ?? (await import('../utils/indexedDbHelper.js')).deleteOfflineAttachment;
+    try {
+      await deleteAttachment(item.optimisticId);
+    } catch (error) {
+      // Delivery already succeeded. Local cleanup must not turn it into a
+      // failed message and trigger another send attempt.
+      console.error('Failed to delete delivered offline attachment:', error);
+    }
+  }
 
   return { data, finalMediaUrl };
 }

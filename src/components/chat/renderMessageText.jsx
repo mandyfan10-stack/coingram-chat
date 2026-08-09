@@ -1,4 +1,5 @@
 import React from 'react';
+import { normalizeExternalHttpsUrl } from '../../utils/urlSecurity';
 
 function renderMessageTextWithLinks(text) {
   if (!text) return null;
@@ -17,11 +18,14 @@ function renderMessageTextWithLinks(text) {
         href = part.substring(0, part.length - trailing.length);
         display = href;
       }
+
+      const safeHref = normalizeExternalHttpsUrl(href);
+      if (!safeHref) return part;
       
       return (
         <React.Fragment key={i}>
           <a
-            href={href}
+            href={safeHref}
             target="_blank"
             rel="noopener noreferrer"
             onClick={(e) => e.stopPropagation()}

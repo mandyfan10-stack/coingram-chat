@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
+import { getStorageObjectPath } from '../utils/urlSecurity';
 
 export const mediaService = {
   fetchStories: async () => {
@@ -8,7 +9,10 @@ export const mediaService = {
         .select('*, profiles(display_name, username, avatar, avatar_color)')
         .order('created_at', { ascending: true });
       if (error) throw error;
-      return data;
+      return (data || []).map((story) => ({
+        ...story,
+        media: story.media_path ? `storage://stories/${story.media_path}` : story.media
+      }));
     }
 
     let savedStories = [];
@@ -50,6 +54,7 @@ export const mediaService = {
         .insert({
           user_id: userId,
           media,
+          media_path: getStorageObjectPath(media, 'stories'),
           caption
         })
         .select()

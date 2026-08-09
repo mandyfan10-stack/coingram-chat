@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
 import { dataService } from '../services/dataLayer';
-import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, Bot, MessageSquarePlus, Eye, Plus, Lock, WifiOff } from 'lucide-react';
-import { isSavedMessagesChat, savedMessagesDisplayName } from '../utils/savedMessages';
+import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, MessageSquarePlus, Eye, Plus, Lock, WifiOff } from 'lucide-react';
+import { isSavedMessagesChat } from '../utils/savedMessages';
 
 export default function Sidebar() {
   const {
@@ -14,7 +14,6 @@ export default function Sidebar() {
     setSearchQuery,
     activeFolder,
     setActiveFolder,
-    setIsSettingsOpen,
     stories,
     viewStory,
     currentUser,

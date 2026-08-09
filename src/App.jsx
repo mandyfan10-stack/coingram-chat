@@ -13,6 +13,7 @@ import CreateStoryModal from './components/CreateStoryModal';
 import MainMenuDrawer from './components/MainMenuDrawer';
 import E2EESetupModal from './components/E2EESetupModal';
 import { isMisconfigured } from './supabaseClient';
+import { normalizeExternalHttpsUrl } from './utils/urlSecurity';
 import { X } from 'lucide-react';
 // Shared by SettingsModal, NewChatModal, CreateStoryModal — must load with shell
 // so closed overlays never participate in app flex layout.
@@ -86,7 +87,7 @@ function UpdateModal({ show, releaseInfo, onClose }) {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
             <a
-              href={releaseInfo.downloadUrl}
+              href={normalizeExternalHttpsUrl(releaseInfo.downloadUrl) || undefined}
               target="_blank"
               rel="noreferrer"
               className="add-member-btn"

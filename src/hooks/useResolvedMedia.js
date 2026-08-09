@@ -1,25 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useChat } from '../context/ChatContext';
 import { useE2EE } from '../context/E2EEContext';
 import { supabase } from '../supabaseClient';
 import { decryptFile } from '../utils/e2eeHelper';
-import { getAttachmentMimeType, getPrivateAttachmentPath } from '../utils/storageMedia';
+import { getAttachmentMimeType, getPrivateMediaReference } from '../utils/storageMedia';
+import { createManagedObjectUrl, revokeManagedObjectUrl } from '../utils/objectUrlRegistry';
 
 export default function useResolvedMedia(mediaUrl, chatId, fallbackMimeType, reloadKey = 0) {
   const [media, setMedia] = useState({ source: null, url: null, loading: false, error: null });
+  const objectUrlKey = useRef(`resolved-media:${crypto.randomUUID()}`);
   const { sharedKeysCache } = useE2EE();
   const { chats } = useChat();
   const chatType = chats.find(chat => chat.id === chatId)?.type;
   const sharedKey = chatType === 'personal' ? sharedKeysCache[chatId] : null;
 
   useEffect(() => {
+    const currentObjectUrlKey = objectUrlKey.current;
     if (!mediaUrl) {
       setMedia({ source: mediaUrl, url: null, loading: false, error: null });
       return;
     }
 
-    const filePath = getPrivateAttachmentPath(mediaUrl);
-    if (!filePath || mediaUrl.startsWith('data:') || mediaUrl.startsWith('blob:')) {
+    const storageReference = getPrivateMediaReference(mediaUrl);
+    if (!storageReference || mediaUrl.startsWith('data:') || mediaUrl.startsWith('blob:')) {
       setMedia({ source: mediaUrl, url: mediaUrl, loading: false, error: null });
       return;
     }
@@ -31,12 +34,12 @@ export default function useResolvedMedia(mediaUrl, chatId, fallbackMimeType, rel
     const load = async () => {
       try {
         const { data: downloadedBlob, error } = await supabase.storage
-          .from('chat-attachments')
-          .download(filePath);
+          .from(storageReference.bucket)
+          .download(storageReference.path);
         if (error) throw error;
 
         let finalBlob = downloadedBlob;
-        if (downloadedBlob.type.split(';')[0] === 'application/octet-stream') {
+        if (storageReference.bucket === 'chat-attachments' && downloadedBlob.type.split(';')[0] === 'application/octet-stream') {
           if (!sharedKey) throw new Error('Encryption key is unavailable for this attachment.');
           finalBlob = await decryptFile(
             downloadedBlob,
@@ -45,11 +48,11 @@ export default function useResolvedMedia(mediaUrl, chatId, fallbackMimeType, rel
           );
         }
 
-        objectUrl = URL.createObjectURL(finalBlob);
+        objectUrl = createManagedObjectUrl(currentObjectUrlKey, finalBlob);
         if (active) {
           setMedia({ source: mediaUrl, url: objectUrl, loading: false, error: null });
         } else {
-          URL.revokeObjectURL(objectUrl);
+          revokeManagedObjectUrl(currentObjectUrlKey);
           objectUrl = null;
         }
       } catch (error) {
@@ -61,7 +64,7 @@ export default function useResolvedMedia(mediaUrl, chatId, fallbackMimeType, rel
     load();
     return () => {
       active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      if (objectUrl) revokeManagedObjectUrl(currentObjectUrlKey);
     };
   }, [mediaUrl, chatId, sharedKey, fallbackMimeType, reloadKey]);
 

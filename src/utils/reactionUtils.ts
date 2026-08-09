@@ -44,8 +44,11 @@ export const isAllowedReactionEmoji = (emoji: unknown): emoji is string => {
   if (typeof emoji !== 'string') return false;
   const t = emoji.trim();
   if (!t || t.length > 16) return false;
-  // Reject C0 controls
-  if (/[\u0000-\u001F\u007F]/.test(t)) return false;
+  // Reject C0 controls and DEL without embedding control ranges in a regex.
+  if ([...t].some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return codePoint <= 31 || codePoint === 127;
+  })) return false;
   return true;
 };
 

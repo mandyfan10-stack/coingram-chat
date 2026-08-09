@@ -1,50 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  OFFLINE_QUEUE_STORAGE_KEY,
-  loadOfflineQueue,
-  saveOfflineQueue,
   isNetworkError,
   createOfflineQueueItem
 } from '../src/services/offlineQueueCore.js';
 import { processOfflineQueueItem } from '../src/services/offlineQueue.js';
-
-function installLocalStorageMock() {
-  const store = new Map();
-  globalThis.localStorage = {
-    getItem: (key) => (store.has(key) ? store.get(key) : null),
-    setItem: (key, value) => { store.set(key, String(value)); },
-    removeItem: (key) => { store.delete(key); },
-    clear: () => { store.clear(); }
-  };
-  return store;
-}
-
-test('loadOfflineQueue returns [] for empty or corrupt storage', () => {
-  installLocalStorageMock();
-  assert.deepEqual(loadOfflineQueue(), []);
-  localStorage.setItem(OFFLINE_QUEUE_STORAGE_KEY, '{not-json');
-  assert.deepEqual(loadOfflineQueue(), []);
-});
-
-test('saveOfflineQueue round-trips queue entries', () => {
-  installLocalStorageMock();
-  const queue = [
-    createOfflineQueueItem({
-      chatId: 'chat-1',
-      senderId: 'user-1',
-      text: 'hello offline',
-      optimisticId: 'msg-1'
-    })
-  ];
-  saveOfflineQueue(queue);
-  const loaded = loadOfflineQueue();
-  assert.equal(loaded.length, 1);
-  assert.equal(loaded[0].chatId, 'chat-1');
-  assert.equal(loaded[0].text, 'hello offline');
-  assert.equal(loaded[0].isPending, true);
-  assert.equal(loaded[0].isFailed, false);
-});
 
 test('isNetworkError detects fetch/network failure messages', () => {
   assert.equal(isNetworkError(new Error('TypeError: failed to fetch')), true);
@@ -111,8 +71,7 @@ test('processOfflineQueueItem uploads offline media then deletes local attachmen
         upload: async (path, body, opts) => {
           uploaded.push({ path, body, opts });
           return { error: null };
-        },
-        getPublicUrl: (path) => ({ data: { publicUrl: `https://cdn.test/${path}` } })
+        }
       })
     },
     sendMessage: async (_c, _s, text, _r, media, customId) => ({
@@ -125,7 +84,7 @@ test('processOfflineQueueItem uploads offline media then deletes local attachmen
   assert.equal(uploaded.length, 1);
   assert.match(uploaded[0].path, /group-1\/user-1\/msg_opt-media/);
   assert.equal(deleted[0], 'opt-media');
-  assert.match(result.finalMediaUrl, /^https:\/\/cdn\.test\//);
+  assert.match(result.finalMediaUrl, /^storage:\/\/chat-attachments\//);
 });
 
 test('processOfflineQueueItem fails when offline media blob is missing', async () => {
@@ -149,4 +108,74 @@ test('processOfflineQueueItem fails when offline media blob is missing', async (
     }),
     /локальном хранилище/
   );
+});
+
+test('offline media survives a send failure and a 409 upload retry completes it', async () => {
+  const deleted = [];
+  let uploadAttempt = 0;
+  let sendAttempt = 0;
+  const item = createOfflineQueueItem({
+    chatId: 'group-1',
+    senderId: 'user-1',
+    text: 'retry media',
+    optimisticId: 'opt-retry-media',
+    hasOfflineMedia: true,
+    mediaType: 'image'
+  });
+  const deps = {
+    chat: { type: 'group', name: 'G', members: [] },
+    currentUser: { id: 'user-1' },
+    e2eePrivateKey: null,
+    sharedKey: null,
+    getAttachment: async () => new Blob(['image'], { type: 'image/webp' }),
+    deleteAttachment: async (id) => { deleted.push(id); },
+    extensionForMedia: () => 'webp',
+    storage: {
+      from: () => ({
+        upload: async () => {
+          uploadAttempt += 1;
+          return uploadAttempt === 1
+            ? { error: null }
+            : { error: { statusCode: '409', message: 'The resource already exists' } };
+        }
+      })
+    },
+    sendMessage: async () => {
+      sendAttempt += 1;
+      if (sendAttempt === 1) throw new Error('failed to fetch');
+      return { id: item.optimisticId };
+    }
+  };
+
+  await assert.rejects(() => processOfflineQueueItem(item, deps), /failed to fetch/);
+  assert.deepEqual(deleted, [], 'the only local copy must survive until the message insert succeeds');
+
+  const result = await processOfflineQueueItem(item, deps);
+  assert.equal(result.data.id, item.optimisticId);
+  assert.deepEqual(deleted, [item.optimisticId]);
+});
+
+test('lost insert response accepts only the matching existing optimistic message', async () => {
+  const item = createOfflineQueueItem({
+    chatId: 'group-1', senderId: 'user-1', text: 'once', optimisticId: 'stable-id'
+  });
+  const duplicate = Object.assign(new Error('duplicate key'), { code: '23505' });
+  const baseDeps = {
+    chat: { type: 'group', name: 'G', members: [] },
+    currentUser: { id: 'user-1' },
+    e2eePrivateKey: null,
+    sharedKey: null,
+    sendMessage: async () => { throw duplicate; }
+  };
+
+  const result = await processOfflineQueueItem(item, {
+    ...baseDeps,
+    findMessageById: async () => ({ id: 'stable-id', chat_id: 'group-1', sender_id: 'user-1' })
+  });
+  assert.equal(result.data.id, 'stable-id');
+
+  await assert.rejects(() => processOfflineQueueItem(item, {
+    ...baseDeps,
+    findMessageById: async () => ({ id: 'stable-id', chat_id: 'other-chat', sender_id: 'user-1' })
+  }), (error) => error === duplicate);
 });

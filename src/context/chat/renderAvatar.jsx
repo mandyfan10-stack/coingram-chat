@@ -6,7 +6,9 @@ import PrivateStorageImage from '../../components/PrivateStorageImage';
  * Render chat/list avatar (URL, emoji, or premium icon container).
  */
 export function renderAvatar(avatar, fallback = '👤') {
-  const isUrl = avatar && (avatar.startsWith('http') || avatar.startsWith('data:image'));
+  const isUrl = avatar && (
+    avatar.startsWith('http') || avatar.startsWith('data:image') || avatar.startsWith('storage://')
+  );
   if (isUrl) {
     return (
       <PrivateStorageImage

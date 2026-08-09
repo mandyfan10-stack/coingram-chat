@@ -7,6 +7,8 @@ on:
 
 permissions:
   contents: write
+  id-token: write
+  attestations: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -14,14 +16,21 @@ concurrency:
 
 env:
   NODE_VERSION: '24'
-  VITE_SUPABASE_URL: 'https://nluyrpickspjudxlokqv.supabase.co'
-  VITE_SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5sdXlycGlja3NwanVkeGxva3F2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMxMTg0MjYsImV4cCI6MjA5ODY5NDQyNn0.PXGzj3AjUftOYd42k8chvHNeVGDU_FqRVlKClXH6QL0'
+  VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+  VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
 
 jobs:
   validate:
     name: Validate and test
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      E2E_USER_A: ${{ secrets.E2E_USER_A }}
+      E2E_PASSWORD_A: ${{ secrets.E2E_PASSWORD_A }}
+      E2E_ENCRYPTION_PASSWORD_A: ${{ secrets.E2E_ENCRYPTION_PASSWORD_A }}
+      E2E_USER_B: ${{ secrets.E2E_USER_B }}
+      E2E_PASSWORD_B: ${{ secrets.E2E_PASSWORD_B }}
+      E2E_ENCRYPTION_PASSWORD_B: ${{ secrets.E2E_ENCRYPTION_PASSWORD_B }}
     steps:
       - name: Checkout release tag
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -36,7 +45,25 @@ jobs:
         run: npm ci
 
       - name: Verify tag and package versions
-        run: npm run release:verify -- "$GITHUB_REF_NAME"
+        run: |
+          npm run release:verify -- "$GITHUB_REF_NAME"
+          git verify-tag "$GITHUB_REF_NAME"
+
+      - name: Require live QA secrets
+        run: |
+          test -n "$VITE_SUPABASE_URL"
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
+          test -n "$E2E_USER_A"
+          test -n "$E2E_PASSWORD_A"
+          test -n "$E2E_ENCRYPTION_PASSWORD_A"
+          test -n "$E2E_USER_B"
+          test -n "$E2E_PASSWORD_B"
+          test -n "$E2E_ENCRYPTION_PASSWORD_B"
+
+      - name: Dependency audit
+        run: |
+          npm audit --audit-level=low
+          npm audit --omit=dev --audit-level=low
 
       - name: Lint
         run: npm run lint
@@ -49,6 +76,12 @@ jobs:
 
       - name: Build web client
         run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run mandatory live E2E
+        run: npm run test:e2e
 
       - name: Upload web build
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -184,6 +217,12 @@ jobs:
       - name: Build Windows installer
         run: npm run electron:build
 
+      - name: Verify packaged Electron fuses
+        run: npm run electron:verify-fuses
+
+      - name: Run Electron security tests
+        run: npm run test:desktop
+
       - name: Package installer and verify Authenticode
         shell: pwsh
         env:
@@ -205,7 +244,9 @@ jobs:
           New-Item -ItemType Directory -Path release -Force | Out-Null
           $target = "release\CoinGram-Setup-$version.exe"
           Copy-Item -LiteralPath $source -Destination $target -Force
-          Get-FileHash -Algorithm SHA256 -LiteralPath $target | Format-List
+          $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $target).Hash.ToLowerInvariant()
+          "$hash  $([IO.Path]::GetFileName($target))" | Set-Content -LiteralPath "$target.sha256" -Encoding ascii
+          Write-Host "SHA-256: $hash"
 
           $sig = Get-AuthenticodeSignature -LiteralPath $target
           Write-Host "Authenticode Status: $($sig.Status)"
@@ -224,14 +265,26 @@ jobs:
               Write-Host "Installer is signed."
             } else {
               Write-Host "Installer is unsigned — set WINDOWS_CERTIFICATE_BASE64 + WINDOWS_CERTIFICATE_PASSWORD (see docs/SIGNING.md)."
+              "UNSIGNED INSTALLER: Windows SmartScreen warnings are expected. Verify the adjacent SHA-256 and GitHub provenance attestation before running." |
+                Set-Content -LiteralPath "release\UNSIGNED-SMARTSCREEN-WARNING.txt" -Encoding utf8
             }
           }
+
+      - name: Attest Windows release artifacts
+        uses: actions/attest@a1948c3f048ba23858d222213b7c278aabede763 # v4.1.1
+        with:
+          subject-path: |
+            release/*.exe
+            release/*.sha256
 
       - name: Upload Windows installer
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: windows-release
-          path: release/*.exe
+          path: |
+            release/*.exe
+            release/*.sha256
+            release/*WARNING.txt
           if-no-files-found: error
           retention-days: 30
 

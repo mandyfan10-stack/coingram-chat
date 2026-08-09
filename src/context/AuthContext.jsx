@@ -1,25 +1,13 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../supabaseClient';
 import { dataService } from '../services/dataLayer';
-import { deletePrivateKey } from '../utils/indexedDbHelper';
+import { clearLocalAppData } from '../utils/localDataCleanup.js';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-
-  const clearE2EECache = useCallback(async (userId) => {
-    // Remove from local and session caches
-    const cacheKey = `coingram-e2ee-key-${userId}`;
-    localStorage.removeItem(cacheKey);
-    sessionStorage.removeItem(cacheKey);
-    try {
-      await deletePrivateKey(userId);
-    } catch (e) {
-      console.warn("Failed to delete E2EE key from IndexedDB during cache clear:", e);
-    }
-  }, []);
 
   // Listen to auth changes (Supabase vs Mock)
   useEffect(() => {
@@ -33,7 +21,9 @@ export const AuthProvider = ({ children }) => {
         if (!session) {
           setCurrentUser(previousUser => {
             if (previousUser?.id) {
-              void clearE2EECache(previousUser.id);
+              void clearLocalAppData().catch((error) => {
+                console.warn('Failed to clear local application data after session loss:', error);
+              });
             }
             return null;
           });
@@ -99,7 +89,7 @@ export const AuthProvider = ({ children }) => {
       }
       setAuthLoading(false);
     }
-  }, [clearE2EECache]);
+  }, []);
   const signUpWithUsername = async (username, password, displayName) => {
     return await dataService.signUp(username, password, displayName);
   };
@@ -134,11 +124,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logOut = async () => {
-    if (currentUser) {
-      await clearE2EECache(currentUser.id);
-    }
     await dataService.signOut();
-    setCurrentUser(null);
+    try {
+      await clearLocalAppData();
+    } finally {
+      setCurrentUser(null);
+    }
   };
 
   const updateProfile = async (fields) => {

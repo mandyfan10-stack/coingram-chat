@@ -13,7 +13,7 @@ export interface ChatMessage {
   id: MessageId;
   senderId: ProfileId;
   senderName?: string;
-  text: string;
+  text: string | null;
   media?: string | null;
   replyTo?: MessageId | null;
   read?: boolean;
@@ -24,6 +24,10 @@ export interface ChatMessage {
   isPending?: boolean;
   isFailed?: boolean;
   isLocked?: boolean;
+  cryptoVersion?: 1 | 2;
+  senderDeviceId?: string | null;
+  encryptedPayload?: string | null;
+  requiresUpdate?: boolean;
 }
 
 export interface OfflineQueueItem {
