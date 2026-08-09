@@ -84,8 +84,9 @@ export async function completeE2eeIfNeeded(page, encryptionPassword) {
 
 export async function loginAndUnlock(page, account) {
   await page.goto('/');
-  await page.locator('#username').waitFor({ state: 'visible', timeout: 30_000 });
-  await page.locator('#username').fill(account.username);
+  const loginIdentifier = page.locator('#loginIdentifier');
+  await loginIdentifier.waitFor({ state: 'visible', timeout: 30_000 });
+  await loginIdentifier.fill(account.username);
   await page.locator('#password').fill(account.password);
   await page.locator('button[type="submit"]').click();
   await completeE2eeIfNeeded(page, account.encryptionPassword);

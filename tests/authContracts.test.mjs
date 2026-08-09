@@ -9,6 +9,8 @@ const dataLayer = await readFile(new URL('../src/services/dataLayer.js', import.
 const settingsModal = await readFile(new URL('../src/components/SettingsModal.jsx', import.meta.url), 'utf8');
 const profileTab = await readFile(new URL('../src/components/settings/ProfileTab.jsx', import.meta.url), 'utf8');
 const appearanceTab = await readFile(new URL('../src/components/settings/AppearanceTab.jsx', import.meta.url), 'utf8');
+const authScreen = await readFile(new URL('../src/components/AuthScreen.jsx', import.meta.url), 'utf8');
+const e2eHelpers = await readFile(new URL('./e2e/helpers.mjs', import.meta.url), 'utf8');
 
 test('auth state callbacks do not await Supabase profile calls directly', () => {
   assert.doesNotMatch(authContext, /onAuthStateChange\s*\(\s*async/);
@@ -37,4 +39,10 @@ test('auth uses dual-path internal emails without hardcoding only tg-clone on si
   assert.doesNotMatch(authService, /\$\{username\}@tg-clone\.com/);
   assert.match(authService, /passwordHash/);
   assert.match(authService, /hashMockPassword/);
+});
+
+test('live E2E login targets the current identifier input contract', () => {
+  assert.match(authScreen, /id=\{isLogin \? 'loginIdentifier' : 'username'\}/);
+  assert.match(e2eHelpers, /page\.locator\('#loginIdentifier'\)/);
+  assert.doesNotMatch(e2eHelpers, /page\.locator\('#username'\)/);
 });

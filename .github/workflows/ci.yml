@@ -125,7 +125,27 @@ jobs:
         run: npm ci
 
       - name: Start local Supabase
-        run: npx supabase start
+        run: |
+          attempts=3
+          for attempt in $(seq 1 "$attempts"); do
+            set +e
+            npx supabase start 2>&1 | tee supabase-start.log
+            status=${PIPESTATUS[0]}
+            set -e
+
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq "$attempts" ] || ! grep -Eqi \
+              'toomanyrequests|rate exceeded|error pulling image|failed to (resolve|copy|fetch)|TLS handshake timeout|i/o timeout|unexpected EOF|connection reset by peer' \
+              supabase-start.log; then
+              exit "$status"
+            fi
+
+            echo "Transient container image pull failure; retrying Supabase start ($attempt/$attempts)."
+            sleep $((attempt * 15))
+          done
 
       - name: Reset schema and run pgTAP
         run: |
