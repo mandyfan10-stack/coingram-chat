@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useEffect, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { E2EEProvider } from './context/E2EEContext';
 import { ChatProvider, useChat } from './context/ChatContext';
@@ -23,10 +23,51 @@ const CURRENT_VERSION = import.meta.env.APP_VERSION;
 
 const SettingsModal = lazy(() => import('./components/SettingsModal'));
 const CallOverlay = lazy(() => import('./components/CallOverlay'));
+const SETTINGS_EXIT_DURATION_MS = 260;
 
 function DeferredSettingsModal() {
   const { isSettingsOpen } = useChat();
-  if (!isSettingsOpen) return null;
+  const [shouldRender, setShouldRender] = useState(isSettingsOpen);
+  const returnFocusRef = useRef(null);
+
+  useEffect(() => {
+    let unmountTimer;
+
+    if (isSettingsOpen) {
+      if (!shouldRender) {
+        const activeElement = document.activeElement;
+        returnFocusRef.current = activeElement instanceof HTMLElement ? activeElement : null;
+      }
+      setShouldRender(true);
+    } else if (shouldRender) {
+      const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      unmountTimer = window.setTimeout(() => {
+        setShouldRender(false);
+
+        const originalTarget = returnFocusRef.current;
+        const originalStyle = originalTarget?.isConnected
+          ? window.getComputedStyle(originalTarget)
+          : null;
+        const originalIsVisible = Boolean(
+          originalTarget?.isConnected
+          && originalStyle?.visibility !== 'hidden'
+          && originalStyle?.display !== 'none'
+          && originalTarget.getClientRects().length
+        );
+        const fallbackTarget = document.querySelector('.menu-btn[title="Настройки"]');
+        const focusTarget = originalIsVisible ? originalTarget : fallbackTarget;
+
+        window.requestAnimationFrame(() => {
+          focusTarget?.focus?.({ preventScroll: true });
+          returnFocusRef.current = null;
+        });
+      }, reduceMotion ? 0 : SETTINGS_EXIT_DURATION_MS);
+    }
+
+    return () => window.clearTimeout(unmountTimer);
+  }, [isSettingsOpen, shouldRender]);
+
+  if (!shouldRender) return null;
   return (
     <Suspense fallback={null}>
       <SettingsModal />

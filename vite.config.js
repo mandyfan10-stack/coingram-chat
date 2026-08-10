@@ -47,9 +47,14 @@ export default defineConfig(({ mode }) => {
   const remoteSources = [supabaseOrigin, supabaseSocketOrigin].filter(Boolean)
   const connectSources = ["'self'", ...remoteSources, 'https://api.github.com', ...developmentSources].join(' ')
   const mediaSources = ["'self'", 'data:', 'blob:', supabaseOrigin].filter(Boolean).join(' ')
+  // Vite injects the React Refresh preamble as an inline module in development.
+  // Keep production strict while allowing the dev-only preamble to execute.
+  const scriptSources = mode === 'development'
+    ? "script-src 'self' 'unsafe-inline'"
+    : "script-src 'self'"
   const metaCsp = [
     "default-src 'self'",
-    "script-src 'self'",
+    scriptSources,
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     `connect-src ${connectSources}`,
     `img-src ${mediaSources}`,

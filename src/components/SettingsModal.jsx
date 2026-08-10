@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useState, useEffect } from 'react';
+import React, { lazy, Suspense, useRef, useState, useEffect } from 'react';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
 import { useE2EE } from '../context/E2EEContext';
@@ -36,6 +36,84 @@ export default function SettingsModal() {
 
   const { currentUser, updateProfile, updateEmail, logOut } = useAuth();
   const { e2eePrivateKey, resetE2EE } = useE2EE();
+  const [isVisible, setIsVisible] = useState(false);
+  const dialogRef = useRef(null);
+  const closeButtonRef = useRef(null);
+
+  useEffect(() => {
+    let firstFrame;
+    let enterFrame;
+
+    if (isSettingsOpen) {
+      firstFrame = window.requestAnimationFrame(() => {
+        enterFrame = window.requestAnimationFrame(() => setIsVisible(true));
+      });
+    } else {
+      setIsVisible(false);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(enterFrame);
+    };
+  }, [isSettingsOpen]);
+
+  useEffect(() => {
+    if (!isSettingsOpen || !isVisible) return undefined;
+    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const focusDialog = () => {
+      closeButtonRef.current?.focus({ preventScroll: true });
+    };
+    const focusTimer = window.setTimeout(focusDialog, reduceMotion ? 32 : 260);
+
+    return () => {
+      window.clearTimeout(focusTimer);
+    };
+  }, [isSettingsOpen, isVisible]);
+
+  useEffect(() => {
+    if (!isSettingsOpen || !isVisible) return undefined;
+
+    const handleDialogKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setIsSettingsOpen(false);
+        return;
+      }
+
+      if (event.key !== 'Tab') return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+
+      const focusable = [...dialog.querySelectorAll(
+        'button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+      )].filter((element) => {
+        const style = window.getComputedStyle(element);
+        return style.visibility !== 'hidden' && style.display !== 'none';
+      });
+
+      if (!focusable.length) {
+        event.preventDefault();
+        dialog.focus({ preventScroll: true });
+        return;
+      }
+
+      const firstElement = focusable[0];
+      const lastElement = focusable[focusable.length - 1];
+      const activeElement = document.activeElement;
+
+      if (event.shiftKey && (activeElement === firstElement || !dialog.contains(activeElement))) {
+        event.preventDefault();
+        lastElement.focus();
+      } else if (!event.shiftKey && (activeElement === lastElement || !dialog.contains(activeElement))) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    };
+
+    window.addEventListener('keydown', handleDialogKeyDown);
+    return () => window.removeEventListener('keydown', handleDialogKeyDown);
+  }, [isSettingsOpen, isVisible, setIsSettingsOpen]);
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -231,11 +309,26 @@ export default function SettingsModal() {
   };
 
   return (
-    <div className={`settings-modal-overlay ${isSettingsOpen ? 'open' : ''}`}>
-      <div className="settings-container">
+    <div
+      className={`settings-modal-overlay ${isVisible ? 'open' : ''}`}
+      aria-hidden={!isVisible}
+    >
+      <div
+        ref={dialogRef}
+        className="settings-container"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-dialog-title"
+        tabIndex={-1}
+      >
         <div className="settings-header">
-          <h3>{TAB_TITLES[settingsTab] || 'Настройки'}</h3>
-          <button className="settings-close-btn" onClick={() => setIsSettingsOpen(false)}>
+          <h3 id="settings-dialog-title">{TAB_TITLES[settingsTab] || 'Настройки'}</h3>
+          <button
+            ref={closeButtonRef}
+            className="settings-close-btn"
+            onClick={() => setIsSettingsOpen(false)}
+            aria-label="Закрыть настройки"
+          >
             <X size={20} />
           </button>
         </div>
