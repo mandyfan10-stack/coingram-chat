@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useChat } from '../../context/ChatContext';
 import { useCalls } from '../../context/CallContext';
 import './CallOverlay.css';
@@ -14,7 +14,8 @@ import {
   Maximize2,
   RefreshCw,
   SlidersHorizontal,
-  X
+  X,
+  User
 } from 'lucide-react';
 import {
   playCallConnect,
@@ -196,6 +197,15 @@ export default function CallOverlay() {
     if (callState.isRemoteScreenSharing) setIsVideoContain(true);
   }, [callState.isRemoteScreenSharing]);
 
+  const sortedGroupParticipants = useMemo(() => {
+    if (!groupCallParticipants) return [];
+    return [...groupCallParticipants].sort((a, b) => {
+      if (a.speaking && !b.speaking) return -1;
+      if (!a.speaking && b.speaking) return 1;
+      return 0;
+    });
+  }, [groupCallParticipants]);
+
   if (callState.status === 'idle') return null;
 
   const activeChat = chats.find((c) => c.id === callState.chatId);
@@ -227,6 +237,19 @@ export default function CallOverlay() {
     statusText = mediaError ? 'Звонок завершен' : 'Звонок завершен';
   }
 
+  const groupParticipantCount = groupCallParticipants?.length || 0;
+  const participantCountLabel =
+    groupParticipantCount === 1
+      ? '1 участник'
+      : groupParticipantCount >= 2 && groupParticipantCount <= 4
+      ? `${groupParticipantCount} участника`
+      : `${groupParticipantCount} участников`;
+
+  const groupStatusSubtitle =
+    callState.status === 'connected' && callState.webrtcState === 'connected'
+      ? `${participantCountLabel} • ${formatTime(elapsed)}`
+      : `${participantCountLabel} • ${statusText}`;
+
   const showRemoteVideo = !isGroupCall && !!remoteVideoStream;
   const showLocalVideo = !isGroupCall && !!localVideoStream;
   const showBackgroundAvatar = !showRemoteVideo;
@@ -251,7 +274,7 @@ export default function CallOverlay() {
         aria-label={`Активный звонок: ${displayName}, ${statusText}`}
       >
         <div className="call-bubble-avatar" style={{ background: avatarColor }}>
-          {renderAvatar(avatarContent, '👤')}
+          {renderAvatar(avatarContent, <User size={24} color="#ffffff" />)}
         </div>
         {callState.status === 'connected' && callState.webrtcState === 'connected' && (
           <div className="call-bubble-pulse" />
@@ -386,10 +409,10 @@ export default function CallOverlay() {
               {displayName}
             </h2>
             <p className="call-status-subtitle" style={{ marginBottom: '14px' }}>
-              {statusText}
+              {groupStatusSubtitle}
             </p>
             <div className="group-call-stage-list">
-              {(groupCallParticipants || []).map((p) => (
+              {sortedGroupParticipants.map((p) => (
                 <div key={p.id} className={`group-call-member-row ${p.speaking ? 'speaking' : ''}`}>
                   <div
                     className={`group-call-avatar-wrapper ${p.speaking ? 'speaking' : ''}`}
@@ -397,7 +420,7 @@ export default function CallOverlay() {
                       background: p.avatarColor || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)'
                     }}
                   >
-                    {renderAvatar(p.avatar, '👤')}
+                    {renderAvatar(p.avatar, <User size={16} color="#ffffff" />)}
                   </div>
                   <div className="group-call-member-info">
                     <span className="group-call-member-name">{p.name}</span>
@@ -459,7 +482,7 @@ export default function CallOverlay() {
                   </>
                 )}
               <div className="call-avatar-circle" style={{ background: avatarColor }}>
-                {renderAvatar(avatarContent, '👤')}
+                {renderAvatar(avatarContent, <User size={48} color="#ffffff" />)}
               </div>
             </div>
 
