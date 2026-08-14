@@ -209,12 +209,15 @@ export const CallProvider = ({ children }) => {
       console.log("Initializing WebRTC call...");
 
       try {
-        await refreshIceConfiguration({ allowDirectConnection: false });
+        await refreshIceConfiguration({ allowDirectConnection: true });
         localStream = await navigator.mediaDevices.getUserMedia({ audio: CALL_AUDIO_CONSTRAINTS });
         if (cancelled || callStateRef.current.status !== 'connected') {
           localStream.getTracks().forEach((track) => track.stop());
           return;
         }
+        localStream.getAudioTracks().forEach((track) => {
+          track.enabled = true;
+        });
         localStreamRef.current = localStream;
         console.log("Local audio stream captured successfully.");
 
@@ -277,11 +280,12 @@ export const CallProvider = ({ children }) => {
       pc.ontrack = (event) => {
         console.log("Remote WebRTC track received:", event.track.kind);
         setCallState(prev => ({ ...prev, webrtcState: 'connected' }));
-        const remoteStream = event.streams[0] || new MediaStream([event.track]);
+        event.track.enabled = true;
         
         if (event.track.kind === 'audio') {
-          const elementId = `webrtc-audio-${remoteStream.id}`;
-          attachRemoteAudioElement(elementId, remoteStream);
+          const audioStream = new MediaStream([event.track]);
+          const elementId = `webrtc-audio-${event.track.id}`;
+          attachRemoteAudioElement(elementId, audioStream);
 
           if (audioAnalyzersRef.current['remote']) {
             try {
@@ -291,7 +295,7 @@ export const CallProvider = ({ children }) => {
             }
             delete audioAnalyzersRef.current['remote'];
           }
-          const remoteAnalyzer = startAudioAnalyzer(remoteStream, (isSpeaking) => {
+          const remoteAnalyzer = startAudioAnalyzer(audioStream, (isSpeaking) => {
             setCallState(prev => {
               if (prev.isRemoteSpeaking !== isSpeaking) {
                 return { ...prev, isRemoteSpeaking: isSpeaking };
@@ -317,13 +321,15 @@ export const CallProvider = ({ children }) => {
             }
           };
         } else if (event.track.kind === 'video') {
-          setRemoteVideoStream(remoteStream);
+          const videoStream = event.streams[0] || new MediaStream([event.track]);
+          setRemoteVideoStream(videoStream);
           const isScreen = isScreenTrack(event.track);
           setCallState(prev => ({ ...prev, isRemoteScreenSharing: isScreen }));
         }
       };
 
       localStream.getTracks().forEach(track => {
+        track.enabled = true;
         pc.addTrack(track, localStream);
       });
 
@@ -442,11 +448,12 @@ export const CallProvider = ({ children }) => {
 
             pcInstance.ontrack = (event) => {
               setCallState(prev => ({ ...prev, webrtcState: 'connected' }));
-              const remoteStream = event.streams[0] || new MediaStream([event.track]);
+              event.track.enabled = true;
               
               if (event.track.kind === 'audio') {
-                const elementId = `webrtc-audio-${peerId}-${remoteStream.id}`;
-                attachRemoteAudioElement(elementId, remoteStream);
+                const audioStream = new MediaStream([event.track]);
+                const elementId = `webrtc-audio-${peerId}-${event.track.id}`;
+                attachRemoteAudioElement(elementId, audioStream);
 
                 if (audioAnalyzersRef.current[peerId]) {
                   try {
@@ -456,7 +463,7 @@ export const CallProvider = ({ children }) => {
                   }
                   delete audioAnalyzersRef.current[peerId];
                 }
-                const analyzer = startAudioAnalyzer(remoteStream, (isSpeaking) => {
+                const analyzer = startAudioAnalyzer(audioStream, (isSpeaking) => {
                   setGroupCallParticipants(prev => prev.map(p => {
                     if (p.id === peerId) {
                       return { ...p, speaking: isSpeaking };

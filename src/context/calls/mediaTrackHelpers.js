@@ -15,13 +15,29 @@ export function attachRemoteAudioElement(elementId, remoteStream) {
     audioEl.id = elementId;
     audioEl.autoplay = true;
     audioEl.playsInline = true;
+    audioEl.volume = 1.0;
+    audioEl.muted = false;
     audioEl.className = 'webrtc-remote-audio-feed';
     document.body.appendChild(audioEl);
   }
+  audioEl.muted = false;
+  audioEl.volume = 1.0;
   audioEl.srcObject = remoteStream;
-  audioEl.play().catch((e) => {
-    console.warn('Audio element autoplay failed:', e);
-  });
+  const playPromise = audioEl.play();
+  if (playPromise !== undefined) {
+    playPromise.catch((e) => {
+      console.warn('Audio element autoplay failed, attaching user interaction unlocker:', e);
+      const unlockAudio = () => {
+        audioEl.play().catch(() => {});
+        window.removeEventListener('click', unlockAudio);
+        window.removeEventListener('touchstart', unlockAudio);
+        window.removeEventListener('keydown', unlockAudio);
+      };
+      window.addEventListener('click', unlockAudio, { once: true });
+      window.addEventListener('touchstart', unlockAudio, { once: true });
+      window.addEventListener('keydown', unlockAudio, { once: true });
+    });
+  }
   return audioEl;
 }
 
