@@ -2,7 +2,7 @@ import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { toISO } from './serviceUtils';
 
 export const messageService = {
-  loadChatMessages: async (chatId, limit = 30, beforeTimestamp = null) => {
+  loadChatMessages: async (chatId, limit = 100, beforeTimestamp = null) => {
     if (isSupabaseConfigured) {
       let query = supabase
         .from('messages')

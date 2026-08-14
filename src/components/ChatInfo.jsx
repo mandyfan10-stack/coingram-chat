@@ -25,7 +25,8 @@ import {
   User,
   Users,
   Megaphone,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Play
 } from 'lucide-react';
 import useResolvedMedia from '../hooks/useResolvedMedia';
 import { isSavedMessagesChat } from '../utils/savedMessages';
@@ -52,8 +53,11 @@ const computeSafetyNumber = async (keyA, keyB) => {
   return `${segment1} ${segment2} ${segment3} ${segment4} ${segment5}`;
 };
 
-function MediaGridItem({ sourceUrl, index, chatId, onOpenPreview }) {
-  const { url, loading, error } = useResolvedMedia(sourceUrl, chatId, 'image/png');
+function MediaGridItem({ item, index, chatId, onOpenPreview }) {
+  const sourceUrl = typeof item === 'object' && item?.url ? item.url : item;
+  const isVideo = typeof item === 'object' ? Boolean(item.isVideo) : /\.(mp4|webm|mov|ogv)/i.test(sourceUrl);
+  const fallbackMime = isVideo ? 'video/mp4' : 'image/png';
+  const { url, loading, error } = useResolvedMedia(sourceUrl, chatId, fallbackMime);
 
   if (loading) {
     return (
@@ -66,7 +70,7 @@ function MediaGridItem({ sourceUrl, index, chatId, onOpenPreview }) {
   if (error || !url) {
     return (
       <div className="info-media-thumb-btn media-grid-status media-grid-error">
-        Медиа
+        {isVideo ? 'Видео' : 'Медиа'}
       </div>
     );
   }
@@ -77,8 +81,40 @@ function MediaGridItem({ sourceUrl, index, chatId, onOpenPreview }) {
       className="info-media-thumb-btn"
       onClick={() => onOpenPreview(url)}
       title={`Вложение ${index + 1}`}
+      style={{ position: 'relative', overflow: 'hidden' }}
     >
-      <img src={url} alt={`Вложение ${index + 1}`} className="info-media-thumb-img" />
+      {isVideo ? (
+        <>
+          <video
+            src={url}
+            className="info-media-thumb-img"
+            muted
+            playsInline
+            preload="metadata"
+            style={{ objectFit: 'cover' }}
+          />
+          <div
+            className="info-media-video-badge"
+            style={{
+              position: 'absolute',
+              bottom: 4,
+              right: 4,
+              background: 'rgba(0, 0, 0, 0.7)',
+              borderRadius: '4px',
+              padding: '2px 4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              pointerEvents: 'none'
+            }}
+          >
+            <Play size={10} fill="currentColor" />
+          </div>
+        </>
+      ) : (
+        <img src={url} alt={`Вложение ${index + 1}`} className="info-media-thumb-img" />
+      )}
     </button>
   );
 }
@@ -97,7 +133,8 @@ export default function ChatInfo() {
     updateChatAvatar,
     updateChatSettings,
     addMemberToChat,
-    toggleMemberRole
+    toggleMemberRole,
+    loadOlderMessages
   } = useChat();
 
   const { startCall } = useCalls();
@@ -118,6 +155,26 @@ export default function ChatInfo() {
   const [openedPreviewUrl, setOpenedPreviewUrl] = useState(null);
 
   const fileInputRef = useRef(null);
+
+  // When ChatInfo is open, progressively load older messages in the background to discover all media
+  useEffect(() => {
+    if (!isInfoOpen || !activeChat?.id || !loadOlderMessages) return;
+    let isCancelled = false;
+
+    const fetchAllHistory = async () => {
+      let loaded = 1;
+      for (let i = 0; i < 5 && loaded > 0 && !isCancelled; i++) {
+        loaded = await loadOlderMessages(activeChat.id);
+        if (loaded === 0) break;
+      }
+    };
+
+    fetchAllHistory().catch(() => {});
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isInfoOpen, activeChat?.id, loadOlderMessages]);
 
   // Compute E2EE Safety Number for personal chats
   useEffect(() => {
@@ -206,11 +263,24 @@ export default function ChatInfo() {
       activeChat.messages.forEach((m) => {
         if (m.media) {
           const isImage =
-            /\.(jpeg|jpg|gif|png|webp|svg)/i.test(m.media) || m.media.startsWith('data:image');
-          if (isImage) {
-            mFiles.push(m.media);
+            /\.(jpeg|jpg|gif|png|webp|svg)/i.test(m.media) ||
+            m.media.startsWith('data:image') ||
+            m.text?.includes('Изображение');
+          const isVideo =
+            /\.(mp4|webm|mov|ogv|mkv)/i.test(m.media) ||
+            m.media.startsWith('data:video') ||
+            m.text?.startsWith('🎬') ||
+            m.text?.includes('Видео') ||
+            m.text?.includes('Видеосообщение');
+
+          if (isImage || isVideo) {
+            mFiles.push({
+              url: m.media,
+              isVideo: Boolean(isVideo),
+              timestamp: m.timestamp
+            });
           } else {
-            const filename = m.media.split('/').pop().split('_').slice(1).join('_') || 'Вложенный файл';
+            const filename = m.media.split('/').pop().split('_').slice(1).join('_') || m.text || 'Вложенный файл';
             dFiles.push({
               name: filename,
               size: 'Вложение',
@@ -657,15 +727,18 @@ export default function ChatInfo() {
             {activeTab === 'media' && (
               <div className="info-media-grid">
                 {mediaFiles.length > 0 ? (
-                  mediaFiles.map((url, idx) => (
-                    <MediaGridItem
-                      key={url + idx}
-                      sourceUrl={url}
-                      index={idx}
-                      chatId={activeChat.id}
-                      onOpenPreview={(fullUrl) => setOpenedPreviewUrl(fullUrl)}
-                    />
-                  ))
+                  mediaFiles.map((item, idx) => {
+                    const itemKey = (typeof item === 'object' ? item.url : item) + idx;
+                    return (
+                      <MediaGridItem
+                        key={itemKey}
+                        item={item}
+                        index={idx}
+                        chatId={activeChat.id}
+                        onOpenPreview={(fullUrl) => setOpenedPreviewUrl(fullUrl)}
+                      />
+                    );
+                  })
                 ) : (
                   <div className="picker-empty-placeholder" style={{ gridColumn: 'span 3', padding: '20px 0' }}>
                     <p style={{ fontSize: '13px' }}>Нет медиа</p>

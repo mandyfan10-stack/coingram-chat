@@ -143,7 +143,7 @@ export function useChatLoader({
   const loadActiveChatMessages = useCallback(async (chatId) => {
     if (!chatId || !currentUser) return;
     try {
-      const msgsRaw = await dataService.loadChatMessages(chatId, 30);
+      const msgsRaw = await dataService.loadChatMessages(chatId, 100);
       const msgs = Array.isArray(msgsRaw) ? msgsRaw : [];
       const chat = chatsRef.current.find((c) => c.id === chatId);
       if (!chat) return;
@@ -162,7 +162,7 @@ export function useChatLoader({
       );
 
       setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => (c.id === chatId ? { ...c, messages: decryptedMsgs } : c)));
-      setMessagePagination((prev) => ({ ...prev, [chatId]: { loading: false, hasMore: msgs.length === 30 } }));
+      setMessagePagination((prev) => ({ ...prev, [chatId]: { loading: false, hasMore: msgs.length >= 100 } }));
     } catch (e) {
       console.error(e);
     }
