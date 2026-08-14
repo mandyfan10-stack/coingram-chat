@@ -9,8 +9,6 @@ import {
   Bookmark, 
   Settings, 
   Moon, 
-  MoreVertical, 
-  ChevronDown,
   X 
 } from 'lucide-react';
 import { isSavedMessagesChat, SAVED_MESSAGES_DISPLAY_NAME } from '../utils/savedMessages';
@@ -220,28 +218,6 @@ export default function MainMenuDrawer() {
                 onChange={handleAvatarUpload}
                 style={{ display: 'none' }}
               />
-            </div>
-            <div className="drawer-header-actions">
-              <button 
-                className="drawer-icon-btn" 
-                onClick={() => handleItemClick(() => {
-                  setSettingsTab('settings');
-                  setIsSettingsOpen(true);
-                })}
-                title="Настройки"
-              >
-                <MoreVertical size={16} />
-              </button>
-              <button 
-                className="drawer-icon-btn"
-                onClick={() => handleItemClick(() => {
-                  setSettingsTab('profile');
-                  setIsSettingsOpen(true);
-                })}
-                title="Редактировать профиль"
-              >
-                <ChevronDown size={18} />
-              </button>
             </div>
           </div>
         </div>
