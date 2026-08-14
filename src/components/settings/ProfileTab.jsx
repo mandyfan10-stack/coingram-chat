@@ -1,5 +1,6 @@
 import React from 'react';
-import { UserCircle, Copy, Upload } from 'lucide-react';
+import { UserCircle, Copy, Upload, Gift } from 'lucide-react';
+import { useRewards } from '../../context/RewardContext';
 
 export default function ProfileTab({
   currentUser,
@@ -19,35 +20,60 @@ export default function ProfileTab({
   handleAvatarUpload,
   isUploadingAvatar
 }) {
+  const { 
+    coins, 
+    equippedFrameItem, 
+    equippedBadgeItem, 
+    equippedGlowItem, 
+    setIsRewardsModalOpen 
+  } = useRewards();
+
   return (
     <>
-            <>
-              {/* Avatar Section */}
-              <div className="settings-avatar-section">
-                <div 
-                  className="currentUser-avatar" 
-                  style={{ background: currentUser.avatarColor, cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
-                  onClick={() => avatarInputRef.current?.click()}
-                  title="Загрузить новое фото"
-                >
-                  {renderAvatar(currentUser.avatar, <UserCircle size={44} color="#ffffff" />)}
-                  <div className="avatar-upload-overlay" style={{ display: 'flex' }}>
-                    <Upload size={18} />
-                  </div>
-                </div>
-                <h4>{currentUser.name}</h4>
-                <span>@{currentUser.username}</span>
-                <input 
-                  ref={avatarInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  style={{ display: 'none' }}
-                />
-                {isUploadingAvatar && (
-                  <span style={{ fontSize: '11px', color: 'var(--accent-color)' }}>Загрузка фото...</span>
-                )}
-              </div>
+      {/* Avatar Section */}
+      <div className={`settings-avatar-section ${equippedGlowItem ? equippedGlowItem.className : ''}`}>
+        <div 
+          className={`currentUser-avatar ${equippedFrameItem ? equippedFrameItem.className : ''}`} 
+          style={{ background: currentUser.avatarColor, cursor: 'pointer', position: 'relative' }}
+          onClick={() => avatarInputRef.current?.click()}
+          title="Загрузить новое фото"
+        >
+          {renderAvatar(currentUser.avatar, <UserCircle size={44} color="#ffffff" />)}
+          <div className="avatar-upload-overlay" style={{ display: 'flex' }}>
+            <Upload size={18} />
+          </div>
+        </div>
+        <h4>
+          {currentUser.name}
+          {equippedBadgeItem && (
+            <span className="user-status-badge" title={equippedBadgeItem.name}>
+              {equippedBadgeItem.symbol}
+            </span>
+          )}
+        </h4>
+        <span>@{currentUser.username}</span>
+
+        {/* Quick Mystery Box & Inventory Action */}
+        <button
+          type="button"
+          className="settings-rewards-shortcut-btn"
+          onClick={() => setIsRewardsModalOpen(true)}
+        >
+          <Gift size={15} />
+          <span>Кейсы и украшения (🪙 {coins})</span>
+        </button>
+
+        <input 
+          ref={avatarInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleAvatarUpload}
+          style={{ display: 'none' }}
+        />
+        {isUploadingAvatar && (
+          <span style={{ fontSize: '11px', color: 'var(--accent-color)' }}>Загрузка фото...</span>
+        )}
+      </div>
 
           {/* Profile Settings */}
           <div className="settings-section">
@@ -127,7 +153,6 @@ export default function ProfileTab({
               />
             </div>
           </div>
-            </>
     </>
   );
 }

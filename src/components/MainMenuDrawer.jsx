@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { useChat } from '../context/ChatContext';
 import { useAuth } from '../context/AuthContext';
+import { useRewards } from '../context/RewardContext';
 import { isSupabaseConfigured, supabase } from '../supabaseClient';
 import { 
   UserCircle, 
@@ -9,7 +10,8 @@ import {
   Bookmark, 
   Settings, 
   Moon, 
-  X 
+  X,
+  Gift 
 } from 'lucide-react';
 import { isSavedMessagesChat, SAVED_MESSAGES_DISPLAY_NAME } from '../utils/savedMessages';
 import { uploadSanitizedPublicImage } from '../services/publicMediaService';
@@ -31,6 +33,13 @@ export default function MainMenuDrawer() {
     renderAvatar
   } = useChat();
   const { currentUser, updateProfile } = useAuth();
+  const { 
+    coins, 
+    equippedFrameItem, 
+    equippedBadgeItem, 
+    equippedGlowItem, 
+    setIsRewardsModalOpen 
+  } = useRewards();
 
   const drawerRef = useRef(null);
 
@@ -158,6 +167,7 @@ export default function MainMenuDrawer() {
       }
     } catch (e) {
       console.error("Failed to open/create Saved Messages chat", e);
+      alert("Не удалось открыть Избранное");
     } finally {
       setIsOpeningSaved(false);
     }
@@ -165,9 +175,7 @@ export default function MainMenuDrawer() {
 
   const handleItemClick = (action) => {
     setIsDrawerOpen(false);
-    setTimeout(() => {
-      action();
-    }, 150);
+    if (action) action();
   };
 
   return (
@@ -181,10 +189,10 @@ export default function MainMenuDrawer() {
         onTouchEnd={handleDrawerTouchEnd}
       >
         {/* Drawer Header */}
-        <div className="drawer-header">
+        <div className={`drawer-header ${equippedGlowItem ? equippedGlowItem.className : ''}`}>
           <div className="drawer-header-top">
             <div 
-              className="drawer-user-avatar" 
+              className={`drawer-user-avatar ${equippedFrameItem ? equippedFrameItem.className : ''}`}
               style={{ background: currentUser.avatarColor, cursor: 'pointer', position: 'relative', overflow: 'hidden' }}
               onClick={() => avatarInputRef.current?.click()}
               title="Загрузить фото профиля"
@@ -203,7 +211,14 @@ export default function MainMenuDrawer() {
           
           <div className="drawer-user-info-row">
             <div className="drawer-user-meta">
-              <span className="drawer-user-name">{currentUser.name}</span>
+              <span className="drawer-user-name">
+                {currentUser.name}
+                {equippedBadgeItem && (
+                  <span className="user-status-badge" title={equippedBadgeItem.name}>
+                    {equippedBadgeItem.symbol}
+                  </span>
+                )}
+              </span>
               <button 
                 className="drawer-status-btn"
                 onClick={() => avatarInputRef.current?.click()}
@@ -225,6 +240,16 @@ export default function MainMenuDrawer() {
         {/* Drawer Menu List */}
         <div className="drawer-menu-list">
           
+          {/* Rewards & Mystery Boxes */}
+          <button 
+            className="drawer-menu-item rewards-drawer-item"
+            onClick={() => handleItemClick(() => setIsRewardsModalOpen(true))}
+          >
+            <Gift size={20} className="drawer-item-icon rewards-icon" />
+            <span className="drawer-item-text">Награды & Кейсы</span>
+            <span className="drawer-coins-badge">🪙 {coins}</span>
+          </button>
+
           {/* My Profile */}
           <button 
             className="drawer-menu-item"
