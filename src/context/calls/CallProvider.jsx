@@ -46,6 +46,7 @@ export const CallProvider = ({ children }) => {
   const candidateQueuesRef = useRef({});
   const audioAnalyzersRef = useRef({});
   const endCallLocallyRef = useRef(() => {});
+  const retryCallConnectionRef = useRef(() => {});
 
   const [localVideoStream, setLocalVideoStream] = useState(null);
   const [remoteVideoStream, setRemoteVideoStream] = useState(null);
@@ -258,9 +259,18 @@ export const CallProvider = ({ children }) => {
           setCallState(prev => ({ ...prev, webrtcState: 'connected' }));
         } else if (iceState === 'failed' || connState === 'failed') {
           setCallState(prev => ({ ...prev, webrtcState: 'failed' }));
-          console.error("[WebRTC Telemetry] 1:1 ICE connection failed.");
-        } else if (iceState === 'connecting' || iceState === 'checking' || iceState === 'disconnected' || connState === 'connecting') {
-          setCallState(prev => ({ ...prev, webrtcState: 'connecting' }));
+          console.error("[WebRTC Telemetry] 1:1 ICE connection failed. Triggering automatic restart...");
+          retryCallConnectionRef.current?.().catch(() => {});
+        } else if (iceState === 'disconnected') {
+          console.warn("[WebRTC Telemetry] 1:1 ICE connection temporarily disconnected, monitoring for recovery...");
+          setTimeout(() => {
+            if (pcRef.current && (pcRef.current.iceConnectionState === 'disconnected' || pcRef.current.iceConnectionState === 'failed')) {
+              console.log("[WebRTC Telemetry] ICE remained disconnected, attempting auto-restart...");
+              retryCallConnectionRef.current?.().catch(() => {});
+            }
+          }, 3000);
+        } else if (iceState === 'connecting' || iceState === 'checking' || connState === 'connecting') {
+          setCallState(prev => prev.webrtcState === 'connected' ? prev : ({ ...prev, webrtcState: 'connecting' }));
         }
       };
 
@@ -422,9 +432,17 @@ export const CallProvider = ({ children }) => {
               if (iceState === 'connected' || iceState === 'completed' || connState === 'connected') {
                 setCallState(prev => ({ ...prev, webrtcState: 'connected' }));
               } else if (iceState === 'failed' || connState === 'failed') {
-                console.error(`[WebRTC Telemetry] Group ICE connection failed for peer ${peerId}.`);
-              } else if (iceState === 'connecting' || iceState === 'checking' || iceState === 'disconnected' || connState === 'connecting') {
-                setCallState(prev => ({ ...prev, webrtcState: 'connecting' }));
+                console.error(`[WebRTC Telemetry] Group ICE connection failed for peer ${peerId}. Triggering restart...`);
+                retryCallConnectionRef.current?.().catch(() => {});
+              } else if (iceState === 'disconnected') {
+                console.warn(`[WebRTC Telemetry] Group ICE connection disconnected for peer ${peerId}.`);
+                setTimeout(() => {
+                  if (pcInstance && (pcInstance.iceConnectionState === 'disconnected' || pcInstance.iceConnectionState === 'failed')) {
+                    retryCallConnectionRef.current?.().catch(() => {});
+                  }
+                }, 3000);
+              } else if (iceState === 'connecting' || iceState === 'checking' || connState === 'connecting') {
+                setCallState(prev => prev.webrtcState === 'connected' ? prev : ({ ...prev, webrtcState: 'connecting' }));
               }
             };
 
@@ -1028,6 +1046,7 @@ export const CallProvider = ({ children }) => {
       }));
     }
   }, []);
+  retryCallConnectionRef.current = retryCallConnection;
 
   const toggleCallMute = useCallback(() => {
     const nextMuted = !callState.muted;

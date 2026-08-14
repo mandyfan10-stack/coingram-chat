@@ -160,8 +160,8 @@ export default function CallOverlay() {
         if (!connectSoundPlayedRef.current) {
           playCallConnect();
           connectSoundPlayedRef.current = true;
+          setElapsed(0);
         }
-        setElapsed(0);
         const timer = setInterval(() => setElapsed((s) => s + 1), 1000);
         const pulseInterval = setInterval(() => {
           setPulseScale(1 + Math.random() * 0.28);
