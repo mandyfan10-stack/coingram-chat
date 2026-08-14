@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
@@ -16,7 +16,40 @@ function isVideoUrl(url) {
   );
 }
 
-export default function ImageViewer({ imageUrl, onClose }) {
+export default function ImageViewer({ imageUrl, isVideo: isVideoProp, onClose }) {
+  const [renderAsVideo, setRenderAsVideo] = useState(() => {
+    if (typeof isVideoProp === 'boolean') return isVideoProp;
+    return isVideoUrl(imageUrl);
+  });
+
+  useEffect(() => {
+    if (typeof isVideoProp === 'boolean') {
+      setRenderAsVideo(isVideoProp);
+    } else {
+      setRenderAsVideo(isVideoUrl(imageUrl));
+    }
+  }, [imageUrl, isVideoProp]);
+
+  // If it's a blob: URL and we aren't sure, inspect the blob type via fetch
+  useEffect(() => {
+    if (!imageUrl || typeof imageUrl !== 'string' || !imageUrl.startsWith('blob:')) return;
+    if (typeof isVideoProp === 'boolean') return;
+
+    let active = true;
+    fetch(imageUrl)
+      .then((res) => res.blob())
+      .then((blob) => {
+        if (active && blob && blob.type && blob.type.startsWith('video/')) {
+          setRenderAsVideo(true);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      active = false;
+    };
+  }, [imageUrl, isVideoProp]);
+
   useEffect(() => {
     if (!imageUrl) return undefined;
     const handleKeyDown = (e) => {
@@ -30,7 +63,7 @@ export default function ImageViewer({ imageUrl, onClose }) {
 
   if (!imageUrl) return null;
 
-  const isVideo = isVideoUrl(imageUrl);
+  const isVideo = renderAsVideo;
 
   const content = (
     <div
@@ -62,6 +95,10 @@ export default function ImageViewer({ imageUrl, onClose }) {
           src={imageUrl}
           alt="Просмотр изображения"
           onClick={(event) => event.stopPropagation()}
+          onError={() => {
+            // Auto fallback to video if image decoding fails on decrypted blob
+            setRenderAsVideo(true);
+          }}
         />
       )}
     </div>

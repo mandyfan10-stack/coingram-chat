@@ -79,7 +79,7 @@ function MediaGridItem({ item, index, chatId, onOpenPreview }) {
     <button
       type="button"
       className="info-media-thumb-btn"
-      onClick={() => onOpenPreview(url)}
+      onClick={() => onOpenPreview(url, isVideo)}
       title={`Вложение ${index + 1}`}
       style={{ position: 'relative', overflow: 'hidden' }}
     >
@@ -152,7 +152,7 @@ export default function ChatInfo() {
   const [addMemberError, setAddMemberError] = useState('');
   const [safetyNumber, setSafetyNumber] = useState('');
   const [activeActionMemberId, setActiveActionMemberId] = useState(null);
-  const [openedPreviewUrl, setOpenedPreviewUrl] = useState(null);
+  const [openedPreview, setOpenedPreview] = useState(null);
 
   const fileInputRef = useRef(null);
 
@@ -735,7 +735,7 @@ export default function ChatInfo() {
                         item={item}
                         index={idx}
                         chatId={activeChat.id}
-                        onOpenPreview={(fullUrl) => setOpenedPreviewUrl(fullUrl)}
+                        onOpenPreview={(fullUrl, isVid) => setOpenedPreview({ url: fullUrl, isVideo: isVid })}
                       />
                     );
                   })
@@ -846,6 +846,42 @@ export default function ChatInfo() {
                 </label>
 
                 <label className="settings-row-item">
+                  <span>Разрешить отправку стикеров и GIF</span>
+                  <div className="switch-wrapper">
+                    <input
+                      type="checkbox"
+                      checked={activeChat.settings?.allow_stickers_and_gifs !== false}
+                      onChange={(e) => {
+                        const newSettings = {
+                          ...activeChat.settings,
+                          allow_stickers_and_gifs: e.target.checked
+                        };
+                        updateChatSettings(activeChat.id, newSettings);
+                      }}
+                    />
+                    <span className="switch-slider" />
+                  </div>
+                </label>
+
+                <label className="settings-row-item">
+                  <span>Разрешить голосовые и видеосообщения</span>
+                  <div className="switch-wrapper">
+                    <input
+                      type="checkbox"
+                      checked={activeChat.settings?.allow_voice_and_video_notes !== false}
+                      onChange={(e) => {
+                        const newSettings = {
+                          ...activeChat.settings,
+                          allow_voice_and_video_notes: e.target.checked
+                        };
+                        updateChatSettings(activeChat.id, newSettings);
+                      }}
+                    />
+                    <span className="switch-slider" />
+                  </div>
+                </label>
+
+                <label className="settings-row-item">
                   <span>Разрешить добавление участников</span>
                   <div className="switch-wrapper">
                     <input
@@ -930,11 +966,12 @@ export default function ChatInfo() {
         </div>
       </div>
 
-      {/* Fullscreen Image Preview */}
-      {openedPreviewUrl && (
+      {/* Fullscreen Media Preview */}
+      {openedPreview && (
         <ImageViewer
-          imageUrl={openedPreviewUrl}
-          onClose={() => setOpenedPreviewUrl(null)}
+          imageUrl={openedPreview.url}
+          isVideo={openedPreview.isVideo}
+          onClose={() => setOpenedPreview(null)}
         />
       )}
     </aside>
