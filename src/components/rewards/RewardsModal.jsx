@@ -1,15 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useRewards } from '../../context/RewardContext';
+import { ItemSvgIcon } from './RewardIcons';
+import { 
+  playCaseTickSound, 
+  playCaseWhoosh, 
+  playCaseWinFanfare 
+} from '../../services/caseSoundService';
 import { 
   X, 
   Gift, 
-  Sparkles, 
   Clock, 
   Check, 
   Lock, 
   Info, 
-  Award
+  Award,
+  Sparkles,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
+
+const CARD_WIDTH = 150;
+const CARD_GAP = 8;
+const CARD_STEP = CARD_WIDTH + CARD_GAP;
+const TARGET_INDEX = 48; // Position of the won item in the 60-card tape
 
 export default function RewardsModal({ onClose }) {
   const {
@@ -26,27 +39,95 @@ export default function RewardsModal({ onClose }) {
 
   const [activeTab, setActiveTab] = useState('box'); // 'box' | 'inventory' | 'rates'
   const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all' | 'frame' | 'badge' | 'glow'
-  const [isOpening, setIsOpening] = useState(false);
-  const [wonResult, setWonResult] = useState(null); // { wonItem, isDuplicate, cashback }
+  const [soundEnabled, setSoundEnabled] = useState(true);
 
-  const handleStartOpening = () => {
-    if (coins < 10 || isOpening) return;
-    setIsOpening(true);
-    setWonResult(null);
+  // CS2 Roulette State
+  const [isSpinning, setIsSpinning] = useState(false);
+  const [rouletteItems, setRouletteItems] = useState([]);
+  const [translateX, setTranslateX] = useState(0);
+  const [inspectItem, setInspectItem] = useState(null); // { wonItem, isDuplicate, cashback }
+  const [tilt, setTilt] = useState({ x: 0, y: 0 });
 
-    // 2.2 second suspenseful unboxing animation sequence
-    setTimeout(() => {
-      const result = openBox();
-      if (result.success) {
-        setWonResult(result);
+  const reelContainerRef = useRef(null);
+  const audioIntervalRef = useRef(null);
+
+  // Clean up sound intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (audioIntervalRef.current) clearInterval(audioIntervalRef.current);
+    };
+  }, []);
+
+  const handleStartSpin = () => {
+    if (coins < 10 || isSpinning) return;
+
+    // 1. Roll winning item from service
+    const result = openBox();
+    if (!result.success) return;
+
+    // 2. Generate 60 randomized items for the horizontal tape
+    const generated = [];
+    for (let i = 0; i < 60; i++) {
+      if (i === TARGET_INDEX) {
+        generated.push(result.wonItem);
+      } else {
+        const randomItem = catalog[Math.floor(Math.random() * catalog.length)];
+        generated.push(randomItem);
       }
-      setIsOpening(false);
-    }, 2200);
+    }
+
+    setRouletteItems(generated);
+    setInspectItem(null);
+    setIsSpinning(true);
+    setTranslateX(0);
+
+    if (soundEnabled) {
+      playCaseWhoosh();
+    }
+
+    // 3. Compute target scroll offset with random sub-card jitter (-35px to +35px)
+    setTimeout(() => {
+      const containerWidth = reelContainerRef.current?.offsetWidth || 500;
+      const jitter = (Math.random() * 70) - 35;
+      const finalOffset = (TARGET_INDEX * CARD_STEP) + (CARD_WIDTH / 2) - (containerWidth / 2) + jitter;
+      setTranslateX(finalOffset);
+
+      // Procedural audio ticker simulation that slows down with the cubic bezier
+      if (soundEnabled) {
+        let elapsed = 0;
+        let tickDelay = 30; // Starts fast (30ms)
+        
+        const scheduleNextTick = () => {
+          if (elapsed >= 5400) return;
+          playCaseTickSound(650 + Math.random() * 150, 0.14);
+          elapsed += tickDelay;
+          // Exponential decay matching the deceleration curve
+          tickDelay = 30 + Math.pow(elapsed / 5400, 3) * 450;
+          audioIntervalRef.current = setTimeout(scheduleNextTick, tickDelay);
+        };
+        scheduleNextTick();
+      }
+    }, 50);
+
+    // 4. Reveal & Inspect Winner when roulette comes to a complete halt (5.5s)
+    setTimeout(() => {
+      setIsSpinning(false);
+      setInspectItem(result);
+      if (soundEnabled) {
+        playCaseWinFanfare(result.wonItem.rarity);
+      }
+    }, 5600);
   };
 
-  const handleEquipWon = () => {
-    if (!wonResult?.wonItem) return;
-    equip(wonResult.wonItem.type, wonResult.wonItem.id);
+  const handleMouseMoveInspect = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = (e.clientX - rect.left) / rect.width - 0.5;
+    const y = (e.clientY - rect.top) / rect.height - 0.5;
+    setTilt({ x: x * 20, y: -y * 20 });
+  };
+
+  const handleMouseLeaveInspect = () => {
+    setTilt({ x: 0, y: 0 });
   };
 
   const filteredCatalog = catalog.filter((item) => {
@@ -56,19 +137,30 @@ export default function RewardsModal({ onClose }) {
 
   return (
     <div className="rewards-modal-backdrop" onClick={onClose}>
-      <div className="rewards-modal-container" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
+      <div className="rewards-modal-container cs2-theme" onClick={(e) => e.stopPropagation()}>
+        
+        {/* Header with Sound Toggle */}
         <div className="rewards-modal-header">
           <div className="rewards-header-title">
             <Gift size={22} className="rewards-header-icon" />
             <div>
-              <h2>Coiny Награды & Кейсы</h2>
-              <p>Уникальные украшения для вашего профиля</p>
+              <h2>Coiny Кейсы & Оружейная</h2>
+              <p>Открытие кейсов с векторными скинами профиля</p>
             </div>
           </div>
-          <button type="button" className="rewards-modal-close" onClick={onClose} aria-label="Закрыть">
-            <X size={20} />
-          </button>
+          <div className="rewards-header-controls">
+            <button 
+              type="button" 
+              className="sound-toggle-btn"
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              title={soundEnabled ? 'Выключить звук' : 'Включить звук'}
+            >
+              {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+            </button>
+            <button type="button" className="rewards-modal-close" onClick={onClose} aria-label="Закрыть">
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
         {/* Balance & Timer Ribbon */}
@@ -76,8 +168,8 @@ export default function RewardsModal({ onClose }) {
           <div className="rewards-balance-chip">
             <span className="balance-coin-symbol">🪙</span>
             <div className="balance-info">
-              <span className="balance-label">Ваш баланс</span>
-              <strong className="balance-val">{coins} Коинов</strong>
+              <span className="balance-label">Баланс коинов</span>
+              <strong className="balance-val">{coins} 🪙</strong>
             </div>
           </div>
 
@@ -85,7 +177,7 @@ export default function RewardsModal({ onClose }) {
             <Clock size={16} className="timer-icon" />
             <div className="timer-info">
               <div className="timer-top-row">
-                <span>До +10 🪙:</span>
+                <span>Дроп +10 🪙:</span>
                 <strong>{minutesRemaining} мин</strong>
               </div>
               <div className="rewards-progress-mini">
@@ -100,10 +192,10 @@ export default function RewardsModal({ onClose }) {
           <button
             type="button"
             className={`rewards-tab-btn ${activeTab === 'box' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('box'); setWonResult(null); }}
+            onClick={() => { setActiveTab('box'); setInspectItem(null); }}
           >
             <Gift size={16} />
-            <span>Лутбокс</span>
+            <span>Кейс CS2</span>
           </button>
           <button
             type="button"
@@ -123,84 +215,120 @@ export default function RewardsModal({ onClose }) {
           </button>
         </div>
 
-        {/* Tab 1: Mystery Box Opening Stage */}
+        {/* TAB 1: CS2 ROULETTE OPENING STAGE */}
         {activeTab === 'box' && (
-          <div className="rewards-box-stage">
-            {!wonResult ? (
-              <div className="box-unopened-view">
-                <div className={`box-chest-wrap ${isOpening ? 'opening' : ''}`}>
-                  {isOpening && <div className="box-light-rays" />}
-                  <div className="box-chest-halo" />
-                  <div className="box-chest-3d">
-                    <span className="chest-emoji">🎁</span>
+          <div className="rewards-box-stage cs2-roulette-stage">
+            {!inspectItem ? (
+              <div className="cs2-unboxing-view">
+                {/* Horizontal CS2 Roulette Reel Container */}
+                <div className="cs2-roulette-wrapper" ref={reelContainerRef}>
+                  {/* Central Gold Indicator Needle */}
+                  <div className="cs2-center-needle">
+                    <div className="needle-triangle-top" />
+                    <div className="needle-line" />
+                    <div className="needle-triangle-bottom" />
+                  </div>
+
+                  {/* Scrolling Tape of Items */}
+                  <div 
+                    className="cs2-roulette-tape"
+                    style={{
+                      transform: isSpinning || translateX > 0 ? `translateX(-${translateX}px)` : 'none',
+                      transition: isSpinning ? 'transform 5.5s cubic-bezier(0.08, 0.82, 0.17, 1)' : 'none'
+                    }}
+                  >
+                    {(rouletteItems.length > 0 ? rouletteItems : catalog.slice(0, 10)).map((item, idx) => (
+                      <div 
+                        key={`${item.id}-${idx}`} 
+                        className="cs2-card"
+                        style={{ borderColor: item.rarityColor }}
+                      >
+                        <div className="cs2-card-rarity-stripe" style={{ backgroundColor: item.rarityColor }} />
+                        <div className="cs2-card-svg-wrap">
+                          <ItemSvgIcon item={item} size={54} />
+                        </div>
+                        <div className="cs2-card-info">
+                          <span className="cs2-card-name">{item.name}</span>
+                          <span className="cs2-card-type" style={{ color: item.rarityColor }}>
+                            {item.rarityLabel}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
-                {isOpening ? (
-                  <div className="box-opening-status">
-                    <Sparkles size={20} className="sparkle-spin" />
-                    <span>Открываем таинственный бокс...</span>
-                  </div>
-                ) : (
-                  <div className="box-action-section">
-                    <button
-                      type="button"
-                      className="box-open-btn"
-                      onClick={handleStartOpening}
-                      disabled={coins < 10}
-                    >
-                      <Gift size={18} />
-                      <span>Открыть Бокс (10 🪙)</span>
-                    </button>
-                    {coins < 10 && (
-                      <p className="box-need-coins-hint">
-                        Не хватает {10 - coins} 🪙. Проведите ещё немного времени в мессенджере!
-                      </p>
-                    )}
-                  </div>
-                )}
+                {/* Bottom Action Area */}
+                <div className="cs2-action-bar">
+                  <button
+                    type="button"
+                    className="cs2-open-case-btn"
+                    onClick={handleStartSpin}
+                    disabled={coins < 10 || isSpinning}
+                  >
+                    <Gift size={18} />
+                    <span>{isSpinning ? 'Кейс открывается...' : 'Открыть Кейс (10 🪙)'}</span>
+                  </button>
+                  {coins < 10 && !isSpinning && (
+                    <p className="box-need-coins-hint">
+                      Не хватает {10 - coins} 🪙. Проведите ещё немного времени в сети!
+                    </p>
+                  )}
+                </div>
               </div>
             ) : (
-              /* Reward Reveal Card */
-              <div className="box-won-view animate-fade-in">
-                <div className="won-card" style={{ borderColor: wonResult.wonItem.rarityColor }}>
-                  <div className="won-card-shine" style={{ background: `radial-gradient(circle, ${wonResult.wonItem.rarityColor}33 0%, transparent 70%)` }} />
-                  
-                  <div className="won-item-preview">
-                    <span className="won-item-icon">{wonResult.wonItem.icon}</span>
+              /* TAB 1: 3D CS2 INSPECT REVEAL CARD */
+              <div className="cs2-inspect-container animate-fade-in">
+                <div 
+                  className="cs2-inspect-card"
+                  style={{
+                    borderColor: inspectItem.wonItem.rarityColor,
+                    transform: `perspective(700px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg)`
+                  }}
+                  onMouseMove={handleMouseMoveInspect}
+                  onMouseLeave={handleMouseLeaveInspect}
+                >
+                  <div 
+                    className="cs2-inspect-rays" 
+                    style={{ background: `radial-gradient(circle, ${inspectItem.wonItem.rarityColor}44 0%, transparent 70%)` }} 
+                  />
+
+                  <div className="cs2-inspect-badge" style={{ backgroundColor: `${inspectItem.wonItem.rarityColor}22`, color: inspectItem.wonItem.rarityColor }}>
+                    <Sparkles size={13} />
+                    <span>{inspectItem.wonItem.rarityLabel}</span>
                   </div>
 
-                  <div className="won-rarity-tag" style={{ backgroundColor: `${wonResult.wonItem.rarityColor}22`, color: wonResult.wonItem.rarityColor }}>
-                    {wonResult.wonItem.rarityLabel}
+                  <div className="cs2-inspect-svg">
+                    <ItemSvgIcon item={inspectItem.wonItem} size={96} />
                   </div>
 
-                  <h3 className="won-item-name">{wonResult.wonItem.name}</h3>
-                  <p className="won-item-desc">{wonResult.wonItem.description}</p>
+                  <h3 className="cs2-inspect-title">{inspectItem.wonItem.name}</h3>
+                  <p className="cs2-inspect-desc">{inspectItem.wonItem.description}</p>
 
-                  {wonResult.isDuplicate && (
+                  {inspectItem.isDuplicate && (
                     <div className="won-duplicate-badge">
-                      <span>Повторка! Возврат: +{wonResult.cashback} 🪙</span>
+                      <span>Повторный предмет! Начислен кэшбэк: +{inspectItem.cashback} 🪙</span>
                     </div>
                   )}
 
-                  <div className="won-actions-row">
+                  <div className="cs2-inspect-actions">
                     <button
                       type="button"
-                      className="won-equip-btn"
+                      className="cs2-btn-equip"
                       onClick={() => {
-                        handleEquipWon();
+                        equip(inspectItem.wonItem.type, inspectItem.wonItem.id);
                         setActiveTab('inventory');
                       }}
                     >
                       <Check size={16} />
-                      <span>{equipped[wonResult.wonItem.type] === wonResult.wonItem.id ? 'Уже надето' : 'Экипировать'}</span>
+                      <span>{equipped[inspectItem.wonItem.type] === inspectItem.wonItem.id ? 'Уже надето' : 'Экипировать в профиль'}</span>
                     </button>
                     <button
                       type="button"
-                      className="won-again-btn"
-                      onClick={() => setWonResult(null)}
+                      className="cs2-btn-next"
+                      onClick={() => setInspectItem(null)}
                     >
-                      <span>Открыть ещё</span>
+                      <span>Открыть ещё кейс</span>
                     </button>
                   </div>
                 </div>
@@ -209,7 +337,7 @@ export default function RewardsModal({ onClose }) {
           </div>
         )}
 
-        {/* Tab 2: Inventory */}
+        {/* TAB 2: INVENTORY */}
         {activeTab === 'inventory' && (
           <div className="rewards-inventory-view">
             <div className="inventory-filters-row">
@@ -218,14 +346,14 @@ export default function RewardsModal({ onClose }) {
                 className={`inv-filter-chip ${inventoryFilter === 'all' ? 'active' : ''}`}
                 onClick={() => setInventoryFilter('all')}
               >
-                Все
+                Все скины
               </button>
               <button
                 type="button"
                 className={`inv-filter-chip ${inventoryFilter === 'frame' ? 'active' : ''}`}
                 onClick={() => setInventoryFilter('frame')}
               >
-                Рамки
+                Рамки аватара
               </button>
               <button
                 type="button"
@@ -239,7 +367,7 @@ export default function RewardsModal({ onClose }) {
                 className={`inv-filter-chip ${inventoryFilter === 'glow' ? 'active' : ''}`}
                 onClick={() => setInventoryFilter('glow')}
               >
-                Аура
+                Ауры
               </button>
             </div>
 
@@ -251,7 +379,7 @@ export default function RewardsModal({ onClose }) {
                 return (
                   <div 
                     key={item.id} 
-                    className={`inventory-card ${isUnlocked ? 'unlocked' : 'locked'} ${isEquipped ? 'equipped' : ''}`}
+                    className={`inventory-card cs2-inv-card ${isUnlocked ? 'unlocked' : 'locked'} ${isEquipped ? 'equipped' : ''}`}
                     style={{ borderColor: isUnlocked ? item.rarityColor : undefined }}
                   >
                     <div className="inv-card-header">
@@ -260,17 +388,17 @@ export default function RewardsModal({ onClose }) {
                     </div>
 
                     <div className="inv-card-preview">
-                      <span className="inv-card-icon">{item.icon}</span>
+                      <ItemSvgIcon item={item} size={38} />
                       {!isUnlocked && (
                         <div className="inv-locked-overlay">
-                          <Lock size={18} />
+                          <Lock size={16} />
                         </div>
                       )}
                     </div>
 
                     <h4 className="inv-card-name">{item.name}</h4>
-                    <span className="inv-card-type">
-                      {item.type === 'frame' ? 'Рамка' : item.type === 'badge' ? 'Значок' : 'Аура'} • {item.rarityLabel}
+                    <span className="inv-card-type" style={{ color: isUnlocked ? item.rarityColor : undefined }}>
+                      {item.rarityLabel}
                     </span>
 
                     {isUnlocked ? (
@@ -297,41 +425,49 @@ export default function RewardsModal({ onClose }) {
           </div>
         )}
 
-        {/* Tab 3: Drop Rates */}
+        {/* TAB 3: CS2 DROP RATES */}
         {activeTab === 'rates' && (
           <div className="rewards-rates-view animate-fade-in">
-            <h3>Шансы выпадения из Coiny Бокса</h3>
-            <p className="rates-subtitle">Каждый бокс гарантированно содержит 1 предмет:</p>
+            <h3>Шансы выпадения предметов CS2</h3>
+            <p className="rates-subtitle">Точное распределение вероятностей каждого кейса:</p>
 
             <div className="rates-list">
-              <div className="rate-item">
+              <div className="rate-item milspec">
                 <div className="rate-rarity">
-                  <span className="rate-color-pill" style={{ backgroundColor: '#94a3b8' }} />
-                  <strong>⚪ Обычный (Common)</strong>
+                  <span className="rate-color-pill" style={{ backgroundColor: '#4b69ff' }} />
+                  <strong>🔵 Армейское качество (Mil-Spec)</strong>
                 </div>
-                <span className="rate-percent">45%</span>
+                <span className="rate-percent">37%</span>
               </div>
 
-              <div className="rate-item">
+              <div className="rate-item restricted">
                 <div className="rate-rarity">
-                  <span className="rate-color-pill" style={{ backgroundColor: '#38bdf8' }} />
-                  <strong>🔵 Редкий (Rare)</strong>
+                  <span className="rate-color-pill" style={{ backgroundColor: '#8847ff' }} />
+                  <strong>🟣 Запрещенное (Restricted)</strong>
                 </div>
-                <span className="rate-percent">35%</span>
+                <span className="rate-percent">28%</span>
               </div>
 
-              <div className="rate-item">
+              <div className="rate-item classified">
                 <div className="rate-rarity">
-                  <span className="rate-color-pill" style={{ backgroundColor: '#c084fc' }} />
-                  <strong>🟣 Эпический (Epic)</strong>
+                  <span className="rate-color-pill" style={{ backgroundColor: '#d32ce6' }} />
+                  <strong>🌸 Засекреченное (Classified)</strong>
                 </div>
-                <span className="rate-percent">15%</span>
+                <span className="rate-percent">18%</span>
               </div>
 
-              <div className="rate-item legendary">
+              <div className="rate-item covert">
                 <div className="rate-rarity">
-                  <span className="rate-color-pill" style={{ backgroundColor: '#fbbf24' }} />
-                  <strong>🟡 Легендарный (Legendary)</strong>
+                  <span className="rate-color-pill" style={{ backgroundColor: '#eb4b4b' }} />
+                  <strong>🔴 Тайное (Covert)</strong>
+                </div>
+                <span className="rate-percent">12%</span>
+              </div>
+
+              <div className="rate-item special">
+                <div className="rate-rarity">
+                  <span className="rate-color-pill" style={{ backgroundColor: '#ffd700' }} />
+                  <strong>🟡 Особо редкое ★ (Gold Special)</strong>
                 </div>
                 <span className="rate-percent">5%</span>
               </div>
@@ -339,7 +475,7 @@ export default function RewardsModal({ onClose }) {
 
             <div className="rates-footer-info">
               <Sparkles size={16} />
-              <span>При выпадении дубликата начисляется кэшбэк +5 🪙 обратно на баланс!</span>
+              <span>Повторные предметы автоматически компенсируются кэшбэком +5 🪙!</span>
             </div>
           </div>
         )}

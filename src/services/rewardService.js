@@ -5,175 +5,164 @@
  */
 
 export const REWARD_ITEMS = [
-  // --- Avatar Frames ---
+  // --- Special Rare / Gold Tier ★ (5%) ---
+  {
+    id: 'frame_royal_gold',
+    type: 'frame',
+    name: 'Crown Sovereign ★',
+    rarity: 'special',
+    rarityLabel: '★ Особо редкое',
+    rarityColor: '#ffd700',
+    description: 'Золотая корона монарха с алмазным сиянием',
+    className: 'frame-royal-gold'
+  },
+  {
+    id: 'badge_crown',
+    type: 'badge',
+    name: 'Императорский Орел ★',
+    symbol: '👑',
+    rarity: 'special',
+    rarityLabel: '★ Особо редкое',
+    rarityColor: '#ffd700',
+    description: 'Королевский гербовый статус правителя'
+  },
+  {
+    id: 'glow_solar',
+    type: 'glow',
+    name: 'Solar Supernova ★',
+    rarity: 'special',
+    rarityLabel: '★ Особо редкое',
+    rarityColor: '#ffd700',
+    description: 'Золотой ореол с мерцающими лучами сверхновой',
+    className: 'glow-solar'
+  },
+
+  // --- Covert / Red Tier (12%) ---
+  {
+    id: 'frame_inferno_flame',
+    type: 'frame',
+    name: "Dragon's Breath",
+    rarity: 'covert',
+    rarityLabel: 'Тайное',
+    rarityColor: '#eb4b4b',
+    description: 'Языки драконьего огня с пылающими искрами',
+    className: 'frame-inferno-flame'
+  },
+  {
+    id: 'badge_fire',
+    type: 'badge',
+    name: 'Inferno Core',
+    symbol: '🔥',
+    rarity: 'covert',
+    rarityLabel: 'Тайное',
+    rarityColor: '#eb4b4b',
+    description: 'Раскаленное лавовое ядро высшей мощи'
+  },
+
+  // --- Classified / Pink Tier (18%) ---
+  {
+    id: 'frame_cyber_wave',
+    type: 'frame',
+    name: 'Hyperdrive Matrix',
+    rarity: 'classified',
+    rarityLabel: 'Засекреченное',
+    rarityColor: '#d32ce6',
+    description: 'Анимированный голографический кибер-контур',
+    className: 'frame-cyber-wave'
+  },
+  {
+    id: 'badge_diamond',
+    type: 'badge',
+    name: 'Prism Diamond',
+    symbol: '💎',
+    rarity: 'classified',
+    rarityLabel: 'Засекреченное',
+    rarityColor: '#d32ce6',
+    description: 'Драгоценный алмаз с призматическим блеском'
+  },
+  {
+    id: 'glow_amethyst',
+    type: 'glow',
+    name: 'Nebula Void',
+    rarity: 'classified',
+    rarityLabel: 'Засекреченное',
+    rarityColor: '#d32ce6',
+    description: 'Космический фиолетовый туман вокруг профиля',
+    className: 'glow-amethyst'
+  },
+
+  // --- Restricted / Purple Tier (28%) ---
+  {
+    id: 'frame_amethyst_crystal',
+    type: 'frame',
+    name: 'Obsidian Shard',
+    rarity: 'restricted',
+    rarityLabel: 'Запрещенное',
+    rarityColor: '#8847ff',
+    description: 'Сверкающие осколки обсидианового кристалла',
+    className: 'frame-amethyst-crystal'
+  },
+  {
+    id: 'badge_lightning',
+    type: 'badge',
+    name: 'Plasma Volt',
+    symbol: '⚡',
+    rarity: 'restricted',
+    rarityLabel: 'Запрещенное',
+    rarityColor: '#8847ff',
+    description: 'Высоковольтный плазменный разряд'
+  },
+  {
+    id: 'glow_sapphire',
+    type: 'glow',
+    name: 'Cryo Aurora',
+    rarity: 'restricted',
+    rarityLabel: 'Запрещенное',
+    rarityColor: '#8847ff',
+    description: 'Ледяное сапфировое северное сияние',
+    className: 'glow-sapphire'
+  },
+
+  // --- Mil-Spec / Blue Tier (37%) ---
   {
     id: 'frame_neon_cyan',
     type: 'frame',
-    name: 'Неоновый Кибер',
-    rarity: 'rare',
-    rarityLabel: 'Редкий',
-    rarityColor: '#38bdf8',
-    icon: '💠',
-    description: 'Пульсирующий неоновый контур вокруг аватара',
+    name: 'Cyan Laser Grid',
+    rarity: 'milspec',
+    rarityLabel: 'Армейское',
+    rarityColor: '#4b69ff',
+    description: 'Тактический кибернетический лазерный контур',
     className: 'frame-neon-cyan'
   },
   {
     id: 'frame_emerald_shield',
     type: 'frame',
-    name: 'Изумрудный Щит',
-    rarity: 'rare',
-    rarityLabel: 'Редкий',
-    rarityColor: '#34d399',
-    icon: '🛡️',
-    description: 'Сияющая изумрудная матрица защиты',
+    name: 'Aegis Matrix',
+    rarity: 'milspec',
+    rarityLabel: 'Армейское',
+    rarityColor: '#4b69ff',
+    description: 'Защитный тактический щит из наноматериалов',
     className: 'frame-emerald-shield'
-  },
-  {
-    id: 'frame_cyber_wave',
-    type: 'frame',
-    name: 'Голографическая Волна',
-    rarity: 'epic',
-    rarityLabel: 'Эпический',
-    rarityColor: '#c084fc',
-    icon: '🌌',
-    description: 'Анимированный радужно-космический градиент',
-    className: 'frame-cyber-wave'
-  },
-  {
-    id: 'frame_amethyst_crystal',
-    type: 'frame',
-    name: 'Кристальный Аметист',
-    rarity: 'epic',
-    rarityLabel: 'Эпический',
-    rarityColor: '#a855f7',
-    icon: '🔮',
-    description: 'Сверкающие кристаллы с мягким переливом',
-    className: 'frame-amethyst-crystal'
-  },
-  {
-    id: 'frame_royal_gold',
-    type: 'frame',
-    name: 'Королевское Золото',
-    rarity: 'legendary',
-    rarityLabel: 'Легендарный',
-    rarityColor: '#fbbf24',
-    icon: '👑',
-    description: 'Роскошная корона с частицами золотого сияния',
-    className: 'frame-royal-gold'
-  },
-  {
-    id: 'frame_inferno_flame',
-    type: 'frame',
-    name: 'Адское Пламя',
-    rarity: 'legendary',
-    rarityLabel: 'Легендарный',
-    rarityColor: '#f87171',
-    icon: '🔥',
-    description: 'Анимированные языки пылающего огня',
-    className: 'frame-inferno-flame'
-  },
-
-  // --- Status Badges ---
-  {
-    id: 'badge_coin',
-    type: 'badge',
-    name: 'Coiny Pioneer',
-    symbol: '🪙',
-    rarity: 'common',
-    rarityLabel: 'Обычный',
-    rarityColor: '#94a3b8',
-    icon: '🪙',
-    description: 'Фирменный значок первопроходца Coingram'
-  },
-  {
-    id: 'badge_lightning',
-    type: 'badge',
-    name: 'Молния',
-    symbol: '⚡',
-    rarity: 'rare',
-    rarityLabel: 'Редкий',
-    rarityColor: '#38bdf8',
-    icon: '⚡',
-    description: 'Символ невероятной скорости и энергии'
   },
   {
     id: 'badge_rocket',
     type: 'badge',
-    name: 'Ракета',
+    name: 'Orbital Thruster',
     symbol: '🚀',
-    rarity: 'rare',
-    rarityLabel: 'Редкий',
-    rarityColor: '#38bdf8',
-    icon: '🚀',
-    description: 'Статус космического полёта'
+    rarity: 'milspec',
+    rarityLabel: 'Армейское',
+    rarityColor: '#4b69ff',
+    description: 'Тактическая аэрокосмическая ракета'
   },
   {
-    id: 'badge_diamond',
+    id: 'badge_coin',
     type: 'badge',
-    name: 'Бриллиант',
-    symbol: '💎',
-    rarity: 'epic',
-    rarityLabel: 'Эпический',
-    rarityColor: '#c084fc',
-    icon: '💎',
-    description: 'Драгоценный значок высшей пробы'
-  },
-  {
-    id: 'badge_crown',
-    type: 'badge',
-    name: 'Владыка',
-    symbol: '👑',
-    rarity: 'legendary',
-    rarityLabel: 'Легендарный',
-    rarityColor: '#fbbf24',
-    icon: '👑',
-    description: 'Королевский статус лидера'
-  },
-  {
-    id: 'badge_fire',
-    type: 'badge',
-    name: 'Легенда',
-    symbol: '🔥',
-    rarity: 'legendary',
-    rarityLabel: 'Легендарный',
-    rarityColor: '#f87171',
-    icon: '🔥',
-    description: 'Статус огненной активности'
-  },
-
-  // --- Profile Ambient Glows ---
-  {
-    id: 'glow_sapphire',
-    type: 'glow',
-    name: 'Сапфировое Сияние',
-    rarity: 'rare',
-    rarityLabel: 'Редкий',
-    rarityColor: '#38bdf8',
-    icon: '💙',
-    description: 'Глубокая синяя аура вокруг карточки профиля',
-    className: 'glow-sapphire'
-  },
-  {
-    id: 'glow_amethyst',
-    type: 'glow',
-    name: 'Аметистовая Аура',
-    rarity: 'epic',
-    rarityLabel: 'Эпический',
-    rarityColor: '#c084fc',
-    icon: '💜',
-    description: 'Завораживающее фиолетовое неоновое свечение',
-    className: 'glow-amethyst'
-  },
-  {
-    id: 'glow_solar',
-    type: 'glow',
-    name: 'Солнечная Вспышка',
-    rarity: 'legendary',
-    rarityLabel: 'Легендарный',
-    rarityColor: '#fbbf24',
-    icon: '💛',
-    description: 'Золотой ореол с мерцающими лучами света',
-    className: 'glow-solar'
+    name: 'Coiny Mark 1',
+    symbol: '🪙',
+    rarity: 'milspec',
+    rarityLabel: 'Армейское',
+    rarityColor: '#4b69ff',
+    description: 'Официальный чеканный жетон бойца Coingram'
   }
 ];
 
@@ -279,13 +268,15 @@ export function openMysteryBox(userId) {
   const rand = Math.random() * 100;
   let targetRarity = 'common';
   if (rand < 5) {
-    targetRarity = 'legendary';
-  } else if (rand < 20) {
-    targetRarity = 'epic';
-  } else if (rand < 55) {
-    targetRarity = 'rare';
+    targetRarity = 'special';
+  } else if (rand < 17) {
+    targetRarity = 'covert';
+  } else if (rand < 35) {
+    targetRarity = 'classified';
+  } else if (rand < 63) {
+    targetRarity = 'restricted';
   } else {
-    targetRarity = 'common';
+    targetRarity = 'milspec';
   }
 
   // Filter items of target rarity
