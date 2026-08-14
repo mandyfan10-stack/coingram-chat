@@ -505,19 +505,24 @@ function RegularVideoPlayer({ videoUrl, onOpen }) {
           {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
         </button>
 
-        {onOpen && (
-          <button
-            type="button"
-            className="regular-video-ctrl-btn"
-            onClick={(e) => {
-              e.stopPropagation();
+        <button
+          type="button"
+          className="regular-video-ctrl-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            const video = videoRef.current;
+            if (video && typeof video.requestFullscreen === 'function') {
+              video.requestFullscreen().catch(() => {
+                onOpen?.(videoUrl);
+              });
+            } else if (onOpen) {
               onOpen(videoUrl);
-            }}
-            title="Во весь экран"
-          >
-            <Maximize2 size={15} />
-          </button>
-        )}
+            }
+          }}
+          title="Во весь экран"
+        >
+          <Maximize2 size={15} />
+        </button>
       </div>
     </div>
   );
