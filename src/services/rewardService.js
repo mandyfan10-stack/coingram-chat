@@ -252,6 +252,19 @@ export function addActiveSeconds(userId, deltaSec = 10) {
 }
 
 /**
+ * Grants instant bonus coins (e.g. starter/daily bonus)
+ */
+export function addBonusCoins(userId, amount = 10) {
+  const current = getUserRewardData(userId);
+  const updated = {
+    ...current,
+    coins: (current.coins || 0) + amount
+  };
+  saveUserRewardData(userId, updated);
+  return updated;
+}
+
+/**
  * Opens a mystery box (costs 10 coins).
  * Uses weighted probability: Common 45%, Rare 35%, Epic 15%, Legendary 5%.
  */

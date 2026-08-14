@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useRewards } from '../../context/RewardContext';
-import { ItemSvgIcon } from './RewardIcons';
+import { ItemSvgIcon, SvgWeaponCase } from './RewardIcons';
 import { 
   playCaseTickSound, 
   playCaseWhoosh, 
@@ -13,16 +13,18 @@ import {
   Check, 
   Lock, 
   Info, 
-  Award,
-  Sparkles,
-  Volume2,
-  VolumeX
+  Award, 
+  Sparkles, 
+  Volume2, 
+  VolumeX,
+  Zap
 } from 'lucide-react';
+import './RewardsModal.css';
 
 const CARD_WIDTH = 150;
 const CARD_GAP = 8;
 const CARD_STEP = CARD_WIDTH + CARD_GAP;
-const TARGET_INDEX = 48; // Position of the won item in the 60-card tape
+const TARGET_INDEX = 48; // Index of the won item in the 60-card tape
 
 export default function RewardsModal({ onClose }) {
   const {
@@ -32,6 +34,7 @@ export default function RewardsModal({ onClose }) {
     unlockedIds,
     equipped,
     openBox,
+    claimBonus,
     equip,
     unequip,
     catalog
@@ -41,7 +44,8 @@ export default function RewardsModal({ onClose }) {
   const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all' | 'frame' | 'badge' | 'glow'
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // CS2 Roulette State
+  // CS2 Case Stage: 'preview' (3D Case) -> 'roulette' (Spinning Reel) -> 'inspect' (Won Item Reveal)
+  const [stage, setStage] = useState('preview');
   const [isSpinning, setIsSpinning] = useState(false);
   const [rouletteItems, setRouletteItems] = useState([]);
   const [translateX, setTranslateX] = useState(0);
@@ -51,21 +55,20 @@ export default function RewardsModal({ onClose }) {
   const reelContainerRef = useRef(null);
   const audioIntervalRef = useRef(null);
 
-  // Clean up sound intervals on unmount
   useEffect(() => {
     return () => {
       if (audioIntervalRef.current) clearInterval(audioIntervalRef.current);
     };
   }, []);
 
-  const handleStartSpin = () => {
+  const handleStartUnlock = () => {
     if (coins < 10 || isSpinning) return;
 
-    // 1. Roll winning item from service
+    // 1. Roll winner from service
     const result = openBox();
     if (!result.success) return;
 
-    // 2. Generate 60 randomized items for the horizontal tape
+    // 2. Generate 60 randomized items for the horizontal tape with winner at TARGET_INDEX
     const generated = [];
     for (let i = 0; i < 60; i++) {
       if (i === TARGET_INDEX) {
@@ -78,6 +81,7 @@ export default function RewardsModal({ onClose }) {
 
     setRouletteItems(generated);
     setInspectItem(null);
+    setStage('roulette');
     setIsSpinning(true);
     setTranslateX(0);
 
@@ -87,7 +91,7 @@ export default function RewardsModal({ onClose }) {
 
     // 3. Compute target scroll offset with random sub-card jitter (-35px to +35px)
     setTimeout(() => {
-      const containerWidth = reelContainerRef.current?.offsetWidth || 500;
+      const containerWidth = reelContainerRef.current?.offsetWidth || 700;
       const jitter = (Math.random() * 70) - 35;
       const finalOffset = (TARGET_INDEX * CARD_STEP) + (CARD_WIDTH / 2) - (containerWidth / 2) + jitter;
       setTranslateX(finalOffset);
@@ -101,18 +105,18 @@ export default function RewardsModal({ onClose }) {
           if (elapsed >= 5400) return;
           playCaseTickSound(650 + Math.random() * 150, 0.14);
           elapsed += tickDelay;
-          // Exponential decay matching the deceleration curve
           tickDelay = 30 + Math.pow(elapsed / 5400, 3) * 450;
           audioIntervalRef.current = setTimeout(scheduleNextTick, tickDelay);
         };
         scheduleNextTick();
       }
-    }, 50);
+    }, 60);
 
     // 4. Reveal & Inspect Winner when roulette comes to a complete halt (5.5s)
     setTimeout(() => {
       setIsSpinning(false);
       setInspectItem(result);
+      setStage('inspect');
       if (soundEnabled) {
         playCaseWinFanfare(result.wonItem.rarity);
       }
@@ -123,7 +127,7 @@ export default function RewardsModal({ onClose }) {
     const rect = e.currentTarget.getBoundingClientRect();
     const x = (e.clientX - rect.left) / rect.width - 0.5;
     const y = (e.clientY - rect.top) / rect.height - 0.5;
-    setTilt({ x: x * 20, y: -y * 20 });
+    setTilt({ x: x * 18, y: -y * 18 });
   };
 
   const handleMouseLeaveInspect = () => {
@@ -139,13 +143,13 @@ export default function RewardsModal({ onClose }) {
     <div className="rewards-modal-backdrop" onClick={onClose}>
       <div className="rewards-modal-container cs2-theme" onClick={(e) => e.stopPropagation()}>
         
-        {/* Header with Sound Toggle */}
+        {/* Header */}
         <div className="rewards-modal-header">
           <div className="rewards-header-title">
             <Gift size={22} className="rewards-header-icon" />
             <div>
               <h2>Coiny Кейсы & Оружейная</h2>
-              <p>Открытие кейсов с векторными скинами профиля</p>
+              <p>Официальные контейнеры со скинами и украшениями профиля</p>
             </div>
           </div>
           <div className="rewards-header-controls">
@@ -171,6 +175,17 @@ export default function RewardsModal({ onClose }) {
               <span className="balance-label">Баланс коинов</span>
               <strong className="balance-val">{coins} 🪙</strong>
             </div>
+            {coins < 10 && (
+              <button 
+                type="button" 
+                className="free-bonus-btn"
+                onClick={() => claimBonus(10)}
+                title="Получить 10 коинов для открытия кейса прямо сейчас"
+              >
+                <Zap size={14} />
+                <span>+10 🪙 Бонус</span>
+              </button>
+            )}
           </div>
 
           <div className="rewards-timer-chip">
@@ -187,12 +202,12 @@ export default function RewardsModal({ onClose }) {
           </div>
         </div>
 
-        {/* Modal Navigation Tabs */}
+        {/* Navigation Tabs */}
         <div className="rewards-tabs-row">
           <button
             type="button"
             className={`rewards-tab-btn ${activeTab === 'box' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('box'); setInspectItem(null); }}
+            onClick={() => { setActiveTab('box'); setStage('preview'); setInspectItem(null); }}
           >
             <Gift size={16} />
             <span>Кейс CS2</span>
@@ -215,126 +230,185 @@ export default function RewardsModal({ onClose }) {
           </button>
         </div>
 
-        {/* TAB 1: CS2 ROULETTE OPENING STAGE */}
+        {/* TAB 1: CS2 CASE OPENING STAGES */}
         {activeTab === 'box' && (
-          <div className="rewards-box-stage cs2-roulette-stage">
-            {!inspectItem ? (
-              <div className="cs2-unboxing-view">
-                {/* Horizontal CS2 Roulette Reel Container */}
-                <div className="cs2-roulette-wrapper" ref={reelContainerRef}>
-                  {/* Central Gold Indicator Needle */}
-                  <div className="cs2-center-needle">
-                    <div className="needle-triangle-top" />
-                    <div className="needle-line" />
-                    <div className="needle-triangle-bottom" />
+          <>
+            {/* STAGE 1: 3D Case Preview & Contents List */}
+            {stage === 'preview' && (
+              <div className="cs2-preview-stage">
+                <div className="cs2-case-hero">
+                  <div className="cs2-case-halo" />
+                  <div className="cs2-case-3d-box">
+                    <SvgWeaponCase size={210} className="case-svg-container" />
                   </div>
+                  <div className="cs2-case-info-meta">
+                    <h3 className="cs2-case-title">Coiny // Bravo Container</h3>
+                    <p className="cs2-case-subtitle">Коллекция эксклюзивных рамок, значков и аур</p>
+                  </div>
+                </div>
 
-                  {/* Scrolling Tape of Items */}
-                  <div 
-                    className="cs2-roulette-tape"
-                    style={{
-                      transform: isSpinning || translateX > 0 ? `translateX(-${translateX}px)` : 'none',
-                      transition: isSpinning ? 'transform 5.5s cubic-bezier(0.08, 0.82, 0.17, 1)' : 'none'
-                    }}
-                  >
-                    {(rouletteItems.length > 0 ? rouletteItems : catalog.slice(0, 10)).map((item, idx) => (
+                {/* Contents Gallery */}
+                <div className="cs2-case-contents-block">
+                  <span className="cs2-contents-label">Возможный дроп из контейнера:</span>
+                  <div className="cs2-contents-scroll">
+                    {catalog.map((item) => (
                       <div 
-                        key={`${item.id}-${idx}`} 
-                        className="cs2-card"
-                        style={{ borderColor: item.rarityColor }}
+                        key={item.id} 
+                        className="cs2-mini-card"
+                        style={{ borderBottomColor: item.rarityColor }}
+                        title={`${item.name} (${item.rarityLabel})`}
                       >
-                        <div className="cs2-card-rarity-stripe" style={{ backgroundColor: item.rarityColor }} />
-                        <div className="cs2-card-svg-wrap">
-                          <ItemSvgIcon item={item} size={54} />
-                        </div>
-                        <div className="cs2-card-info">
-                          <span className="cs2-card-name">{item.name}</span>
-                          <span className="cs2-card-type" style={{ color: item.rarityColor }}>
-                            {item.rarityLabel}
-                          </span>
-                        </div>
+                        <ItemSvgIcon item={item} size={36} />
+                        <span className="cs2-mini-card-name">{item.name}</span>
+                        <span className="cs2-mini-card-rarity" style={{ color: item.rarityColor }}>
+                          {item.rarityLabel}
+                        </span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Bottom Action Area */}
-                <div className="cs2-action-bar">
+                {/* Action Button */}
+                <div className="cs2-preview-actions">
                   <button
                     type="button"
-                    className="cs2-open-case-btn"
-                    onClick={handleStartSpin}
-                    disabled={coins < 10 || isSpinning}
+                    className="cs2-unlock-container-btn"
+                    onClick={handleStartUnlock}
+                    disabled={coins < 10}
                   >
                     <Gift size={18} />
-                    <span>{isSpinning ? 'Кейс открывается...' : 'Открыть Кейс (10 🪙)'}</span>
+                    <span>Разблокировать контейнер (10 🪙)</span>
                   </button>
-                  {coins < 10 && !isSpinning && (
+                  {coins < 10 && (
                     <p className="box-need-coins-hint">
-                      Не хватает {10 - coins} 🪙. Проведите ещё немного времени в сети!
+                      <span>Не хватает {10 - coins} 🪙.</span>
+                      <button 
+                        type="button" 
+                        className="free-bonus-btn"
+                        onClick={() => claimBonus(10)}
+                        style={{ margin: 0 }}
+                      >
+                        <Zap size={13} />
+                        <span>Взять +10 🪙 бесплатно</span>
+                      </button>
                     </p>
                   )}
                 </div>
               </div>
-            ) : (
-              /* TAB 1: 3D CS2 INSPECT REVEAL CARD */
-              <div className="cs2-inspect-container animate-fade-in">
-                <div 
-                  className="cs2-inspect-card"
-                  style={{
-                    borderColor: inspectItem.wonItem.rarityColor,
-                    transform: `perspective(700px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg)`
-                  }}
-                  onMouseMove={handleMouseMoveInspect}
-                  onMouseLeave={handleMouseLeaveInspect}
-                >
-                  <div 
-                    className="cs2-inspect-rays" 
-                    style={{ background: `radial-gradient(circle, ${inspectItem.wonItem.rarityColor}44 0%, transparent 70%)` }} 
-                  />
+            )}
 
-                  <div className="cs2-inspect-badge" style={{ backgroundColor: `${inspectItem.wonItem.rarityColor}22`, color: inspectItem.wonItem.rarityColor }}>
-                    <Sparkles size={13} />
-                    <span>{inspectItem.wonItem.rarityLabel}</span>
-                  </div>
-
-                  <div className="cs2-inspect-svg">
-                    <ItemSvgIcon item={inspectItem.wonItem} size={96} />
-                  </div>
-
-                  <h3 className="cs2-inspect-title">{inspectItem.wonItem.name}</h3>
-                  <p className="cs2-inspect-desc">{inspectItem.wonItem.description}</p>
-
-                  {inspectItem.isDuplicate && (
-                    <div className="won-duplicate-badge">
-                      <span>Повторный предмет! Начислен кэшбэк: +{inspectItem.cashback} 🪙</span>
+            {/* STAGE 2: High-Speed Roulette Reel */}
+            {stage === 'roulette' && (
+              <div className="rewards-box-stage cs2-roulette-stage">
+                <div className="cs2-unboxing-view">
+                  <div className="cs2-roulette-wrapper" ref={reelContainerRef}>
+                    {/* Central Gold Indicator Needle */}
+                    <div className="cs2-center-needle">
+                      <div className="needle-triangle-top" />
+                      <div className="needle-line" />
+                      <div className="needle-triangle-bottom" />
                     </div>
-                  )}
 
-                  <div className="cs2-inspect-actions">
-                    <button
-                      type="button"
-                      className="cs2-btn-equip"
-                      onClick={() => {
-                        equip(inspectItem.wonItem.type, inspectItem.wonItem.id);
-                        setActiveTab('inventory');
+                    {/* Tape */}
+                    <div 
+                      className="cs2-roulette-tape"
+                      style={{
+                        transform: isSpinning || translateX > 0 ? `translateX(-${translateX}px)` : 'none',
+                        transition: isSpinning ? 'transform 5.5s cubic-bezier(0.08, 0.82, 0.17, 1)' : 'none'
                       }}
                     >
-                      <Check size={16} />
-                      <span>{equipped[inspectItem.wonItem.type] === inspectItem.wonItem.id ? 'Уже надето' : 'Экипировать в профиль'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="cs2-btn-next"
-                      onClick={() => setInspectItem(null)}
-                    >
-                      <span>Открыть ещё кейс</span>
+                      {rouletteItems.map((item, idx) => (
+                        <div 
+                          key={`${item.id}-${idx}`} 
+                          className="cs2-card"
+                          style={{ borderColor: item.rarityColor }}
+                        >
+                          <div className="cs2-card-rarity-stripe" style={{ backgroundColor: item.rarityColor }} />
+                          <div className="cs2-card-svg-wrap">
+                            <ItemSvgIcon item={item} size={64} />
+                          </div>
+                          <div className="cs2-card-info">
+                            <span className="cs2-card-name">{item.name}</span>
+                            <span className="cs2-card-type" style={{ color: item.rarityColor }}>
+                              {item.rarityLabel}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="cs2-action-bar">
+                    <button type="button" className="cs2-unlock-container-btn" disabled>
+                      <Sparkles size={18} className="sparkle-spin" />
+                      <span>Открываем контейнер...</span>
                     </button>
                   </div>
                 </div>
               </div>
             )}
-          </div>
+
+            {/* STAGE 3: 3D Inspect Reveal Card */}
+            {stage === 'inspect' && inspectItem && (
+              <div className="rewards-box-stage">
+                <div className="cs2-inspect-container">
+                  <div 
+                    className="cs2-inspect-card"
+                    style={{
+                      borderColor: inspectItem.wonItem.rarityColor,
+                      transform: `perspective(800px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg)`
+                    }}
+                    onMouseMove={handleMouseMoveInspect}
+                    onMouseLeave={handleMouseLeaveInspect}
+                  >
+                    <div 
+                      className="cs2-inspect-rays" 
+                      style={{ background: `radial-gradient(circle, ${inspectItem.wonItem.rarityColor}55 0%, transparent 70%)` }} 
+                    />
+
+                    <div className="cs2-inspect-badge" style={{ backgroundColor: `${inspectItem.wonItem.rarityColor}22`, color: inspectItem.wonItem.rarityColor }}>
+                      <Sparkles size={13} />
+                      <span>{inspectItem.wonItem.rarityLabel}</span>
+                    </div>
+
+                    <div className="cs2-inspect-svg">
+                      <ItemSvgIcon item={inspectItem.wonItem} size={105} />
+                    </div>
+
+                    <h3 className="cs2-inspect-title">{inspectItem.wonItem.name}</h3>
+                    <p className="cs2-inspect-desc">{inspectItem.wonItem.description}</p>
+
+                    {inspectItem.isDuplicate && (
+                      <div className="won-duplicate-badge">
+                        <span>Повторный предмет! Начислен кэшбэк: +{inspectItem.cashback} 🪙</span>
+                      </div>
+                    )}
+
+                    <div className="cs2-inspect-actions">
+                      <button
+                        type="button"
+                        className="cs2-btn-equip"
+                        onClick={() => {
+                          equip(inspectItem.wonItem.type, inspectItem.wonItem.id);
+                          setActiveTab('inventory');
+                        }}
+                      >
+                        <Check size={16} />
+                        <span>{equipped[inspectItem.wonItem.type] === inspectItem.wonItem.id ? 'Уже надето' : 'Экипировать в профиль'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="cs2-btn-next"
+                        onClick={() => setStage('preview')}
+                      >
+                        <span>Открыть ещё</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* TAB 2: INVENTORY */}
@@ -379,8 +453,8 @@ export default function RewardsModal({ onClose }) {
                 return (
                   <div 
                     key={item.id} 
-                    className={`inventory-card cs2-inv-card ${isUnlocked ? 'unlocked' : 'locked'} ${isEquipped ? 'equipped' : ''}`}
-                    style={{ borderColor: isUnlocked ? item.rarityColor : undefined }}
+                    className={`cs2-inv-card ${isUnlocked ? 'unlocked' : 'locked'} ${isEquipped ? 'equipped' : ''}`}
+                    style={{ borderBottomColor: isUnlocked ? item.rarityColor : undefined }}
                   >
                     <div className="inv-card-header">
                       <span className="inv-rarity-dot" style={{ backgroundColor: item.rarityColor }} title={item.rarityLabel} />
@@ -388,7 +462,7 @@ export default function RewardsModal({ onClose }) {
                     </div>
 
                     <div className="inv-card-preview">
-                      <ItemSvgIcon item={item} size={38} />
+                      <ItemSvgIcon item={item} size={42} />
                       {!isUnlocked && (
                         <div className="inv-locked-overlay">
                           <Lock size={16} />
@@ -427,9 +501,9 @@ export default function RewardsModal({ onClose }) {
 
         {/* TAB 3: CS2 DROP RATES */}
         {activeTab === 'rates' && (
-          <div className="rewards-rates-view animate-fade-in">
+          <div className="rewards-rates-view">
             <h3>Шансы выпадения предметов CS2</h3>
-            <p className="rates-subtitle">Точное распределение вероятностей каждого кейса:</p>
+            <p className="rates-subtitle">Точное распределение вероятностей контейнера Coiny // Bravo:</p>
 
             <div className="rates-list">
               <div className="rate-item milspec">
@@ -451,7 +525,7 @@ export default function RewardsModal({ onClose }) {
               <div className="rate-item classified">
                 <div className="rate-rarity">
                   <span className="rate-color-pill" style={{ backgroundColor: '#d32ce6' }} />
-                  <strong>🌸 Засекреченное (Classified)</strong>
+                  <strong>🌸 Засекриченное (Classified)</strong>
                 </div>
                 <span className="rate-percent">18%</span>
               </div>
@@ -474,8 +548,8 @@ export default function RewardsModal({ onClose }) {
             </div>
 
             <div className="rates-footer-info">
-              <Sparkles size={16} />
-              <span>Повторные предметы автоматически компенсируются кэшбэком +5 🪙!</span>
+              <Sparkles size={18} />
+              <span>При выпадении повторного предмета вам моментально возвращается кэшбэк <strong>+5 🪙</strong>!</span>
             </div>
           </div>
         )}

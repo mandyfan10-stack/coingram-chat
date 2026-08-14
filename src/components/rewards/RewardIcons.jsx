@@ -254,6 +254,90 @@ export function SvgCosmicAura({ size = 48, className = '', color = '#38bdf8' }) 
   );
 }
 
+export function SvgWeaponCase({ size = 180, className = '' }) {
+  return (
+    <svg width={size} height={size * 0.75} viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <defs>
+        <linearGradient id="caseBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#2d3748" />
+          <stop offset="40%" stopColor="#1a202c" />
+          <stop offset="100%" stopColor="#0f172a" />
+        </linearGradient>
+        <linearGradient id="caseMetalRim" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#4a5568" />
+          <stop offset="50%" stopColor="#cbd5e1" />
+          <stop offset="100%" stopColor="#334155" />
+        </linearGradient>
+        <linearGradient id="goldHazard" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fbbf24" />
+          <stop offset="100%" stopColor="#d97706" />
+        </linearGradient>
+        <radialGradient id="lockGlow" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor="#38bdf8" />
+          <stop offset="70%" stopColor="#0284c7" />
+          <stop offset="100%" stopColor="#0369a1" />
+        </radialGradient>
+        <filter id="neonLockFilter" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+      </defs>
+
+      {/* Case Shadow */}
+      <ellipse cx="100" cy="138" rx="85" ry="10" fill="#000000" fillOpacity="0.5" filter="blur(4px)" />
+
+      {/* Main Rugged Case Body */}
+      <rect x="20" y="32" width="160" height="96" rx="14" fill="url(#caseBodyGrad)" stroke="url(#caseMetalRim)" strokeWidth="3" />
+
+      {/* Top Handle Base */}
+      <path d="M70 32V20C70 15.58 73.58 12 78 12H122C126.42 12 130 15.58 130 20V32" fill="#1e293b" stroke="#64748b" strokeWidth="3" />
+      <rect x="84" y="8" width="32" height="8" rx="4" fill="#334155" />
+
+      {/* Reinforced Corner Bumpers */}
+      <path d="M20 46V36C20 33.79 21.79 32 24 32H34" stroke="#fbbf24" strokeWidth="4" strokeLinecap="round" />
+      <path d="M180 46V36C180 33.79 178.21 32 176 32H166" stroke="#fbbf24" strokeWidth="4" strokeLinecap="round" />
+      <path d="M20 114V124C20 126.21 21.79 128 24 128H34" stroke="#fbbf24" strokeWidth="4" strokeLinecap="round" />
+      <path d="M180 114V124C180 126.21 178.21 128 176 128H166" stroke="#fbbf24" strokeWidth="4" strokeLinecap="round" />
+
+      {/* Horizontal Molded Ribs */}
+      <line x1="42" y1="52" x2="158" y2="52" stroke="#0f172a" strokeWidth="3" />
+      <line x1="42" y1="54" x2="158" y2="54" stroke="#334155" strokeWidth="1" />
+      <line x1="42" y1="106" x2="158" y2="106" stroke="#0f172a" strokeWidth="3" />
+      <line x1="42" y1="108" x2="158" y2="108" stroke="#334155" strokeWidth="1" />
+
+      {/* Center Seam Division */}
+      <line x1="20" y1="78" x2="180" y2="78" stroke="#090d16" strokeWidth="4" />
+      <line x1="20" y1="79" x2="180" y2="79" stroke="#475569" strokeWidth="1" />
+
+      {/* Industrial Latches */}
+      <rect x="46" y="70" width="18" height="18" rx="3" fill="#334155" stroke="#94a3b8" strokeWidth="1.5" />
+      <circle cx="55" cy="79" r="2.5" fill="#e2e8f0" />
+      <rect x="136" y="70" width="18" height="18" rx="3" fill="#334155" stroke="#94a3b8" strokeWidth="1.5" />
+      <circle cx="145" cy="79" r="2.5" fill="#e2e8f0" />
+
+      {/* Center Electronic Lock Mechanism */}
+      <circle cx="100" cy="79" r="18" fill="#0f172a" stroke="#fbbf24" strokeWidth="2.5" />
+      <circle cx="100" cy="79" r="13" fill="url(#lockGlow)" filter="url(#neonLockFilter)" />
+      
+      {/* Keyhole / Coiny Insignia */}
+      <path d="M100 73V81M97 78L100 81L103 78" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="100" cy="85" r="1.5" fill="#ffffff" />
+
+      {/* Tactical Stencil Text */}
+      <text x="100" y="65" fill="#fbbf24" fontSize="9" fontWeight="800" textAnchor="middle" letterSpacing="2" fontFamily="monospace">
+        COINY // BRAVO
+      </text>
+      <text x="100" y="100" fill="#64748b" fontSize="7" fontWeight="700" textAnchor="middle" letterSpacing="1" fontFamily="sans-serif">
+        MIL-SPEC CONTAINER #01
+      </text>
+
+      {/* LED Status Indicators */}
+      <circle cx="34" cy="78" r="2" fill="#22c55e" filter="url(#neonLockFilter)" />
+      <circle cx="166" cy="78" r="2" fill="#22c55e" filter="url(#neonLockFilter)" />
+    </svg>
+  );
+}
+
 /**
  * Maps item to custom SVG component
  */

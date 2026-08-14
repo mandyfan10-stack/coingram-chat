@@ -3,6 +3,7 @@ import { useAuth } from './AuthContext';
 import { 
   getUserRewardData, 
   addActiveSeconds, 
+  addBonusCoins,
   openMysteryBox, 
   equipItem, 
   unequipItem, 
@@ -58,6 +59,16 @@ export function RewardProvider({ children }) {
     return () => clearTimeout(timer);
   }, [claimToast]);
 
+  const handleClaimBonus = useCallback((amount = 10) => {
+    if (!userId) return;
+    const updated = addBonusCoins(userId, amount);
+    setRewardData(updated);
+    setClaimToast({
+      message: `🎁 Получен бонус +${amount} 🪙!`,
+      coins: amount
+    });
+  }, [userId]);
+
   const handleOpenBox = useCallback(() => {
     if (!userId) return { success: false, error: 'Требуется авторизация' };
     const res = openMysteryBox(userId);
@@ -102,6 +113,7 @@ export function RewardProvider({ children }) {
     equippedBadgeItem,
     equippedGlowItem,
     openBox: handleOpenBox,
+    claimBonus: handleClaimBonus,
     equip: handleEquip,
     unequip: handleUnequip,
     isRewardsModalOpen,
