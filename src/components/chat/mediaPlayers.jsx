@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Play, VolumeX, Volume2 } from 'lucide-react';
+import { Play, Pause, VolumeX, Volume2, Maximize2 } from 'lucide-react';
 import StickerMessage from '../StickerMessage';
 import useResolvedMedia from '../../hooks/useResolvedMedia';
 
@@ -39,6 +39,19 @@ function DecryptedVideoPlayer({ mediaUrl, chatId }) {
   }
   if (error || !url) return <AttachmentUnavailable />;
   return <VideoMessagePlayer videoUrl={url} />;
+}
+
+function DecryptedRegularVideoPlayer({ mediaUrl, chatId, onOpen }) {
+  const { url, loading, error } = useResolvedMedia(mediaUrl, chatId, 'video/mp4');
+  if (loading) {
+    return (
+      <div className="bubble-media-loading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '160px', background: 'rgba(0,0,0,0.1)', borderRadius: '12px' }}>
+        <div className="spinner" style={{ border: '2px solid rgba(255,255,255,0.3)', borderTop: '2px solid #fff', width: '24px', height: '24px' }}></div>
+      </div>
+    );
+  }
+  if (error || !url) return <AttachmentUnavailable />;
+  return <RegularVideoPlayer videoUrl={url} onOpen={onOpen} />;
 }
 
 function DecryptedVoicePlayer({ mediaUrl, chatId }) {
@@ -356,13 +369,168 @@ function VideoMessagePlayer({ videoUrl }) {
   );
 }
 
+function RegularVideoPlayer({ videoUrl, onOpen }) {
+  const videoRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onTimeUpdate = () => setCurrentTime(video.currentTime || 0);
+    const onLoadedMetadata = () => setDuration(video.duration || 0);
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onEnded = () => {
+      setIsPlaying(false);
+      setCurrentTime(video.duration || 0);
+    };
+
+    video.addEventListener('timeupdate', onTimeUpdate);
+    video.addEventListener('loadedmetadata', onLoadedMetadata);
+    video.addEventListener('play', onPlay);
+    video.addEventListener('pause', onPause);
+    video.addEventListener('ended', onEnded);
+
+    return () => {
+      video.removeEventListener('timeupdate', onTimeUpdate);
+      video.removeEventListener('loadedmetadata', onLoadedMetadata);
+      video.removeEventListener('play', onPlay);
+      video.removeEventListener('pause', onPause);
+      video.removeEventListener('ended', onEnded);
+    };
+  }, [videoUrl]);
+
+  const togglePlay = (e) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      if (video.ended) video.currentTime = 0;
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+  };
+
+  const handleSeek = (e) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video || !duration) return;
+    const seekTime = (Number(e.target.value) / 100) * duration;
+    video.currentTime = seekTime;
+    setCurrentTime(seekTime);
+  };
+
+  const toggleMute = (e) => {
+    e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    video.muted = !video.muted;
+    setIsMuted(video.muted);
+  };
+
+  const formatVideoTime = (secs) => {
+    if (!secs || isNaN(secs)) return '0:00';
+    const m = Math.floor(secs / 60);
+    const s = Math.floor(secs % 60);
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  return (
+    <div
+      className="regular-video-wrapper"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <video
+        ref={videoRef}
+        src={videoUrl}
+        className="regular-video-element"
+        playsInline
+        muted={isMuted}
+        onClick={togglePlay}
+      />
+
+      {/* Center Play button overlay when paused */}
+      {!isPlaying && (
+        <button
+          type="button"
+          className="regular-video-center-btn"
+          onClick={togglePlay}
+          aria-label="Воспроизвести видео"
+        >
+          <Play size={24} fill="currentColor" style={{ marginLeft: '3px' }} />
+        </button>
+      )}
+
+      {/* Bottom controls bar */}
+      <div className={`regular-video-controls ${!isPlaying || isHovered ? 'visible' : ''}`}>
+        <button
+          type="button"
+          className="regular-video-ctrl-btn"
+          onClick={togglePlay}
+          title={isPlaying ? 'Пауза' : 'Воспроизвести'}
+        >
+          {isPlaying ? <Pause size={15} /> : <Play size={15} fill="currentColor" />}
+        </button>
+
+        <span className="regular-video-time">
+          {formatVideoTime(currentTime)} / {formatVideoTime(duration)}
+        </span>
+
+        <input
+          type="range"
+          min="0"
+          max="100"
+          step="0.1"
+          value={progressPercent}
+          onChange={handleSeek}
+          className="regular-video-seek"
+          style={{ '--video-progress': `${progressPercent}%` }}
+        />
+
+        <button
+          type="button"
+          className="regular-video-ctrl-btn"
+          onClick={toggleMute}
+          title={isMuted ? 'Включить звук' : 'Выключить звук'}
+        >
+          {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+        </button>
+
+        {onOpen && (
+          <button
+            type="button"
+            className="regular-video-ctrl-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen(videoUrl);
+            }}
+            title="Во весь экран"
+          >
+            <Maximize2 size={15} />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export {
   AttachmentUnavailable,
   DecryptedImage,
   DecryptedVideoPlayer,
+  DecryptedRegularVideoPlayer,
   DecryptedVoicePlayer,
   DecryptedSticker,
   VoiceMessagePlayer,
-  VideoMessagePlayer
+  VideoMessagePlayer,
+  RegularVideoPlayer
 };

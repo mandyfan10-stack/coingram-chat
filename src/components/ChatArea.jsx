@@ -166,7 +166,7 @@ export default function ChatArea() {
     const mediaType = mediaInfo.kind;
     const msgText = mediaType === 'audio'
       ? 'Голосовое сообщение'
-      : mediaType === 'video' ? 'Видеосообщение' : 'Изображение';
+      : mediaType === 'video' ? '🎬 [Видео]' : 'Изображение';
 
     try {
       if (isSupabaseConfigured) {

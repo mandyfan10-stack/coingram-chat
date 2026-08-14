@@ -13,6 +13,7 @@ import { renderMessageTextWithLinks } from './renderMessageText';
 import {
   DecryptedImage,
   DecryptedVideoPlayer,
+  DecryptedRegularVideoPlayer,
   DecryptedVoicePlayer,
   DecryptedSticker
 } from './mediaPlayers';
@@ -64,21 +65,40 @@ export default function MessageBubble({
   const isLastInGroup = !nextMsg || nextMsg.senderId !== msg.senderId;
   const isFirstInGroup = !prevMsg || prevMsg.senderId !== msg.senderId;
 
-  const isVoice = msg.text && (msg.text.startsWith('🎤 Голосовое сообщение') || msg.text.startsWith('Голосовое сообщение')) && msg.media;
-  const isVideo = msg.text && (msg.text.startsWith('🎬 Видеосообщение') || (msg.text.startsWith('Видеосообщение') || msg.text === 'Видео')) && msg.media;
-  const isSticker = msg.text && msg.text.startsWith('sticker:') && msg.media;
+  const isVoice = Boolean(msg.media && msg.text && (msg.text.startsWith('🎤 Голосовое сообщение') || msg.text.startsWith('Голосовое сообщение')));
+  const isVideoNote = Boolean(msg.media && msg.text && (msg.text.startsWith('🎬 Видеосообщение') || msg.text.startsWith('Видеосообщение')));
+  const isSticker = Boolean(msg.media && msg.text && msg.text.startsWith('sticker:'));
+
+  const isRegularVideo = Boolean(
+    msg.media &&
+    !isVoice &&
+    !isVideoNote &&
+    !isSticker &&
+    (msg.text?.startsWith('🎬 [Видео]') || msg.text?.startsWith('[Видео]') || msg.text === 'Видео' || (typeof msg.media === 'string' && (msg.media.includes('.mp4') || msg.media.includes('.webm') || msg.media.includes('.mov') || msg.media.startsWith('data:video/'))))
+  );
+
+  const isPureVideo = Boolean(
+    isRegularVideo &&
+    (!msg.text || msg.text === '🎬 [Видео]' || msg.text === '[Видео]' || msg.text === 'Видео')
+  );
+  const isVideoWithCaption = Boolean(
+    isRegularVideo &&
+    !isPureVideo
+  );
 
   const isPureImage = Boolean(
     msg.media &&
     !isVoice &&
-    !isVideo &&
+    !isVideoNote &&
+    !isRegularVideo &&
     !isSticker &&
     (!msg.text || msg.text === '🖼️ [Изображение]' || msg.text === 'Изображение')
   );
   const isImageWithCaption = Boolean(
     msg.media &&
     !isVoice &&
-    !isVideo &&
+    !isVideoNote &&
+    !isRegularVideo &&
     !isSticker &&
     msg.text &&
     msg.text !== '🖼️ [Изображение]' &&
@@ -252,7 +272,7 @@ export default function MessageBubble({
 
       {/* Bubble */}
       <div
-        className={`message-bubble ${isMe ? 'bubble-me' : 'bubble-other'} ${isVideo ? 'bubble-video' : ''} ${isSticker ? 'bubble-sticker' : ''} ${isPureImage ? 'bubble-media-only' : ''} ${isImageWithCaption ? 'bubble-media-with-caption' : ''}`}
+        className={`message-bubble ${isMe ? 'bubble-me' : 'bubble-other'} ${isVideoNote ? 'bubble-video' : ''} ${isSticker ? 'bubble-sticker' : ''} ${isPureImage || isPureVideo ? 'bubble-media-only' : ''} ${isImageWithCaption || isVideoWithCaption ? 'bubble-media-with-caption' : ''}`}
         onPointerDown={handleBubblePointerDown}
         onPointerMove={handleBubblePointerMove}
         onPointerUp={clearLongPress}
@@ -304,12 +324,38 @@ export default function MessageBubble({
               </p>
             </div>
           </>
+        ) : isPureVideo ? (
+          <div className="bubble-media-wrapper">
+            <DecryptedRegularVideoPlayer
+              mediaUrl={msg.media}
+              chatId={activeChat.id}
+              onOpen={setOpenedImageUrl}
+            />
+            {renderMetadata('floating-badge')}
+          </div>
+        ) : isVideoWithCaption ? (
+          <>
+            <div className="bubble-media-wrapper">
+              <DecryptedRegularVideoPlayer
+                mediaUrl={msg.media}
+                chatId={activeChat.id}
+                onOpen={setOpenedImageUrl}
+              />
+            </div>
+            <div className="bubble-caption">
+              <p className="message-text">
+                {msg.isLocked && <Lock size={13} style={{ color: 'var(--text-secondary)', opacity: 0.8, marginRight: 4 }} />}
+                <span>{renderMessageTextWithLinks(msg.text)}</span>
+                {renderMetadata()}
+              </p>
+            </div>
+          </>
         ) : isSticker ? (
           <div style={{ position: 'relative', display: 'inline-block' }}>
             <DecryptedSticker mediaUrl={msg.media} chatId={activeChat.id} />
             {renderMetadata('floating-badge sticker-metadata')}
           </div>
-        ) : isVideo ? (
+        ) : isVideoNote ? (
           <div style={{ position: 'relative' }}>
             <DecryptedVideoPlayer mediaUrl={msg.media} chatId={activeChat.id} />
             {renderMetadata('floating-badge')}
