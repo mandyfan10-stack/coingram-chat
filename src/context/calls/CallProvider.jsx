@@ -247,18 +247,22 @@ export const CallProvider = ({ children }) => {
       pc = createPeerConnection();
       pcRef.current = pc;
 
-      pc.oniceconnectionstatechange = () => {
-        const state = pc.iceConnectionState;
-        console.log(`[WebRTC Telemetry] 1:1 ICE Connection State Changed: ${state}`);
-        if (state === 'connected' || state === 'completed') {
+      const handle1to1StateChange = () => {
+        const iceState = pc.iceConnectionState;
+        const connState = pc.connectionState;
+        console.log(`[WebRTC Telemetry] 1:1 ICE Connection State Changed: ${iceState}`);
+        if (iceState === 'connected' || iceState === 'completed' || connState === 'connected') {
           setCallState(prev => ({ ...prev, webrtcState: 'connected' }));
-        } else if (state === 'failed') {
+        } else if (iceState === 'failed' || connState === 'failed') {
           setCallState(prev => ({ ...prev, webrtcState: 'failed' }));
           console.error("[WebRTC Telemetry] 1:1 ICE connection failed.");
-        } else if (state === 'connecting' || state === 'checking' || state === 'disconnected') {
+        } else if (iceState === 'connecting' || iceState === 'checking' || iceState === 'disconnected' || connState === 'connecting') {
           setCallState(prev => ({ ...prev, webrtcState: 'connecting' }));
         }
       };
+
+      pc.oniceconnectionstatechange = handle1to1StateChange;
+      pc.onconnectionstatechange = handle1to1StateChange;
 
       pc.onicecandidate = (event) => {
         if (event.candidate && activeCallChannel) {
@@ -272,6 +276,7 @@ export const CallProvider = ({ children }) => {
 
       pc.ontrack = (event) => {
         console.log("Remote WebRTC track received:", event.track.kind);
+        setCallState(prev => ({ ...prev, webrtcState: 'connected' }));
         const remoteStream = event.streams[0] || new MediaStream([event.track]);
         
         if (event.track.kind === 'audio') {
@@ -404,17 +409,21 @@ export const CallProvider = ({ children }) => {
             }
             const pcInstance = createPeerConnection();
 
-            pcInstance.oniceconnectionstatechange = () => {
-              const state = pcInstance.iceConnectionState;
-              console.log(`[WebRTC Telemetry] Group ICE Connection State Changed for peer ${peerId}: ${state}`);
-              if (state === 'connected' || state === 'completed') {
+            const handleGroupPeerStateChange = () => {
+              const iceState = pcInstance.iceConnectionState;
+              const connState = pcInstance.connectionState;
+              console.log(`[WebRTC Telemetry] Group ICE Connection State Changed for peer ${peerId}: ${iceState}`);
+              if (iceState === 'connected' || iceState === 'completed' || connState === 'connected') {
                 setCallState(prev => ({ ...prev, webrtcState: 'connected' }));
-              } else if (state === 'failed') {
+              } else if (iceState === 'failed' || connState === 'failed') {
                 console.error(`[WebRTC Telemetry] Group ICE connection failed for peer ${peerId}.`);
-              } else if (state === 'connecting' || state === 'checking' || state === 'disconnected') {
+              } else if (iceState === 'connecting' || iceState === 'checking' || iceState === 'disconnected' || connState === 'connecting') {
                 setCallState(prev => ({ ...prev, webrtcState: 'connecting' }));
               }
             };
+
+            pcInstance.oniceconnectionstatechange = handleGroupPeerStateChange;
+            pcInstance.onconnectionstatechange = handleGroupPeerStateChange;
 
             pcInstance.onicecandidate = (event) => {
               if (event.candidate && activeCallChannel) {
@@ -432,6 +441,7 @@ export const CallProvider = ({ children }) => {
             };
 
             pcInstance.ontrack = (event) => {
+              setCallState(prev => ({ ...prev, webrtcState: 'connected' }));
               const remoteStream = event.streams[0] || new MediaStream([event.track]);
               
               if (event.track.kind === 'audio') {
