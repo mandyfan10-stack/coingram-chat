@@ -1,5 +1,5 @@
 import React from 'react';
-import { UserCircle, Copy, Upload, Gift } from 'lucide-react';
+import { UserCircle, Copy, Upload, Sparkles } from 'lucide-react';
 import { useRewards } from '../../context/RewardContext';
 
 export default function ProfileTab({
@@ -53,14 +53,14 @@ export default function ProfileTab({
         </h4>
         <span>@{currentUser.username}</span>
 
-        {/* Quick Mystery Box & Inventory Action */}
+        {/* Quick Profile Decorations & Inventory Action */}
         <button
           type="button"
           className="settings-rewards-shortcut-btn"
           onClick={() => setIsRewardsModalOpen(true)}
         >
-          <Gift size={15} />
-          <span>Кейсы и украшения (🪙 {coins})</span>
+          <Sparkles size={15} />
+          <span>Украшения профиля (🪙 {coins})</span>
         </button>
 
         <input 

@@ -11,7 +11,7 @@ import {
   Settings, 
   Moon, 
   X,
-  Gift 
+  Sparkles 
 } from 'lucide-react';
 import { isSavedMessagesChat, SAVED_MESSAGES_DISPLAY_NAME } from '../utils/savedMessages';
 import { uploadSanitizedPublicImage } from '../services/publicMediaService';
@@ -240,13 +240,13 @@ export default function MainMenuDrawer() {
         {/* Drawer Menu List */}
         <div className="drawer-menu-list">
           
-          {/* Rewards & Mystery Boxes */}
+          {/* Rewards & Profile Decorations */}
           <button 
             className="drawer-menu-item rewards-drawer-item"
             onClick={() => handleItemClick(() => setIsRewardsModalOpen(true))}
           >
-            <Gift size={20} className="drawer-item-icon rewards-icon" />
-            <span className="drawer-item-text">Награды & Кейсы</span>
+            <Sparkles size={20} className="drawer-item-icon rewards-icon" />
+            <span className="drawer-item-text">Украшения Профиля</span>
             <span className="drawer-coins-badge">🪙 {coins}</span>
           </button>
 

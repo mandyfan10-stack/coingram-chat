@@ -5,15 +5,15 @@
  */
 
 export const REWARD_ITEMS = [
-  // --- Special Rare / Gold Tier ★ (5%) ---
+  // --- ★ Легендарные украшения (5%) ---
   {
     id: 'frame_royal_gold',
     type: 'frame',
     name: 'Crown Sovereign ★',
     rarity: 'special',
-    rarityLabel: '★ Особо редкое',
+    rarityLabel: '★ Легендарное',
     rarityColor: '#ffd700',
-    description: 'Золотая корона монарха с алмазным сиянием',
+    description: 'Золотая корона монарха с парящими рубинами',
     className: 'frame-royal-gold'
   },
   {
@@ -22,30 +22,30 @@ export const REWARD_ITEMS = [
     name: 'Императорский Орел ★',
     symbol: '👑',
     rarity: 'special',
-    rarityLabel: '★ Особо редкое',
+    rarityLabel: '★ Легендарное',
     rarityColor: '#ffd700',
-    description: 'Королевский гербовый статус правителя'
+    description: 'Золотой гербовый значок правителя'
   },
   {
     id: 'glow_solar',
     type: 'glow',
     name: 'Solar Supernova ★',
     rarity: 'special',
-    rarityLabel: '★ Особо редкое',
+    rarityLabel: '★ Легендарное',
     rarityColor: '#ffd700',
-    description: 'Золотой ореол с мерцающими лучами сверхновой',
+    description: 'Ослепительный солнечный ореол вокруг карточки',
     className: 'glow-solar'
   },
 
-  // --- Covert / Red Tier (12%) ---
+  // --- 🔴 Мифические украшения (12%) ---
   {
     id: 'frame_inferno_flame',
     type: 'frame',
     name: "Dragon's Breath",
     rarity: 'covert',
-    rarityLabel: 'Тайное',
+    rarityLabel: 'Мифическое',
     rarityColor: '#eb4b4b',
-    description: 'Языки драконьего огня с пылающими искрами',
+    description: 'Пылающее драконье пламя с искрами',
     className: 'frame-inferno-flame'
   },
   {
@@ -54,20 +54,20 @@ export const REWARD_ITEMS = [
     name: 'Inferno Core',
     symbol: '🔥',
     rarity: 'covert',
-    rarityLabel: 'Тайное',
+    rarityLabel: 'Мифическое',
     rarityColor: '#eb4b4b',
-    description: 'Раскаленное лавовое ядро высшей мощи'
+    description: 'Раскаленное лавовое ядро активности'
   },
 
-  // --- Classified / Pink Tier (18%) ---
+  // --- 🌸 Эпические украшения (18%) ---
   {
     id: 'frame_cyber_wave',
     type: 'frame',
     name: 'Hyperdrive Matrix',
     rarity: 'classified',
-    rarityLabel: 'Засекреченное',
+    rarityLabel: 'Эпическое',
     rarityColor: '#d32ce6',
-    description: 'Анимированный голографический кибер-контур',
+    description: 'Голографический неоновый контур аватара',
     className: 'frame-cyber-wave'
   },
   {
@@ -76,30 +76,30 @@ export const REWARD_ITEMS = [
     name: 'Prism Diamond',
     symbol: '💎',
     rarity: 'classified',
-    rarityLabel: 'Засекреченное',
+    rarityLabel: 'Эпическое',
     rarityColor: '#d32ce6',
-    description: 'Драгоценный алмаз с призматическим блеском'
+    description: 'Сверкающий драгоценный кристалл'
   },
   {
     id: 'glow_amethyst',
     type: 'glow',
     name: 'Nebula Void',
     rarity: 'classified',
-    rarityLabel: 'Засекреченное',
+    rarityLabel: 'Эпическое',
     rarityColor: '#d32ce6',
-    description: 'Космический фиолетовый туман вокруг профиля',
+    description: 'Глубокий космический фиолетовый туман',
     className: 'glow-amethyst'
   },
 
-  // --- Restricted / Purple Tier (28%) ---
+  // --- 🟣 Редкие украшения (28%) ---
   {
     id: 'frame_amethyst_crystal',
     type: 'frame',
     name: 'Obsidian Shard',
     rarity: 'restricted',
-    rarityLabel: 'Запрещенное',
+    rarityLabel: 'Редкое',
     rarityColor: '#8847ff',
-    description: 'Сверкающие осколки обсидианового кристалла',
+    description: 'Ограненные осколки аметистового кристалла',
     className: 'frame-amethyst-crystal'
   },
   {
@@ -108,7 +108,7 @@ export const REWARD_ITEMS = [
     name: 'Plasma Volt',
     symbol: '⚡',
     rarity: 'restricted',
-    rarityLabel: 'Запрещенное',
+    rarityLabel: 'Редкое',
     rarityColor: '#8847ff',
     description: 'Высоковольтный плазменный разряд'
   },
@@ -117,21 +117,21 @@ export const REWARD_ITEMS = [
     type: 'glow',
     name: 'Cryo Aurora',
     rarity: 'restricted',
-    rarityLabel: 'Запрещенное',
+    rarityLabel: 'Редкое',
     rarityColor: '#8847ff',
     description: 'Ледяное сапфировое северное сияние',
     className: 'glow-sapphire'
   },
 
-  // --- Mil-Spec / Blue Tier (37%) ---
+  // --- 🔵 Базовые украшения (37%) ---
   {
     id: 'frame_neon_cyan',
     type: 'frame',
-    name: 'Cyan Laser Grid',
+    name: 'Cyan Laser Ring',
     rarity: 'milspec',
-    rarityLabel: 'Армейское',
+    rarityLabel: 'Базовое',
     rarityColor: '#4b69ff',
-    description: 'Тактический кибернетический лазерный контур',
+    description: 'Кибернетическое неоновое кольцо аватара',
     className: 'frame-neon-cyan'
   },
   {
@@ -139,9 +139,9 @@ export const REWARD_ITEMS = [
     type: 'frame',
     name: 'Aegis Matrix',
     rarity: 'milspec',
-    rarityLabel: 'Армейское',
+    rarityLabel: 'Базовое',
     rarityColor: '#4b69ff',
-    description: 'Защитный тактический щит из наноматериалов',
+    description: 'Защитная изумрудная матрица',
     className: 'frame-emerald-shield'
   },
   {
@@ -150,19 +150,19 @@ export const REWARD_ITEMS = [
     name: 'Orbital Thruster',
     symbol: '🚀',
     rarity: 'milspec',
-    rarityLabel: 'Армейское',
+    rarityLabel: 'Базовое',
     rarityColor: '#4b69ff',
-    description: 'Тактическая аэрокосмическая ракета'
+    description: 'Значок космического полета'
   },
   {
     id: 'badge_coin',
     type: 'badge',
-    name: 'Coiny Mark 1',
+    name: 'Coiny Pioneer',
     symbol: '🪙',
     rarity: 'milspec',
-    rarityLabel: 'Армейское',
+    rarityLabel: 'Базовое',
     rarityColor: '#4b69ff',
-    description: 'Официальный чеканный жетон бойца Coingram'
+    description: 'Официальный золотой жетон участника'
   }
 ];
 

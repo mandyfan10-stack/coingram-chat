@@ -1,32 +1,29 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useRewards } from '../../context/RewardContext';
-import { ItemSvgIcon, SvgWeaponCase } from './RewardIcons';
+import { ItemSvgIcon, SvgCardDeck, SvgCardBack } from './RewardIcons';
 import { 
-  playCaseTickSound, 
-  playCaseWhoosh, 
-  playCaseWinFanfare 
+  playCardShuffleSound, 
+  playCardDrawSound, 
+  playCardFlipChime 
 } from '../../services/caseSoundService';
 import { 
   X, 
-  Gift, 
+  Sparkles, 
   Clock, 
   Check, 
   Lock, 
   Info, 
-  Award, 
-  Sparkles, 
   Volume2, 
   VolumeX,
-  Zap
+  Zap,
+  Layers,
+  Palette
 } from 'lucide-react';
 import './RewardsModal.css';
 
-const CARD_WIDTH = 150;
-const CARD_GAP = 8;
-const CARD_STEP = CARD_WIDTH + CARD_GAP;
-const TARGET_INDEX = 48; // Index of the won item in the 60-card tape
-
 export default function RewardsModal({ onClose }) {
+  const { currentUser } = useAuth();
   const {
     coins,
     progressPercent,
@@ -40,116 +37,95 @@ export default function RewardsModal({ onClose }) {
     catalog
   } = useRewards();
 
-  const [activeTab, setActiveTab] = useState('box'); // 'box' | 'inventory' | 'rates'
-  const [inventoryFilter, setInventoryFilter] = useState('all'); // 'all' | 'frame' | 'badge' | 'glow'
+  const [activeTab, setActiveTab] = useState('booster'); // 'booster' | 'customizer' | 'rates'
+  const [filterType, setFilterType] = useState('all'); // 'all' | 'frame' | 'badge' | 'glow'
   const [soundEnabled, setSoundEnabled] = useState(true);
 
-  // CS2 Case Stage: 'preview' (3D Case) -> 'roulette' (Spinning Reel) -> 'inspect' (Won Item Reveal)
-  const [stage, setStage] = useState('preview');
-  const [isSpinning, setIsSpinning] = useState(false);
-  const [rouletteItems, setRouletteItems] = useState([]);
-  const [translateX, setTranslateX] = useState(0);
-  const [inspectItem, setInspectItem] = useState(null); // { wonItem, isDuplicate, cashback }
-  const [tilt, setTilt] = useState({ x: 0, y: 0 });
+  // Booster Opening Stages: 'idle' -> 'shuffling' -> 'reveal'
+  const [boosterStage, setBoosterStage] = useState('idle');
+  const [wonItemResult, setWonItemResult] = useState(null); // { wonItem, isDuplicate, cashback }
+  const [isCardFlipped, setIsCardFlipped] = useState(false);
 
-  const reelContainerRef = useRef(null);
-  const audioIntervalRef = useRef(null);
+  // Live Try-on state for Discord Profile Customizer
+  const [previewEquipped, setPreviewEquipped] = useState({
+    frame: equipped.frame,
+    badge: equipped.badge,
+    glow: equipped.glow
+  });
 
+  // Sync preview when equipped items change
   useEffect(() => {
-    return () => {
-      if (audioIntervalRef.current) clearInterval(audioIntervalRef.current);
-    };
-  }, []);
+    setPreviewEquipped({
+      frame: equipped.frame,
+      badge: equipped.badge,
+      glow: equipped.glow
+    });
+  }, [equipped]);
 
-  const handleStartUnlock = () => {
-    if (coins < 10 || isSpinning) return;
+  const handleStartBooster = () => {
+    if (coins < 10 || boosterStage !== 'idle') return;
 
     // 1. Roll winner from service
     const result = openBox();
     if (!result.success) return;
 
-    // 2. Generate 60 randomized items for the horizontal tape with winner at TARGET_INDEX
-    const generated = [];
-    for (let i = 0; i < 60; i++) {
-      if (i === TARGET_INDEX) {
-        generated.push(result.wonItem);
-      } else {
-        const randomItem = catalog[Math.floor(Math.random() * catalog.length)];
-        generated.push(randomItem);
-      }
-    }
-
-    setRouletteItems(generated);
-    setInspectItem(null);
-    setStage('roulette');
-    setIsSpinning(true);
-    setTranslateX(0);
+    setWonItemResult(result);
+    setBoosterStage('shuffling');
+    setIsCardFlipped(false);
 
     if (soundEnabled) {
-      playCaseWhoosh();
+      playCardShuffleSound();
     }
 
-    // 3. Compute target scroll offset with random sub-card jitter (-35px to +35px)
+    // 2. After 1.6s shuffle, draw card to center
     setTimeout(() => {
-      const containerWidth = reelContainerRef.current?.offsetWidth || 700;
-      const jitter = (Math.random() * 70) - 35;
-      const finalOffset = (TARGET_INDEX * CARD_STEP) + (CARD_WIDTH / 2) - (containerWidth / 2) + jitter;
-      setTranslateX(finalOffset);
-
-      // Procedural audio ticker simulation that slows down with the cubic bezier
+      setBoosterStage('reveal');
       if (soundEnabled) {
-        let elapsed = 0;
-        let tickDelay = 30; // Starts fast (30ms)
-        
-        const scheduleNextTick = () => {
-          if (elapsed >= 5400) return;
-          playCaseTickSound(650 + Math.random() * 150, 0.14);
-          elapsed += tickDelay;
-          tickDelay = 30 + Math.pow(elapsed / 5400, 3) * 450;
-          audioIntervalRef.current = setTimeout(scheduleNextTick, tickDelay);
-        };
-        scheduleNextTick();
+        playCardDrawSound();
       }
-    }, 60);
 
-    // 4. Reveal & Inspect Winner when roulette comes to a complete halt (5.5s)
-    setTimeout(() => {
-      setIsSpinning(false);
-      setInspectItem(result);
-      setStage('inspect');
-      if (soundEnabled) {
-        playCaseWinFanfare(result.wonItem.rarity);
-      }
-    }, 5600);
+      // 3. Flip card 180° after drawing
+      setTimeout(() => {
+        setIsCardFlipped(true);
+        if (soundEnabled) {
+          playCardFlipChime(result.wonItem.rarity);
+        }
+      }, 400);
+    }, 1600);
   };
 
-  const handleMouseMoveInspect = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / rect.width - 0.5;
-    const y = (e.clientY - rect.top) / rect.height - 0.5;
-    setTilt({ x: x * 18, y: -y * 18 });
-  };
-
-  const handleMouseLeaveInspect = () => {
-    setTilt({ x: 0, y: 0 });
+  const handleTryOn = (item) => {
+    setPreviewEquipped((prev) => ({
+      ...prev,
+      [item.type]: prev[item.type] === item.id ? null : item.id
+    }));
   };
 
   const filteredCatalog = catalog.filter((item) => {
-    if (inventoryFilter === 'all') return true;
-    return item.type === inventoryFilter;
+    if (filterType === 'all') return true;
+    return item.type === filterType;
   });
+
+  // User display metadata for live preview
+  const displayName = currentUser?.username || 'CoinyUser';
+  const initialLetter = (displayName[0] || 'C').toUpperCase();
+
+  // Find previewed item objects
+  const activeFrameItem = catalog.find((i) => i.id === previewEquipped.frame);
+  const activeBadgeItem = catalog.find((i) => i.id === previewEquipped.badge);
+  const activeGlowClass = catalog.find((i) => i.id === previewEquipped.glow)?.className || '';
 
   return (
     <div className="rewards-modal-backdrop" onClick={onClose}>
-      <div className="rewards-modal-container cs2-theme" onClick={(e) => e.stopPropagation()}>
+      <div className="rewards-modal-container discord-theme" onClick={(e) => e.stopPropagation()}>
         
         {/* Header */}
         <div className="rewards-modal-header">
           <div className="rewards-header-title">
-            <Gift size={22} className="rewards-header-icon" />
+            <Sparkles size={22} className="rewards-header-icon" />
             <div>
-              <h2>Coiny Кейсы & Оружейная</h2>
-              <p>Официальные контейнеры со скинами и украшениями профиля</p>
+              <h2>Coiny Украшения Профиля</h2>
+              <p>Коллекционные рамки аватара, значки и эффекты профиля</p>
             </div>
           </div>
           <div className="rewards-header-controls">
@@ -180,7 +156,7 @@ export default function RewardsModal({ onClose }) {
                 type="button" 
                 className="free-bonus-btn"
                 onClick={() => claimBonus(10)}
-                title="Получить 10 коинов для открытия кейса прямо сейчас"
+                title="Получить 10 коинов для открытия бустера прямо сейчас"
               >
                 <Zap size={14} />
                 <span>+10 🪙 Бонус</span>
@@ -206,19 +182,19 @@ export default function RewardsModal({ onClose }) {
         <div className="rewards-tabs-row">
           <button
             type="button"
-            className={`rewards-tab-btn ${activeTab === 'box' ? 'active' : ''}`}
-            onClick={() => { setActiveTab('box'); setStage('preview'); setInspectItem(null); }}
+            className={`rewards-tab-btn ${activeTab === 'booster' ? 'active' : ''}`}
+            onClick={() => { setActiveTab('booster'); setBoosterStage('idle'); }}
           >
-            <Gift size={16} />
-            <span>Кейс CS2</span>
+            <Layers size={16} />
+            <span>Бустер Карт</span>
           </button>
           <button
             type="button"
-            className={`rewards-tab-btn ${activeTab === 'inventory' ? 'active' : ''}`}
-            onClick={() => setActiveTab('inventory')}
+            className={`rewards-tab-btn ${activeTab === 'customizer' ? 'active' : ''}`}
+            onClick={() => setActiveTab('customizer')}
           >
-            <Award size={16} />
-            <span>Инвентарь ({unlockedIds.length}/{catalog.length})</span>
+            <Palette size={16} />
+            <span>Инвентарь & Примерка ({unlockedIds.length}/{catalog.length})</span>
           </button>
           <button
             type="button"
@@ -230,37 +206,37 @@ export default function RewardsModal({ onClose }) {
           </button>
         </div>
 
-        {/* TAB 1: CS2 CASE OPENING STAGES */}
-        {activeTab === 'box' && (
-          <>
-            {/* STAGE 1: 3D Case Preview & Contents List */}
-            {stage === 'preview' && (
-              <div className="cs2-preview-stage">
-                <div className="cs2-case-hero">
-                  <div className="cs2-case-halo" />
-                  <div className="cs2-case-3d-box">
-                    <SvgWeaponCase size={210} className="case-svg-container" />
+        {/* TAB 1: CARD BOOSTER OPENING */}
+        {activeTab === 'booster' && (
+          <div className="booster-stage-view">
+            {/* Stage 1: Idle Deck */}
+            {boosterStage === 'idle' && (
+              <>
+                <div className="deck-idle-hero">
+                  <div className="deck-halo-glow" />
+                  <div className="deck-3d-wrapper">
+                    <SvgCardDeck size={200} />
                   </div>
-                  <div className="cs2-case-info-meta">
-                    <h3 className="cs2-case-title">Coiny // Bravo Container</h3>
-                    <p className="cs2-case-subtitle">Коллекция эксклюзивных рамок, значков и аур</p>
+                  <div className="deck-info-meta">
+                    <h3 className="deck-title">Коллекционный Бустер Coiny</h3>
+                    <p className="deck-subtitle">Запечатанная колода с уникальными украшениями аватара и профиля</p>
                   </div>
                 </div>
 
-                {/* Contents Gallery */}
-                <div className="cs2-case-contents-block">
-                  <span className="cs2-contents-label">Возможный дроп из контейнера:</span>
-                  <div className="cs2-contents-scroll">
+                {/* Possible Drops */}
+                <div className="booster-contents-block">
+                  <span className="booster-contents-label">Возможные украшения из колоды:</span>
+                  <div className="booster-contents-scroll">
                     {catalog.map((item) => (
                       <div 
                         key={item.id} 
-                        className="cs2-mini-card"
+                        className="booster-mini-card"
                         style={{ borderBottomColor: item.rarityColor }}
                         title={`${item.name} (${item.rarityLabel})`}
                       >
                         <ItemSvgIcon item={item} size={36} />
-                        <span className="cs2-mini-card-name">{item.name}</span>
-                        <span className="cs2-mini-card-rarity" style={{ color: item.rarityColor }}>
+                        <span className="booster-mini-card-name">{item.name}</span>
+                        <span className="booster-mini-card-rarity" style={{ color: item.rarityColor }}>
                           {item.rarityLabel}
                         </span>
                       </div>
@@ -268,218 +244,233 @@ export default function RewardsModal({ onClose }) {
                   </div>
                 </div>
 
-                {/* Action Button */}
-                <div className="cs2-preview-actions">
+                {/* Open Button */}
+                <div className="booster-open-actions">
                   <button
                     type="button"
-                    className="cs2-unlock-container-btn"
-                    onClick={handleStartUnlock}
+                    className="booster-open-btn"
+                    onClick={handleStartBooster}
                     disabled={coins < 10}
                   >
-                    <Gift size={18} />
-                    <span>Разблокировать контейнер (10 🪙)</span>
+                    <Layers size={18} />
+                    <span>Открыть Бустер Карт (10 🪙)</span>
                   </button>
                   {coins < 10 && (
-                    <p className="box-need-coins-hint">
-                      <span>Не хватает {10 - coins} 🪙.</span>
-                      <button 
-                        type="button" 
-                        className="free-bonus-btn"
-                        onClick={() => claimBonus(10)}
-                        style={{ margin: 0 }}
-                      >
-                        <Zap size={13} />
-                        <span>Взять +10 🪙 бесплатно</span>
-                      </button>
-                    </p>
+                    <button 
+                      type="button" 
+                      className="free-bonus-btn"
+                      onClick={() => claimBonus(10)}
+                    >
+                      <Zap size={14} />
+                      <span>Взять +10 🪙 бесплатно</span>
+                    </button>
                   )}
                 </div>
-              </div>
+              </>
             )}
 
-            {/* STAGE 2: High-Speed Roulette Reel */}
-            {stage === 'roulette' && (
-              <div className="rewards-box-stage cs2-roulette-stage">
-                <div className="cs2-unboxing-view">
-                  <div className="cs2-roulette-wrapper" ref={reelContainerRef}>
-                    {/* Central Gold Indicator Needle */}
-                    <div className="cs2-center-needle">
-                      <div className="needle-triangle-top" />
-                      <div className="needle-line" />
-                      <div className="needle-triangle-bottom" />
-                    </div>
-
-                    {/* Tape */}
-                    <div 
-                      className="cs2-roulette-tape"
-                      style={{
-                        transform: isSpinning || translateX > 0 ? `translateX(-${translateX}px)` : 'none',
-                        transition: isSpinning ? 'transform 5.5s cubic-bezier(0.08, 0.82, 0.17, 1)' : 'none'
-                      }}
-                    >
-                      {rouletteItems.map((item, idx) => (
-                        <div 
-                          key={`${item.id}-${idx}`} 
-                          className="cs2-card"
-                          style={{ borderColor: item.rarityColor }}
-                        >
-                          <div className="cs2-card-rarity-stripe" style={{ backgroundColor: item.rarityColor }} />
-                          <div className="cs2-card-svg-wrap">
-                            <ItemSvgIcon item={item} size={64} />
-                          </div>
-                          <div className="cs2-card-info">
-                            <span className="cs2-card-name">{item.name}</span>
-                            <span className="cs2-card-type" style={{ color: item.rarityColor }}>
-                              {item.rarityLabel}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+            {/* Stage 2: Riffle Card Shuffle */}
+            {boosterStage === 'shuffling' && (
+              <div className="card-shuffle-arena">
+                <div className="riffle-shuffle-container">
+                  <div className="shuffle-sparkles-burst" />
+                  <div className="shuffle-card-left">
+                    <SvgCardBack size={130} />
                   </div>
-
-                  <div className="cs2-action-bar">
-                    <button type="button" className="cs2-unlock-container-btn" disabled>
-                      <Sparkles size={18} className="sparkle-spin" />
-                      <span>Открываем контейнер...</span>
-                    </button>
+                  <div className="shuffle-card-right">
+                    <SvgCardBack size={130} />
                   </div>
                 </div>
+                <span className="shuffle-status-label">
+                  <Sparkles size={16} />
+                  <span>Перемешиваем колоду карт...</span>
+                </span>
               </div>
             )}
 
-            {/* STAGE 3: 3D Inspect Reveal Card */}
-            {stage === 'inspect' && inspectItem && (
-              <div className="rewards-box-stage">
-                <div className="cs2-inspect-container">
+            {/* Stage 3: 3D Card Flip Reveal */}
+            {boosterStage === 'reveal' && wonItemResult && (
+              <div className="card-flip-reveal-stage">
+                <div className={`card-flipper-3d ${isCardFlipped ? 'flipped' : ''}`}>
+                  {/* Face Back (Face down before flip) */}
+                  <div className="card-face card-face-back">
+                    <SvgCardBack size={260} />
+                  </div>
+
+                  {/* Face Front (Holographic item revealed) */}
                   <div 
-                    className="cs2-inspect-card"
-                    style={{
-                      borderColor: inspectItem.wonItem.rarityColor,
-                      transform: `perspective(800px) rotateX(${tilt.y}deg) rotateY(${tilt.x}deg)`
-                    }}
-                    onMouseMove={handleMouseMoveInspect}
-                    onMouseLeave={handleMouseLeaveInspect}
+                    className="card-face card-face-front"
+                    style={{ borderColor: wonItemResult.wonItem.rarityColor }}
                   >
+                    <div className="card-holo-shine" />
+                    
                     <div 
-                      className="cs2-inspect-rays" 
-                      style={{ background: `radial-gradient(circle, ${inspectItem.wonItem.rarityColor}55 0%, transparent 70%)` }} 
-                    />
-
-                    <div className="cs2-inspect-badge" style={{ backgroundColor: `${inspectItem.wonItem.rarityColor}22`, color: inspectItem.wonItem.rarityColor }}>
+                      className="card-front-badge" 
+                      style={{ backgroundColor: `${wonItemResult.wonItem.rarityColor}22`, color: wonItemResult.wonItem.rarityColor }}
+                    >
                       <Sparkles size={13} />
-                      <span>{inspectItem.wonItem.rarityLabel}</span>
+                      <span>{wonItemResult.wonItem.rarityLabel}</span>
                     </div>
 
-                    <div className="cs2-inspect-svg">
-                      <ItemSvgIcon item={inspectItem.wonItem} size={105} />
+                    <div className="card-front-svg">
+                      <ItemSvgIcon item={wonItemResult.wonItem} size={92} />
                     </div>
 
-                    <h3 className="cs2-inspect-title">{inspectItem.wonItem.name}</h3>
-                    <p className="cs2-inspect-desc">{inspectItem.wonItem.description}</p>
+                    <div>
+                      <h3 className="card-front-title">{wonItemResult.wonItem.name}</h3>
+                      <p className="card-front-desc">{wonItemResult.wonItem.description}</p>
+                    </div>
 
-                    {inspectItem.isDuplicate && (
-                      <div className="won-duplicate-badge">
-                        <span>Повторный предмет! Начислен кэшбэк: +{inspectItem.cashback} 🪙</span>
+                    {wonItemResult.isDuplicate && (
+                      <div className="rates-cashback-notice" style={{ padding: '6px 12px', fontSize: '11.5px', marginTop: '4px' }}>
+                        <span>Повторка! Кэшбэк: +{wonItemResult.cashback} 🪙</span>
                       </div>
                     )}
 
-                    <div className="cs2-inspect-actions">
+                    <div className="card-front-actions">
                       <button
                         type="button"
-                        className="cs2-btn-equip"
+                        className="btn-card-equip"
                         onClick={() => {
-                          equip(inspectItem.wonItem.type, inspectItem.wonItem.id);
-                          setActiveTab('inventory');
+                          equip(wonItemResult.wonItem.type, wonItemResult.wonItem.id);
+                          setActiveTab('customizer');
                         }}
                       >
-                        <Check size={16} />
-                        <span>{equipped[inspectItem.wonItem.type] === inspectItem.wonItem.id ? 'Уже надето' : 'Экипировать в профиль'}</span>
+                        <Check size={15} />
+                        <span>{equipped[wonItemResult.wonItem.type] === wonItemResult.wonItem.id ? 'Надето' : 'Экипировать'}</span>
                       </button>
                       <button
                         type="button"
-                        className="cs2-btn-next"
-                        onClick={() => setStage('preview')}
+                        className="btn-card-next"
+                        onClick={() => setBoosterStage('idle')}
                       >
-                        <span>Открыть ещё</span>
+                        <span>Ещё бустер</span>
                       </button>
                     </div>
                   </div>
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
 
-        {/* TAB 2: INVENTORY */}
-        {activeTab === 'inventory' && (
-          <div className="rewards-inventory-view">
-            <div className="inventory-filters-row">
+        {/* TAB 2: DISCORD LIVE CUSTOMIZER & INVENTORY */}
+        {activeTab === 'customizer' && (
+          <div className="customizer-view-container">
+            
+            {/* Live Discord-Style Profile Preview Card */}
+            <div className="discord-profile-preview-card">
+              <div className={`discord-profile-banner ${activeGlowClass}`} />
+              <div className="discord-profile-body">
+                <div className="discord-avatar-anchor">
+                  <div className="discord-avatar-circle">
+                    {currentUser?.avatar_url ? (
+                      <img src={currentUser.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      initialLetter
+                    )}
+                  </div>
+                  {/* Overlay Previewed/Equipped Decoration Frame */}
+                  {activeFrameItem && (
+                    <div className="discord-avatar-frame-overlay">
+                      <ItemSvgIcon item={activeFrameItem} size={96} />
+                    </div>
+                  )}
+                </div>
+
+                <div className="discord-user-details">
+                  <div className="discord-name-row">
+                    <span className="discord-display-name">{displayName}</span>
+                    {activeBadgeItem && (
+                      <span className="discord-status-badge" title={activeBadgeItem.name}>
+                        {activeBadgeItem.symbol}
+                      </span>
+                    )}
+                  </div>
+                  <span className="discord-username-tag">@{currentUser?.username || 'user'}</span>
+                </div>
+
+                <div className="discord-tryon-pill">
+                  <span>Предпросмотр профиля</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Category Filters */}
+            <div className="customizer-filters-row">
               <button
                 type="button"
-                className={`inv-filter-chip ${inventoryFilter === 'all' ? 'active' : ''}`}
-                onClick={() => setInventoryFilter('all')}
+                className={`cust-filter-chip ${filterType === 'all' ? 'active' : ''}`}
+                onClick={() => setFilterType('all')}
               >
-                Все скины
+                Все украшения
               </button>
               <button
                 type="button"
-                className={`inv-filter-chip ${inventoryFilter === 'frame' ? 'active' : ''}`}
-                onClick={() => setInventoryFilter('frame')}
+                className={`cust-filter-chip ${filterType === 'frame' ? 'active' : ''}`}
+                onClick={() => setFilterType('frame')}
               >
                 Рамки аватара
               </button>
               <button
                 type="button"
-                className={`inv-filter-chip ${inventoryFilter === 'badge' ? 'active' : ''}`}
-                onClick={() => setInventoryFilter('badge')}
+                className={`cust-filter-chip ${filterType === 'badge' ? 'active' : ''}`}
+                onClick={() => setFilterType('badge')}
               >
-                Значки
+                Значки профиля
               </button>
               <button
                 type="button"
-                className={`inv-filter-chip ${inventoryFilter === 'glow' ? 'active' : ''}`}
-                onClick={() => setInventoryFilter('glow')}
+                className={`cust-filter-chip ${filterType === 'glow' ? 'active' : ''}`}
+                onClick={() => setFilterType('glow')}
               >
-                Ауры
+                Эффекты профиля
               </button>
             </div>
 
-            <div className="inventory-grid">
+            {/* Grid of Collectibles */}
+            <div className="customizer-grid">
               {filteredCatalog.map((item) => {
                 const isUnlocked = unlockedIds.includes(item.id);
                 const isEquipped = equipped[item.type] === item.id;
+                const isCurrentlyPreviewed = previewEquipped[item.type] === item.id;
 
                 return (
                   <div 
                     key={item.id} 
-                    className={`cs2-inv-card ${isUnlocked ? 'unlocked' : 'locked'} ${isEquipped ? 'equipped' : ''}`}
+                    className={`discord-item-card ${isUnlocked ? 'unlocked' : 'locked'} ${isEquipped ? 'equipped' : ''}`}
                     style={{ borderBottomColor: isUnlocked ? item.rarityColor : undefined }}
+                    onClick={() => handleTryOn(item)}
+                    title="Нажмите, чтобы примерить на профиле выше"
                   >
-                    <div className="inv-card-header">
-                      <span className="inv-rarity-dot" style={{ backgroundColor: item.rarityColor }} title={item.rarityLabel} />
-                      {isEquipped && <span className="inv-equipped-badge">Надето</span>}
+                    <div className="card-header-status">
+                      <span className="card-rarity-dot" style={{ backgroundColor: item.rarityColor }} title={item.rarityLabel} />
+                      {isEquipped && <span className="card-equipped-badge">Надето</span>}
+                      {!isEquipped && isCurrentlyPreviewed && (
+                        <span className="card-equipped-badge" style={{ background: '#5865f2' }}>Примерка</span>
+                      )}
                     </div>
 
-                    <div className="inv-card-preview">
+                    <div className="card-item-preview">
                       <ItemSvgIcon item={item} size={42} />
                       {!isUnlocked && (
-                        <div className="inv-locked-overlay">
+                        <div className="card-locked-overlay">
                           <Lock size={16} />
                         </div>
                       )}
                     </div>
 
-                    <h4 className="inv-card-name">{item.name}</h4>
-                    <span className="inv-card-type" style={{ color: isUnlocked ? item.rarityColor : undefined }}>
+                    <h4 className="card-item-name">{item.name}</h4>
+                    <span className="card-item-rarity-tag" style={{ color: isUnlocked ? item.rarityColor : undefined }}>
                       {item.rarityLabel}
                     </span>
 
                     {isUnlocked ? (
                       <button
                         type="button"
-                        className={`inv-card-action-btn ${isEquipped ? 'unequip' : 'equip'}`}
-                        onClick={() => {
+                        className={`card-action-btn ${isEquipped ? 'unequip' : 'equip'}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
                           if (isEquipped) {
                             unequip(item.type);
                           } else {
@@ -490,7 +481,7 @@ export default function RewardsModal({ onClose }) {
                         {isEquipped ? 'Снять' : 'Надеть'}
                       </button>
                     ) : (
-                      <span className="inv-locked-label">В кейсах</span>
+                      <span className="card-locked-label">В бустерах</span>
                     )}
                   </div>
                 );
@@ -499,57 +490,57 @@ export default function RewardsModal({ onClose }) {
           </div>
         )}
 
-        {/* TAB 3: CS2 DROP RATES */}
+        {/* TAB 3: DROP RATES */}
         {activeTab === 'rates' && (
-          <div className="rewards-rates-view">
-            <h3>Шансы выпадения предметов CS2</h3>
-            <p className="rates-subtitle">Точное распределение вероятностей контейнера Coiny // Bravo:</p>
+          <div className="rates-view-container">
+            <h3>Шансы выпадения украшений</h3>
+            <p className="rates-subtitle">Точное распределение вероятностей в коллекционном бустере карт:</p>
 
-            <div className="rates-list">
-              <div className="rate-item milspec">
-                <div className="rate-rarity">
-                  <span className="rate-color-pill" style={{ backgroundColor: '#4b69ff' }} />
-                  <strong>🔵 Армейское качество (Mil-Spec)</strong>
+            <div className="rates-list-cards">
+              <div className="rate-item-card special">
+                <div className="rate-rarity-badge">
+                  <span className="rate-rarity-dot" style={{ backgroundColor: '#ffd700' }} />
+                  <strong>★ Легендарные украшения (Legendary)</strong>
                 </div>
-                <span className="rate-percent">37%</span>
+                <span className="rate-percentage-value">5%</span>
               </div>
 
-              <div className="rate-item restricted">
-                <div className="rate-rarity">
-                  <span className="rate-color-pill" style={{ backgroundColor: '#8847ff' }} />
-                  <strong>🟣 Запрещенное (Restricted)</strong>
+              <div className="rate-item-card covert">
+                <div className="rate-rarity-badge">
+                  <span className="rate-rarity-dot" style={{ backgroundColor: '#eb4b4b' }} />
+                  <strong>🔴 Мифические украшения (Mythic)</strong>
                 </div>
-                <span className="rate-percent">28%</span>
+                <span className="rate-percentage-value">12%</span>
               </div>
 
-              <div className="rate-item classified">
-                <div className="rate-rarity">
-                  <span className="rate-color-pill" style={{ backgroundColor: '#d32ce6' }} />
-                  <strong>🌸 Засекриченное (Classified)</strong>
+              <div className="rate-item-card classified">
+                <div className="rate-rarity-badge">
+                  <span className="rate-rarity-dot" style={{ backgroundColor: '#d32ce6' }} />
+                  <strong>🌸 Эпические украшения (Epic)</strong>
                 </div>
-                <span className="rate-percent">18%</span>
+                <span className="rate-percentage-value">18%</span>
               </div>
 
-              <div className="rate-item covert">
-                <div className="rate-rarity">
-                  <span className="rate-color-pill" style={{ backgroundColor: '#eb4b4b' }} />
-                  <strong>🔴 Тайное (Covert)</strong>
+              <div className="rate-item-card restricted">
+                <div className="rate-rarity-badge">
+                  <span className="rate-rarity-dot" style={{ backgroundColor: '#8847ff' }} />
+                  <strong>🟣 Редкие украшения (Rare)</strong>
                 </div>
-                <span className="rate-percent">12%</span>
+                <span className="rate-percentage-value">28%</span>
               </div>
 
-              <div className="rate-item special">
-                <div className="rate-rarity">
-                  <span className="rate-color-pill" style={{ backgroundColor: '#ffd700' }} />
-                  <strong>🟡 Особо редкое ★ (Gold Special)</strong>
+              <div className="rate-item-card milspec">
+                <div className="rate-rarity-badge">
+                  <span className="rate-rarity-dot" style={{ backgroundColor: '#4b69ff' }} />
+                  <strong>🔵 Базовые украшения (Standard)</strong>
                 </div>
-                <span className="rate-percent">5%</span>
+                <span className="rate-percentage-value">37%</span>
               </div>
             </div>
 
-            <div className="rates-footer-info">
+            <div className="rates-cashback-notice">
               <Sparkles size={18} />
-              <span>При выпадении повторного предмета вам моментально возвращается кэшбэк <strong>+5 🪙</strong>!</span>
+              <span>При выпадении повторного украшения вам моментально начисляется кэшбэк <strong>+5 🪙</strong>!</span>
             </div>
           </div>
         )}

@@ -254,86 +254,109 @@ export function SvgCosmicAura({ size = 48, className = '', color = '#38bdf8' }) 
   );
 }
 
-export function SvgWeaponCase({ size = 180, className = '' }) {
+export function SvgCardDeck({ size = 180, className = '' }) {
   return (
-    <svg width={size} height={size * 0.75} viewBox="0 0 200 150" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <svg width={size} height={size * 0.85} viewBox="0 0 200 170" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
       <defs>
-        <linearGradient id="caseBodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-          <stop offset="0%" stopColor="#2d3748" />
-          <stop offset="40%" stopColor="#1a202c" />
-          <stop offset="100%" stopColor="#0f172a" />
+        <linearGradient id="cardBackGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#2e1065" />
+          <stop offset="40%" stopColor="#1e1b4b" />
+          <stop offset="80%" stopColor="#0f172a" />
+          <stop offset="100%" stopColor="#020617" />
         </linearGradient>
-        <linearGradient id="caseMetalRim" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#4a5568" />
-          <stop offset="50%" stopColor="#cbd5e1" />
-          <stop offset="100%" stopColor="#334155" />
-        </linearGradient>
-        <linearGradient id="goldHazard" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#fbbf24" />
+        <linearGradient id="goldHoloBorder" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fef08a" />
+          <stop offset="35%" stopColor="#fbbf24" />
+          <stop offset="70%" stopColor="#f59e0b" />
           <stop offset="100%" stopColor="#d97706" />
         </linearGradient>
-        <radialGradient id="lockGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor="#38bdf8" />
-          <stop offset="70%" stopColor="#0284c7" />
-          <stop offset="100%" stopColor="#0369a1" />
-        </radialGradient>
-        <filter id="neonLockFilter" x="-20%" y="-20%" width="140%" height="140%">
-          <feGaussianBlur stdDeviation="3" result="blur" />
+        <linearGradient id="cardGleam" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.4" />
+          <stop offset="50%" stopColor="#ffffff" stopOpacity="0" />
+        </linearGradient>
+        <filter id="magicDeckGlow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="6" result="blur" />
           <feComposite in="SourceGraphic" in2="blur" operator="over" />
         </filter>
       </defs>
 
-      {/* Case Shadow */}
-      <ellipse cx="100" cy="138" rx="85" ry="10" fill="#000000" fillOpacity="0.5" filter="blur(4px)" />
+      {/* Shadow */}
+      <ellipse cx="100" cy="155" rx="75" ry="12" fill="#000000" fillOpacity="0.6" filter="blur(6px)" />
 
-      {/* Main Rugged Case Body */}
-      <rect x="20" y="32" width="160" height="96" rx="14" fill="url(#caseBodyGrad)" stroke="url(#caseMetalRim)" strokeWidth="3" />
+      {/* Stack Layer 3 (Bottom) */}
+      <g transform="translate(18, 22) rotate(-8 100 80)">
+        <rect x="35" y="15" width="94" height="134" rx="10" fill="#0f172a" stroke="rgba(251,191,36,0.3)" strokeWidth="2" />
+      </g>
 
-      {/* Top Handle Base */}
-      <path d="M70 32V20C70 15.58 73.58 12 78 12H122C126.42 12 130 15.58 130 20V32" fill="#1e293b" stroke="#64748b" strokeWidth="3" />
-      <rect x="84" y="8" width="32" height="8" rx="4" fill="#334155" />
+      {/* Stack Layer 2 (Middle) */}
+      <g transform="translate(8, 10) rotate(6 100 80)">
+        <rect x="42" y="15" width="94" height="134" rx="10" fill="#1e1b4b" stroke="rgba(251,191,36,0.6)" strokeWidth="2" />
+      </g>
 
-      {/* Reinforced Corner Bumpers */}
-      <path d="M20 46V36C20 33.79 21.79 32 24 32H34" stroke="#fbbf24" strokeWidth="4" strokeLinecap="round" />
-      <path d="M180 46V36C180 33.79 178.21 32 176 32H166" stroke="#fbbf24" strokeWidth="4" strokeLinecap="round" />
-      <path d="M20 114V124C20 126.21 21.79 128 24 128H34" stroke="#fbbf24" strokeWidth="4" strokeLinecap="round" />
-      <path d="M180 114V124C180 126.21 178.21 128 176 128H166" stroke="#fbbf24" strokeWidth="4" strokeLinecap="round" />
+      {/* Stack Layer 1 (Top Hero Card) */}
+      <g filter="url(#magicDeckGlow)">
+        <rect x="53" y="15" width="94" height="134" rx="10" fill="url(#cardBackGrad)" stroke="url(#goldHoloBorder)" strokeWidth="2.5" />
+        <rect x="58" y="20" width="84" height="124" rx="7" fill="none" stroke="url(#goldHoloBorder)" strokeWidth="1" strokeDasharray="4 2" />
 
-      {/* Horizontal Molded Ribs */}
-      <line x1="42" y1="52" x2="158" y2="52" stroke="#0f172a" strokeWidth="3" />
-      <line x1="42" y1="54" x2="158" y2="54" stroke="#334155" strokeWidth="1" />
-      <line x1="42" y1="106" x2="158" y2="106" stroke="#0f172a" strokeWidth="3" />
-      <line x1="42" y1="108" x2="158" y2="108" stroke="#334155" strokeWidth="1" />
+        {/* Card Filigree Corners */}
+        <path d="M62 28C62 24 66 24 66 24" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M138 28C138 24 134 24 134 24" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M62 136C62 140 66 140 66 140" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round" />
+        <path d="M138 136C138 140 134 140 134 140" stroke="#fbbf24" strokeWidth="1.5" strokeLinecap="round" />
 
-      {/* Center Seam Division */}
-      <line x1="20" y1="78" x2="180" y2="78" stroke="#090d16" strokeWidth="4" />
-      <line x1="20" y1="79" x2="180" y2="79" stroke="#475569" strokeWidth="1" />
+        {/* Central Magical Crest */}
+        <circle cx="100" cy="82" r="24" fill="#3b0764" stroke="url(#goldHoloBorder)" strokeWidth="1.8" />
+        <circle cx="100" cy="82" r="18" fill="none" stroke="#a855f7" strokeWidth="1" strokeDasharray="3 2" />
+        
+        {/* Glowing 8-Point Star */}
+        <path d="M100 68L103 78L113 82L103 86L100 96L97 86L87 82L97 78L100 68Z" fill="url(#goldHoloBorder)" />
+        <circle cx="100" cy="82" r="3" fill="#ffffff" />
 
-      {/* Industrial Latches */}
-      <rect x="46" y="70" width="18" height="18" rx="3" fill="#334155" stroke="#94a3b8" strokeWidth="1.5" />
-      <circle cx="55" cy="79" r="2.5" fill="#e2e8f0" />
-      <rect x="136" y="70" width="18" height="18" rx="3" fill="#334155" stroke="#94a3b8" strokeWidth="1.5" />
-      <circle cx="145" cy="79" r="2.5" fill="#e2e8f0" />
+        {/* Diagonal Light Gleam */}
+        <path d="M53 35L110 15H147L53 109V35Z" fill="url(#cardGleam)" />
+      </g>
 
-      {/* Center Electronic Lock Mechanism */}
-      <circle cx="100" cy="79" r="18" fill="#0f172a" stroke="#fbbf24" strokeWidth="2.5" />
-      <circle cx="100" cy="79" r="13" fill="url(#lockGlow)" filter="url(#neonLockFilter)" />
-      
-      {/* Keyhole / Coiny Insignia */}
-      <path d="M100 73V81M97 78L100 81L103 78" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="100" cy="85" r="1.5" fill="#ffffff" />
+      {/* Floating Sparkles around Deck */}
+      <path d="M42 45L44 49L48 51L44 53L42 57L40 53L36 51L40 49L42 45Z" fill="#fbbf24" opacity="0.9" />
+      <path d="M162 55L163.5 58L167 59.5L163.5 61L162 64L160.5 61L157 59.5L160.5 58L162 55Z" fill="#c084fc" opacity="0.9" />
+      <path d="M152 115L154 119L158 121L154 123L152 127L150 123L146 121L150 119L152 115Z" fill="#38bdf8" opacity="0.85" />
+    </svg>
+  );
+}
 
-      {/* Tactical Stencil Text */}
-      <text x="100" y="65" fill="#fbbf24" fontSize="9" fontWeight="800" textAnchor="middle" letterSpacing="2" fontFamily="monospace">
-        COINY // BRAVO
+export function SvgCardBack({ size = 180, className = '' }) {
+  return (
+    <svg width={size} height={size * 1.42} viewBox="0 0 100 142" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <defs>
+        <linearGradient id="cardBackSingle" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#311042" />
+          <stop offset="50%" stopColor="#1e1b4b" />
+          <stop offset="100%" stopColor="#0c0a1a" />
+        </linearGradient>
+        <linearGradient id="goldHoloSingle" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor="#fffbeb" />
+          <stop offset="40%" stopColor="#fbbf24" />
+          <stop offset="80%" stopColor="#f59e0b" />
+          <stop offset="100%" stopColor="#b45309" />
+        </linearGradient>
+      </defs>
+
+      <rect x="2" y="2" width="96" height="138" rx="10" fill="url(#cardBackSingle)" stroke="url(#goldHoloSingle)" strokeWidth="2.5" />
+      <rect x="7" y="7" width="86" height="128" rx="7" fill="none" stroke="url(#goldHoloSingle)" strokeWidth="1" strokeDasharray="3 2" opacity="0.8" />
+
+      {/* Ornaments */}
+      <circle cx="50" cy="71" r="26" fill="#1f1035" stroke="url(#goldHoloSingle)" strokeWidth="1.5" />
+      <circle cx="50" cy="71" r="20" fill="none" stroke="#c084fc" strokeWidth="1" strokeDasharray="3 2" />
+      <path d="M50 56L53 67L64 71L53 75L50 86L47 75L36 71L47 67L50 56Z" fill="url(#goldHoloSingle)" />
+      <circle cx="50" cy="71" r="3.5" fill="#ffffff" />
+
+      {/* Top and Bottom Emblem Text */}
+      <text x="50" y="22" fill="#fbbf24" fontSize="6.5" fontWeight="800" textAnchor="middle" letterSpacing="1.5" fontFamily="sans-serif">
+        COINY BOOSTER
       </text>
-      <text x="100" y="100" fill="#64748b" fontSize="7" fontWeight="700" textAnchor="middle" letterSpacing="1" fontFamily="sans-serif">
-        MIL-SPEC CONTAINER #01
+      <text x="50" y="128" fill="#fbbf24" fontSize="6" fontWeight="700" textAnchor="middle" letterSpacing="1.5" fontFamily="sans-serif">
+        PROFILE EDITION
       </text>
-
-      {/* LED Status Indicators */}
-      <circle cx="34" cy="78" r="2" fill="#22c55e" filter="url(#neonLockFilter)" />
-      <circle cx="166" cy="78" r="2" fill="#22c55e" filter="url(#neonLockFilter)" />
     </svg>
   );
 }
