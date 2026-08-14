@@ -42,11 +42,6 @@ android/keystores/
 # Electron build artifacts
 dist-electron/
 
-# Playwright artifacts
-test-results/
-playwright-report/
-
 .env.bak*
-
 dist-pages/
-
+.agents/

@@ -8,12 +8,11 @@ import {
   Play,
   Pause,
   Lock,
-  Sparkles,
-  Film,
   Trash2,
   CornerUpLeft
 } from 'lucide-react';
 import { CHAT_MEDIA_ACCEPT } from '../../utils/mediaValidation';
+import MediaPickerPanel from './MediaPickerPanel';
 
 /**
  * Presentational chat footer: reply bar, text input, emoji/sticker picker,
@@ -34,13 +33,8 @@ export default function ChatComposer({
   handleEmojiClick,
   showEmojiPicker,
   setShowEmojiPicker,
-  pickerTab,
-  setPickerTab,
   emojiRef,
-  emojis,
   installedStickers,
-  activeStickerPackId,
-  setActiveStickerPackId,
   sendMessage,
   fileInputRef,
   handleFileChange,
@@ -185,128 +179,27 @@ export default function ChatComposer({
 
                 <div className="emoji-wrapper" ref={emojiRef} onMouseDown={(e) => e.stopPropagation()}>
                   <button
+                    type="button"
                     className={`input-action-btn emoji-trigger ${showEmojiPicker ? 'active' : ''}`}
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                   >
                     <Smile size={22} />
                   </button>
 
-                  {showEmojiPicker && (
-                    <div className="emoji-picker-popup tabbed-picker">
-                      <div className="picker-header-tabs">
-                        <button
-                          type="button"
-                          className={`picker-tab-btn ${pickerTab === 'emoji' ? 'active' : ''}`}
-                          onClick={() => setPickerTab('emoji')}
-                        >
-                          Смайлы
-                        </button>
-                        <button
-                          type="button"
-                          className={`picker-tab-btn ${pickerTab === 'sticker' ? 'active' : ''}`}
-                          onClick={() => setPickerTab('sticker')}
-                        >
-                          Стикеры
-                        </button>
-                      </div>
-
-                      {pickerTab === 'emoji' ? (
-                        <div className="emoji-picker-grid">
-                          {emojis.map((emo, index) => (
-                            <span
-                              key={`${emo}-${index}`}
-                              className="emoji-item"
-                              onClick={() => handleEmojiClick(emo)}
-                            >
-                              {emo}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="sticker-picker-container">
-                          {installedStickers.length === 0 ? (
-                            <div className="no-stickers-placeholder">
-                              <p style={{ margin: '0 0 4px 0', fontWeight: '500' }}>Нет установленных стикеров</p>
-                              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                Вы можете импортировать их в настройках профиля
-                              </span>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="sticker-pack-tabs">
-                                {installedStickers.map((pack) => {
-                                  const firstSticker = pack.stickers?.[0];
-                                  if (!firstSticker) return null;
-                                  const isPublicUrl = firstSticker.filePath.startsWith('http');
-                                  const coverUrl = isPublicUrl
-                                    ? firstSticker.filePath
-                                    : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/stickers/${firstSticker.filePath}`;
-
-                                  return (
-                                    <button
-                                      key={pack.id}
-                                      type="button"
-                                      className={`sticker-pack-tab-btn ${activeStickerPackId === pack.id ? 'active' : ''}`}
-                                      onClick={() => setActiveStickerPackId(pack.id)}
-                                      title={pack.title}
-                                    >
-                                      {pack.is_animated ? (
-                                        <Sparkles size={16} style={{ color: 'var(--text-secondary)' }} />
-                                      ) : pack.is_video ? (
-                                        <Film size={16} style={{ color: 'var(--text-secondary)' }} />
-                                      ) : (
-                                        <img src={coverUrl} alt="set-cover" className="pack-tab-icon" />
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-
-                              <div className="sticker-grid">
-                                {(() => {
-                                  const activePack = installedStickers.find((p) => p.id === activeStickerPackId) || installedStickers[0];
-                                  if (!activePack) return null;
-
-                                  return activePack.stickers.map((st) => {
-                                    const isPublicUrl = st.filePath.startsWith('http');
-                                    const fileUrl = isPublicUrl
-                                      ? st.filePath
-                                      : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/stickers/${st.filePath}`;
-
-                                    const handleStickerSend = () => {
-                                      sendMessage(`sticker:${activePack.name}`, null, fileUrl);
-                                      setShowEmojiPicker(false);
-                                    };
-
-                                    return (
-                                      <div
-                                        key={st.id}
-                                        className="sticker-picker-item"
-                                        onClick={handleStickerSend}
-                                        title={st.emoji || 'sticker'}
-                                      >
-                                        {activePack.is_animated ? (
-                                          st.emoji ? (
-                                            <span style={{ fontSize: '24px' }}>{st.emoji}</span>
-                                          ) : (
-                                            <Sparkles size={24} style={{ color: 'var(--text-secondary)', display: 'block', margin: 'auto' }} />
-                                          )
-                                        ) : activePack.is_video ? (
-                                          <video src={fileUrl} autoPlay loop muted playsInline className="picker-sticker-preview" />
-                                        ) : (
-                                          <img src={fileUrl} alt="sticker" className="picker-sticker-preview" />
-                                        )}
-                                      </div>
-                                    );
-                                  });
-                                })()}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <MediaPickerPanel
+                    isOpen={showEmojiPicker}
+                    onClose={() => setShowEmojiPicker(false)}
+                    onSelectEmoji={handleEmojiClick}
+                    onSelectSticker={(stickerTag, fileUrl) => {
+                      sendMessage(stickerTag, replyingTo?.id, fileUrl);
+                      setReplyingTo(null);
+                    }}
+                    onSelectGif={(gifUrl) => {
+                      sendMessage('', replyingTo?.id, gifUrl);
+                      setReplyingTo(null);
+                    }}
+                    installedStickers={installedStickers}
+                  />
                 </div>
               </div>
             </>

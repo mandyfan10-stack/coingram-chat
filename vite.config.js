@@ -45,8 +45,9 @@ export default defineConfig(({ mode }) => {
   const supabaseSocketOrigin = supabaseOrigin ? supabaseOrigin.replace(/^https:/, 'wss:') : null
   const developmentSources = mode === 'development' ? ['http://localhost:*', 'ws://localhost:*'] : []
   const remoteSources = [supabaseOrigin, supabaseSocketOrigin].filter(Boolean)
-  const connectSources = ["'self'", ...remoteSources, 'https://api.github.com', ...developmentSources].join(' ')
-  const mediaSources = ["'self'", 'data:', 'blob:', supabaseOrigin].filter(Boolean).join(' ')
+  const gifDomains = ['https://*.giphy.com', 'https://*.tenor.com', 'https://media.giphy.com', 'https://media.tenor.com', 'https://c.tenor.com', 'https://tenor.googleapis.com', 'https://img.icons8.com']
+  const connectSources = ["'self'", ...remoteSources, 'https://api.github.com', 'https://api.giphy.com', 'https://tenor.googleapis.com', ...gifDomains, ...developmentSources].join(' ')
+  const mediaSources = ["'self'", 'data:', 'blob:', supabaseOrigin, ...gifDomains].filter(Boolean).join(' ')
   // Vite injects the React Refresh preamble as an inline module in development.
   // Keep production strict while allowing the dev-only preamble to execute.
   const scriptSources = mode === 'development'
@@ -69,8 +70,7 @@ export default defineConfig(({ mode }) => {
   ].join('; ')
   const headerCsp = [
     metaCsp,
-    "frame-ancestors 'none'",
-    "navigate-to 'none'"
+    "frame-ancestors 'none'"
   ].join('; ')
 
   return {
@@ -88,6 +88,7 @@ export default defineConfig(({ mode }) => {
     'import.meta.env.APP_VERSION': JSON.stringify(pkg.version),
   },
   build: {
+    assetsInlineLimit: (filePath) => (filePath && filePath.includes('worklet') ? false : undefined),
     rollupOptions: {
       output: {
         manualChunks(id) {

@@ -17,7 +17,7 @@ class CoinyNoiseGateProcessor extends AudioWorkletProcessor {
       }
     }
     const rms = Math.sqrt(sum / Math.max(samples, 1));
-    const target = rms >= 0.012 ? 1 : 0;
+    const target = rms >= 0.007 ? 1 : 0;
     const smoothing = target > this.gain ? 0.25 : 0.04;
     this.gain += (target - this.gain) * smoothing;
     for (let channelIndex = 0; channelIndex < output.length; channelIndex += 1) {

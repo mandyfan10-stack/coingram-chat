@@ -1,3 +1,5 @@
+import noiseGateWorkletUrl from './noiseGate.worklet.js?url';
+
 export const CALL_AUDIO_CONSTRAINTS = Object.freeze({
   echoCancellation: true,
   noiseSuppression: true,
@@ -29,7 +31,10 @@ export class VoiceEnhancementPipeline {
 
     const context = new AudioContext({ latencyHint: 'interactive' });
     try {
-      await context.audioWorklet.addModule(new URL('./noiseGate.worklet.js', import.meta.url));
+      if (context.state === 'suspended') {
+        await context.resume();
+      }
+      await context.audioWorklet.addModule(noiseGateWorkletUrl);
       const source = context.createMediaStreamSource(new MediaStream([originalTrack]));
       const highPass = new BiquadFilterNode(context, { type: 'highpass', frequency: 80, Q: 0.707 });
       const compressor = new DynamicsCompressorNode(context, {

@@ -30,7 +30,7 @@ export default function ProfileTab({
                   onClick={() => avatarInputRef.current?.click()}
                   title="Загрузить новое фото"
                 >
-                  {renderAvatar(currentUser.avatar, '🪙')}
+                  {renderAvatar(currentUser.avatar, <UserCircle size={44} color="#ffffff" />)}
                   <div className="avatar-upload-overlay" style={{ display: 'flex' }}>
                     <Upload size={18} />
                   </div>

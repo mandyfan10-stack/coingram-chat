@@ -67,9 +67,8 @@ test('Electron source enforces app protocol, navigation, permission and fuse bou
   assert.match(vite, /font-src 'self' data: https:\/\/fonts\.gstatic\.com/);
   assert.match(vite, /const metaCsp/);
   assert.match(vite, /const headerCsp/);
-  assert.match(vite, /"navigate-to 'none'"/);
+  assert.match(vite, /"frame-ancestors 'none'"/);
   assert.doesNotMatch(vite, /const metaCsp = \[[^\]]*"frame-ancestors/);
-  assert.doesNotMatch(vite, /const metaCsp = \[[^\]]*"navigate-to/);
   assert.doesNotMatch(vite, /connect-src 'self' https:/);
   assert.match(vite, /OPENMLS_WASM_SHA256/);
   assert.match(vite, /E2EE_V2_AUDIT_REPORT_SHA256/);

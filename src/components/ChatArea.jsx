@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useChat } from '../context/ChatContext';
 import './ChatArea.css';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
@@ -12,8 +12,6 @@ import {
   Play,
   Pause,
   Lock,
-  Sparkles,
-  Film,
   Trash2,
   WifiOff,
   CornerUpLeft
@@ -31,6 +29,7 @@ import { requiresPersonalE2EE } from '../utils/savedMessages';
 import ChatHeader from './chat/ChatHeader';
 import MessageBubble from './chat/MessageBubble';
 import ImageViewer from './chat/ImageViewer';
+import MediaPickerPanel from './chat/MediaPickerPanel';
 import { createStorageReference } from '../utils/urlSecurity';
 import useResolvedMedia from '../hooks/useResolvedMedia';
 
@@ -54,7 +53,9 @@ export default function ChatArea() {
     retrySendMessage,
     deleteFailedMessage,
     loadOlderMessages,
-    messagePagination
+    messagePagination,
+    setIsSettingsOpen,
+    setSettingsTab
   } = useChat();
 
   const { currentUser } = useAuth();
@@ -114,14 +115,6 @@ export default function ChatArea() {
   const [inputVal, setInputVal] = useState('');
   const [retryMenuMsgId, setRetryMenuMsgId] = useState(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [pickerTab, setPickerTab] = useState('emoji'); // 'emoji' | 'sticker'
-  const [activeStickerPackId, setActiveStickerPackId] = useState(null);
-
-  useEffect(() => {
-    if (installedStickers.length > 0 && !activeStickerPackId) {
-      setActiveStickerPackId(installedStickers[0].id);
-    }
-  }, [installedStickers, activeStickerPackId]);
   const [replyingTo, setReplyingTo] = useState(null);
   const [showMsgActionsId, setShowMsgActionsId] = useState(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
@@ -146,6 +139,7 @@ export default function ChatArea() {
   const chatBodyRef = useRef(null);
   const isLoadingOlderRef = useRef(false);
   const shouldAutoScrollRef = useRef(true);
+  const textareaRef = useRef(null);
   const emojiRef = useRef(null);
   const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -254,10 +248,52 @@ export default function ChatArea() {
     }
   };
 
+function formatDateDivider(timestamp) {
+  if (!timestamp) return null;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return null;
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) {
+    return 'Сегодня';
+  }
+  if (date.toDateString() === yesterday.toDateString()) {
+    return 'Вчера';
+  }
+  const isThisYear = date.getFullYear() === today.getFullYear();
+  return date.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: isThisYear ? undefined : 'numeric'
+  });
+}
+
   // Auto-scroll to bottom on chat switch or new message
   const scrollToBottom = (behavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
+    if (chatBodyRef.current) {
+      if (behavior === 'auto') {
+        chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+      } else {
+        messagesEndRef.current?.scrollIntoView({ behavior });
+      }
+    }
   };
+
+  const isInitialChatLoadRef = useRef(true);
+  const currentChatIdRef = useRef(activeChat?.id);
+
+  useLayoutEffect(() => {
+    if (currentChatIdRef.current !== activeChat?.id) {
+      currentChatIdRef.current = activeChat?.id;
+      isInitialChatLoadRef.current = true;
+      shouldAutoScrollRef.current = true;
+    }
+    if (isInitialChatLoadRef.current && chatBodyRef.current) {
+      chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+    }
+  }, [activeChat?.id, activeChat?.messages]);
 
   useEffect(() => {
     scrollToBottom('auto');
@@ -635,8 +671,12 @@ export default function ChatArea() {
   const messageCount = activeChat?.messages?.length || 0;
   useEffect(() => {
     const isOwnMessage = latestMessageSenderId === currentUser?.id || latestMessageSenderId === 'current';
-    if (!isLoadingOlderRef.current && (shouldAutoScrollRef.current || isOwnMessage)) {
-      scrollToBottom('smooth');
+    if (!isLoadingOlderRef.current) {
+      if (isInitialChatLoadRef.current) {
+        scrollToBottom('auto');
+      } else if (shouldAutoScrollRef.current || isOwnMessage) {
+        scrollToBottom('smooth');
+      }
     }
   }, [activeChat?.id, latestMessageId, latestMessageSenderId, messageCount, currentUser?.id]);
 
@@ -647,6 +687,9 @@ export default function ChatArea() {
     const { scrollTop, scrollHeight, clientHeight } = element;
     const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
     shouldAutoScrollRef.current = distanceFromBottom < 120;
+    if (distanceFromBottom > 120) {
+      isInitialChatLoadRef.current = false;
+    }
     setShowScrollBottom(distanceFromBottom > 300);
 
     const page = messagePagination?.[activeChat?.id];
@@ -832,7 +875,19 @@ export default function ChatArea() {
   };
 
   const handleEmojiClick = (emoji) => {
-    setInputVal(prev => prev + emoji);
+    const textarea = textareaRef.current;
+    if (textarea) {
+      const start = textarea.selectionStart ?? inputVal.length;
+      const end = textarea.selectionEnd ?? inputVal.length;
+      const nextVal = inputVal.substring(0, start) + emoji + inputVal.substring(end);
+      setInputVal(nextVal);
+      setTimeout(() => {
+        textarea.focus();
+        textarea.setSelectionRange(start + emoji.length, start + emoji.length);
+      }, 0);
+    } else {
+      setInputVal(prev => prev + emoji);
+    }
   };
 
   const typingUsersInChat = typingStatuses[activeChat.id] ? Object.values(typingStatuses[activeChat.id]) : [];
@@ -873,26 +928,40 @@ export default function ChatArea() {
         style={chatBodyStyle}
       >
         <div className="messages-list">
-          {activeChat.messages.map((msg, index) => (
-            <MessageBubble
-              key={msg.id}
-              msg={msg}
-              index={index}
-              activeChat={activeChat}
-              currentUser={currentUser}
-              showMsgActionsId={showMsgActionsId}
-              setShowMsgActionsId={setShowMsgActionsId}
-              retryMenuMsgId={retryMenuMsgId}
-              setRetryMenuMsgId={setRetryMenuMsgId}
-              setReplyingTo={setReplyingTo}
-              setOpenedImageUrl={setOpenedImageUrl}
-              deleteMessage={deleteMessage}
-              toggleReaction={toggleReaction}
-              retrySendMessage={retrySendMessage}
-              deleteFailedMessage={deleteFailedMessage}
-              emojis={emojis}
-            />
-          ))}
+          {activeChat.messages.map((msg, index) => {
+            const prevMsg = activeChat.messages[index - 1];
+            const showDateDivider = !prevMsg || (
+              new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString()
+            );
+            const dateDividerText = showDateDivider ? formatDateDivider(msg.timestamp) : null;
+            return (
+              <React.Fragment key={msg.id}>
+                {dateDividerText && (
+                  <div className="chat-date-divider">
+                    <span>{dateDividerText}</span>
+                  </div>
+                )}
+                <MessageBubble
+                  msg={msg}
+                  index={index}
+                  activeChat={activeChat}
+                  currentUser={currentUser}
+                  renderAvatar={renderAvatar}
+                  showMsgActionsId={showMsgActionsId}
+                  setShowMsgActionsId={setShowMsgActionsId}
+                  retryMenuMsgId={retryMenuMsgId}
+                  setRetryMenuMsgId={setRetryMenuMsgId}
+                  setReplyingTo={setReplyingTo}
+                  setOpenedImageUrl={setOpenedImageUrl}
+                  deleteMessage={deleteMessage}
+                  toggleReaction={toggleReaction}
+                  retrySendMessage={retrySendMessage}
+                  deleteFailedMessage={deleteFailedMessage}
+                  emojis={emojis}
+                />
+              </React.Fragment>
+            );
+          })}
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -1015,9 +1084,10 @@ export default function ChatArea() {
                     disabled={uploading}
                   />
                   <button
+                    type="button"
                     className="input-action-btn"
                     onClick={() => fileInputRef.current?.click()}
-                    title="Прикрепить изображение"
+                    title="Прикрепить изображение или файл"
                     disabled={uploading}
                   >
                     {uploading ? (
@@ -1032,6 +1102,7 @@ export default function ChatArea() {
               {/* Text Area */}
               <div className="input-textarea-wrapper">
                 <textarea
+                  ref={textareaRef}
                   placeholder={recipientMissingE2EE ? "Шифрование недоступно..." : "Напишите сообщение..."}
                   value={inputVal}
                   onChange={handleInputChange}
@@ -1041,133 +1112,35 @@ export default function ChatArea() {
                   disabled={recipientMissingE2EE}
                 />
 
-                {/* Emoji picker button */}
+                {/* Emoji / Sticker / GIF picker */}
                 <div className="emoji-wrapper" ref={emojiRef} onMouseDown={(e) => e.stopPropagation()}>
                   <button
+                    type="button"
                     className={`input-action-btn emoji-trigger ${showEmojiPicker ? 'active' : ''}`}
                     onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    title="Смайлы, стикеры и GIF"
                   >
                     <Smile size={22} />
                   </button>
 
-                  {showEmojiPicker && (
-                    <div className="emoji-picker-popup tabbed-picker">
-                      <div className="picker-header-tabs">
-                        <button
-                          type="button"
-                          className={`picker-tab-btn ${pickerTab === 'emoji' ? 'active' : ''}`}
-                          onClick={() => setPickerTab('emoji')}
-                        >
-                          Смайлы
-                        </button>
-                        <button
-                          type="button"
-                          className={`picker-tab-btn ${pickerTab === 'sticker' ? 'active' : ''}`}
-                          onClick={() => setPickerTab('sticker')}
-                        >
-                          Стикеры
-                        </button>
-                      </div>
-
-                      {pickerTab === 'emoji' ? (
-                        <div className="emoji-picker-grid">
-                          {emojis.map((emo, index) => (
-                            <span
-                              key={`${emo}-${index}`}
-                              className="emoji-item"
-                              onClick={() => handleEmojiClick(emo)}
-                            >
-                              {emo}
-                            </span>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="sticker-picker-container">
-                          {installedStickers.length === 0 ? (
-                            <div className="no-stickers-placeholder">
-                              <p style={{ margin: '0 0 4px 0', fontWeight: '500' }}>Нет установленных стикеров</p>
-                              <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                                Вы можете импортировать их в настройках профиля
-                              </span>
-                            </div>
-                          ) : (
-                            <>
-                              {/* Sticker Pack Tabs */}
-                              <div className="sticker-pack-tabs">
-                                {installedStickers.map((pack) => {
-                                  const firstSticker = pack.stickers?.[0];
-                                  if (!firstSticker) return null;
-                                  const isPublicUrl = firstSticker.filePath.startsWith('http');
-                                  const coverUrl = isPublicUrl 
-                                    ? firstSticker.filePath 
-                                    : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/stickers/${firstSticker.filePath}`;
-
-                                  return (
-                                    <button
-                                      key={pack.id}
-                                      type="button"
-                                      className={`sticker-pack-tab-btn ${activeStickerPackId === pack.id ? 'active' : ''}`}
-                                      onClick={() => setActiveStickerPackId(pack.id)}
-                                      title={pack.title}
-                                    >
-                                      {pack.is_animated ? (
-                                        <Sparkles size={16} style={{ color: 'var(--text-secondary)' }} />
-                                      ) : pack.is_video ? (
-                                        <Film size={16} style={{ color: 'var(--text-secondary)' }} />
-                                      ) : (
-                                        <img src={coverUrl} alt="set-cover" className="pack-tab-icon" />
-                                      )}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-
-                              {/* Sticker Grid */}
-                              <div className="sticker-grid">
-                                {(() => {
-                                  const activePack = installedStickers.find(p => p.id === activeStickerPackId) || installedStickers[0];
-                                  if (!activePack) return null;
-
-                                  return activePack.stickers.map((st) => {
-                                    const isPublicUrl = st.filePath.startsWith('http');
-                                    const fileUrl = isPublicUrl 
-                                      ? st.filePath 
-                                      : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/stickers/${st.filePath}`;
-
-                                    const handleStickerSend = () => {
-                                      sendMessage(`sticker:${activePack.name}`, null, fileUrl);
-                                      setShowEmojiPicker(false);
-                                    };
-
-                                    return (
-                                      <div
-                                        key={st.id}
-                                        className="sticker-picker-item"
-                                        onClick={handleStickerSend}
-                                        title={st.emoji || 'sticker'}
-                                      >
-                                        {activePack.is_animated ? (
-                                          st.emoji ? (
-                                            <span style={{ fontSize: '24px' }}>{st.emoji}</span>
-                                          ) : (
-                                            <Sparkles size={24} style={{ color: 'var(--text-secondary)', display: 'block', margin: 'auto' }} />
-                                          )
-                                        ) : activePack.is_video ? (
-                                          <video src={fileUrl} autoPlay loop muted playsInline className="picker-sticker-preview" />
-                                        ) : (
-                                          <img src={fileUrl} alt="sticker" className="picker-sticker-preview" />
-                                        )}
-                                      </div>
-                                    );
-                                  });
-                                })()}
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <MediaPickerPanel
+                    isOpen={showEmojiPicker}
+                    onClose={() => setShowEmojiPicker(false)}
+                    onSelectEmoji={handleEmojiClick}
+                    onSelectSticker={(stickerTag, fileUrl) => {
+                      sendMessage(stickerTag, replyingTo?.id, fileUrl);
+                      setReplyingTo(null);
+                    }}
+                    onSelectGif={(gifUrl) => {
+                      sendMessage('', replyingTo?.id, gifUrl);
+                      setReplyingTo(null);
+                    }}
+                    installedStickers={installedStickers}
+                    onOpenStickerSettings={() => {
+                      setIsSettingsOpen(true);
+                      setSettingsTab('stickers');
+                    }}
+                  />
                 </div>
               </div>
             </>

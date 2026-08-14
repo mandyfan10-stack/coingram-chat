@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
 /* --- Root variables & Theme mappings --- */
 :root {
@@ -17,9 +17,11 @@
   --accent-color-alpha: rgba(36, 129, 204, 0.15);
   --accent-gradient: linear-gradient(135deg, #2481cc 0%, #1c6199 100%);
   
-  --bubble-me: linear-gradient(135deg, #2b5278 0%, #203f5e 100%);
-  --bubble-other: #182533;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --bubble-me: #2b5278;
+  --bubble-other: #212d3b;
+  --bubble-tail-me: #2b5278;
+  --bubble-tail-other: #212d3b;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.18);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
   --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -3412,10 +3414,71 @@ body {
 
 .voice-seek-bar {
   width: 100%;
-  accent-color: var(--accent-color);
   cursor: pointer;
   height: 4px;
   border-radius: 2px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.18);
+  position: relative;
+}
+
+.voice-seek-bar::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--accent-color) 0%,
+    var(--accent-color) var(--voice-progress, 0%),
+    rgba(255, 255, 255, 0.22) var(--voice-progress, 0%),
+    rgba(255, 255, 255, 0.22) 100%
+  );
+}
+
+.voice-seek-bar::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.voice-seek-bar::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--accent-color);
+}
+
+.voice-seek-bar::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  margin-top: -3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.voice-seek-bar::-moz-range-thumb {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent-color);
+  border: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.voice-seek-bar:hover::-webkit-slider-thumb {
+  transform: scale(1.25);
+}
+
+.voice-seek-bar:hover::-moz-range-thumb {
+  transform: scale(1.25);
 }
 
 .round-video-wrapper {

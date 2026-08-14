@@ -235,12 +235,20 @@ function MainLayout() {
     const checkUpdates = async () => {
       if (!CURRENT_VERSION) return;
       try {
+        const STORAGE_KEY = 'coiny_last_update_check';
+        const lastCheck = Number(localStorage.getItem(STORAGE_KEY) || '0');
+        const now = Date.now();
+        // Check at most once every 6 hours
+        if (now - lastCheck < 6 * 60 * 60 * 1000) return;
+
         const repo = import.meta.env.VITE_GITHUB_REPO || 'mandyfan10-stack/coingram-chat';
         const response = await fetch(`https://api.github.com/repos/${repo}/releases/latest`);
+        localStorage.setItem(STORAGE_KEY, String(now));
         if (!response.ok) return;
 
         const data = await response.json();
         const tagName = data.tag_name;
+        if (!tagName) return;
         const cleanTagName = tagName.replace(/^v/, '');
 
         if (isNewerVersion(cleanTagName, CURRENT_VERSION)) {

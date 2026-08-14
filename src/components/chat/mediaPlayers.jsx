@@ -82,8 +82,15 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
 
     const handlePlay = () => setIsPlaying(true);
     const handlePause = () => setIsPlaying(false);
+    const handleEnded = () => {
+      setIsPlaying(false);
+      if (audio.duration && !isNaN(audio.duration) && audio.duration !== Infinity) {
+        setCurrentTime(audio.duration);
+      }
+    };
+
     const handleTimeUpdate = () => {
-      if (!isCalculatingRef.current) {
+      if (!isCalculatingRef.current && audio.paused) {
         setCurrentTime(audio.currentTime);
       }
     };
@@ -102,13 +109,14 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
           }, 150);
         };
         audio.addEventListener('seeked', onSeeked);
-      } else if (audio.duration && !isNaN(audio.duration)) {
+      } else if (audio.duration && !isNaN(audio.duration) && audio.duration !== Infinity) {
         setMaxDuration(audio.duration);
       }
     };
 
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
+    audio.addEventListener('ended', handleEnded);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('loadedmetadata', handleDurationCompute);
     audio.addEventListener('durationchange', handleDurationCompute);
@@ -119,19 +127,42 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
     return () => {
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
+      audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('loadedmetadata', handleDurationCompute);
       audio.removeEventListener('durationchange', handleDurationCompute);
     };
   }, [audioUrl]);
 
+  // Smooth 60fps progress update loop while playing
+  useEffect(() => {
+    if (!isPlaying) return undefined;
+    let animId;
+    const updateSmoothProgress = () => {
+      const audio = audioRef.current;
+      if (audio && !isCalculatingRef.current) {
+        setCurrentTime(audio.currentTime);
+        if (audio.duration && !isNaN(audio.duration) && audio.duration !== Infinity) {
+          setMaxDuration(audio.duration);
+        }
+      }
+      animId = requestAnimationFrame(updateSmoothProgress);
+    };
+    animId = requestAnimationFrame(updateSmoothProgress);
+    return () => cancelAnimationFrame(animId);
+  }, [isPlaying]);
+
   const togglePlay = (e) => {
     e.stopPropagation();
     const audio = audioRef.current;
     if (!audio) return;
-    if (isPlaying) {
+    if (!audio.paused) {
       audio.pause();
     } else {
+      if (audio.ended || (audio.duration && audio.currentTime >= audio.duration - 0.05)) {
+        audio.currentTime = 0;
+        setCurrentTime(0);
+      }
       audio.play().catch(err => console.error("Error playing audio:", err));
     }
   };
@@ -152,10 +183,12 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  const progressPercent = maxDuration > 0 ? Math.min(100, Math.max(0, (currentTime / maxDuration) * 100)) : 0;
+
   return (
     <div className="voice-player-bubble" onClick={(e) => e.stopPropagation()}>
       <audio ref={audioRef} src={audioUrl} preload="metadata" />
-      <button className="voice-play-btn" onClick={togglePlay}>
+      <button className="voice-play-btn" onClick={togglePlay} aria-label={isPlaying ? "Пауза" : "Воспроизвести"}>
         {isPlaying ? (
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
@@ -172,9 +205,10 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
           className="voice-seek-bar"
           min={0}
           max={maxDuration || 100}
-          step={0.1}
+          step={0.01}
           value={currentTime}
           onChange={handleSeek}
+          style={{ '--voice-progress': `${progressPercent}%` }}
         />
         <div className="voice-player-meta">
           <span>{formatTime(currentTime)} / {formatTime(maxDuration)}</span>

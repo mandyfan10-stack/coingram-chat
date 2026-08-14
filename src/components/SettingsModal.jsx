@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useE2EE } from '../context/E2EEContext';
 import './SettingsModal.css';
 import { isSupabaseConfigured, supabase } from '../supabaseClient';
-import { X } from 'lucide-react';
+import { X, User, Palette, Sparkles, ShieldCheck, LogOut } from 'lucide-react';
 import ProfileTab from './settings/ProfileTab';
 import AppearanceTab from './settings/AppearanceTab';
 import E2EETab from './settings/E2EETab';
@@ -321,132 +321,166 @@ export default function SettingsModal() {
         aria-labelledby="settings-dialog-title"
         tabIndex={-1}
       >
-        <div className="settings-header">
-          <h3 id="settings-dialog-title">{TAB_TITLES[settingsTab] || 'Настройки'}</h3>
-          <button
-            ref={closeButtonRef}
-            className="settings-close-btn"
-            onClick={() => setIsSettingsOpen(false)}
-            aria-label="Закрыть настройки"
-          >
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="settings-tabs">
-          <button
-            type="button"
-            className={`settings-tab-btn ${settingsTab === 'profile' ? 'active' : ''}`}
+        {/* Left Navigation Sidebar */}
+        <aside className="settings-sidebar">
+          <div
+            className="settings-sidebar-profile"
             onClick={() => setSettingsTab('profile')}
+            role="button"
+            tabIndex={0}
+            title="Перейти в профиль"
           >
-            Профиль
-          </button>
-          <button
-            type="button"
-            className={`settings-tab-btn ${settingsTab === 'settings' ? 'active' : ''}`}
-            onClick={() => setSettingsTab('settings')}
-          >
-            Настройки
-          </button>
-          <button
-            type="button"
-            className={`settings-tab-btn ${settingsTab === 'stickers' ? 'active' : ''}`}
-            onClick={() => setSettingsTab('stickers')}
-          >
-            Стикеры
-          </button>
-          <button
-            type="button"
-            className={`settings-tab-btn ${settingsTab === 'e2ee' ? 'active' : ''}`}
-            onClick={() => setSettingsTab('e2ee')}
-          >
-            Шифрование
-          </button>
-        </div>
+            <div className="settings-sidebar-avatar" style={{ background: currentUser.avatarColor }}>
+              {renderAvatar(currentUser.avatar, <User size={20} color="#ffffff" />)}
+            </div>
+            <div className="settings-sidebar-userinfo">
+              <span className="settings-sidebar-name">{currentUser.name || 'Пользователь'}</span>
+              <span className="settings-sidebar-username">@{currentUser.username}</span>
+            </div>
+          </div>
 
-        <div className="settings-body">
-          {settingsTab === 'profile' && (
-            <ProfileTab
-              currentUser={currentUser}
-              renderAvatar={renderAvatar}
-              name={name}
-              setName={setName}
-              email={email}
-              setEmail={setEmail}
-              emailStatus={emailStatus}
-              emailLoading={settingsSaving}
-              emailEditable={isSupabaseConfigured}
-              bio={bio}
-              setBio={setBio}
-              copied={copied}
-              handleCopyInviteLink={handleCopyInviteLink}
-              avatarInputRef={avatarInputRef}
-              handleAvatarUpload={handleAvatarUpload}
-              isUploadingAvatar={isUploadingAvatar}
-            />
-          )}
+          <nav className="settings-nav-list">
+            <button
+              type="button"
+              className={`settings-nav-item ${settingsTab === 'profile' ? 'active' : ''}`}
+              onClick={() => setSettingsTab('profile')}
+            >
+              <span className="nav-item-icon"><User size={17} /></span>
+              <span className="nav-item-label">Мой профиль</span>
+            </button>
+            <button
+              type="button"
+              className={`settings-nav-item ${settingsTab === 'settings' ? 'active' : ''}`}
+              onClick={() => setSettingsTab('settings')}
+            >
+              <span className="nav-item-icon"><Palette size={17} /></span>
+              <span className="nav-item-label">Оформление</span>
+            </button>
+            <button
+              type="button"
+              className={`settings-nav-item ${settingsTab === 'stickers' ? 'active' : ''}`}
+              onClick={() => setSettingsTab('stickers')}
+            >
+              <span className="nav-item-icon"><Sparkles size={17} /></span>
+              <span className="nav-item-label">Стикеры</span>
+              {installedStickers?.length > 0 && (
+                <span className="nav-item-badge">{installedStickers.length}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              className={`settings-nav-item ${settingsTab === 'e2ee' ? 'active' : ''}`}
+              onClick={() => setSettingsTab('e2ee')}
+            >
+              <span className="nav-item-icon"><ShieldCheck size={17} /></span>
+              <span className="nav-item-label">Шифрование</span>
+            </button>
+          </nav>
 
-          {settingsTab === 'settings' && (
-            <AppearanceTab
-              theme={theme}
-              setTheme={setTheme}
-              wallpaper={wallpaper}
-              setWallpaper={setWallpaper}
-              customWallpaperUrl={customWallpaperUrl}
-              setCustomWallpaperUrl={setCustomWallpaperUrl}
-              notif={notif}
-              setNotif={setNotif}
-              currentUser={currentUser}
-              email={email}
-              setEmail={setEmail}
-              emailStatus={emailStatus}
-              emailLoading={settingsSaving}
-              emailEditable={isSupabaseConfigured}
-              wallpaperInputRef={wallpaperInputRef}
-              handleWallpaperUpload={handleWallpaperUpload}
-              isUploadingWallpaper={isUploadingWallpaper}
-              newPassword={newPassword}
-              setNewPassword={setNewPassword}
-              confirmPassword={confirmPassword}
-              setConfirmPassword={setConfirmPassword}
-              passwordStatus={passwordStatus}
-              passwordLoading={passwordLoading}
-              handlePasswordChange={handlePasswordChange}
-              handleLogoutClick={handleLogoutClick}
-            />
-          )}
+          <div className="settings-sidebar-footer">
+            <button type="button" className="settings-nav-item logout-item" onClick={handleLogoutClick}>
+              <span className="nav-item-icon"><LogOut size={17} /></span>
+              <span className="nav-item-label">Выйти из аккаунта</span>
+            </button>
+          </div>
+        </aside>
 
-          {settingsTab === 'stickers' && (
-            <Suspense fallback={null}>
-              <StickersTab
-                stickerPackInput={stickerPackInput}
-                setStickerPackInput={setStickerPackInput}
-                importLoading={importLoading}
-                importStatus={importStatus}
-                handleImportStickers={handleImportStickers}
-                installedStickers={installedStickers}
+        {/* Right Main Content Column */}
+        <main className="settings-main">
+          <div className="settings-header">
+            <h3 id="settings-dialog-title">{TAB_TITLES[settingsTab] || 'Настройки'}</h3>
+            <button
+              ref={closeButtonRef}
+              className="settings-close-btn"
+              onClick={() => setIsSettingsOpen(false)}
+              aria-label="Закрыть настройки"
+            >
+              <X size={20} />
+            </button>
+          </div>
+
+          <div className="settings-body">
+            {settingsTab === 'profile' && (
+              <ProfileTab
+                currentUser={currentUser}
+                renderAvatar={renderAvatar}
+                name={name}
+                setName={setName}
+                email={email}
+                setEmail={setEmail}
+                emailStatus={emailStatus}
+                emailLoading={settingsSaving}
+                emailEditable={isSupabaseConfigured}
+                bio={bio}
+                setBio={setBio}
+                copied={copied}
+                handleCopyInviteLink={handleCopyInviteLink}
+                avatarInputRef={avatarInputRef}
+                handleAvatarUpload={handleAvatarUpload}
+                isUploadingAvatar={isUploadingAvatar}
               />
-            </Suspense>
-          )}
+            )}
 
-          {settingsTab === 'e2ee' && (
-            <E2EETab
-              currentUser={currentUser}
-              e2eePrivateKey={e2eePrivateKey}
-              setIsSettingsOpen={setIsSettingsOpen}
-              resetE2EE={resetE2EE}
-            />
-          )}
-        </div>
+            {settingsTab === 'settings' && (
+              <AppearanceTab
+                theme={theme}
+                setTheme={setTheme}
+                wallpaper={wallpaper}
+                setWallpaper={setWallpaper}
+                customWallpaperUrl={customWallpaperUrl}
+                setCustomWallpaperUrl={setCustomWallpaperUrl}
+                notif={notif}
+                setNotif={setNotif}
+                wallpaperInputRef={wallpaperInputRef}
+                handleWallpaperUpload={handleWallpaperUpload}
+                isUploadingWallpaper={isUploadingWallpaper}
+              />
+            )}
 
-        <div className="settings-footer">
-          <button className="settings-btn cancel" onClick={() => setIsSettingsOpen(false)}>
-            Отмена
-          </button>
-          <button className="settings-btn save" onClick={handleSave} disabled={settingsSaving}>
-            {settingsSaving ? 'Сохранение...' : 'Сохранить'}
-          </button>
-        </div>
+            {settingsTab === 'stickers' && (
+              <Suspense fallback={null}>
+                <StickersTab
+                  stickerPackInput={stickerPackInput}
+                  setStickerPackInput={setStickerPackInput}
+                  importLoading={importLoading}
+                  importStatus={importStatus}
+                  handleImportStickers={handleImportStickers}
+                  installedStickers={installedStickers}
+                />
+              </Suspense>
+            )}
+
+            {settingsTab === 'e2ee' && (
+              <E2EETab
+                currentUser={currentUser}
+                e2eePrivateKey={e2eePrivateKey}
+                setIsSettingsOpen={setIsSettingsOpen}
+                resetE2EE={resetE2EE}
+                email={email}
+                setEmail={setEmail}
+                emailStatus={emailStatus}
+                emailLoading={settingsSaving}
+                emailEditable={isSupabaseConfigured}
+                newPassword={newPassword}
+                setNewPassword={setNewPassword}
+                confirmPassword={confirmPassword}
+                setConfirmPassword={setConfirmPassword}
+                passwordStatus={passwordStatus}
+                passwordLoading={passwordLoading}
+                handlePasswordChange={handlePasswordChange}
+              />
+            )}
+          </div>
+
+          <div className="settings-footer">
+            <button className="settings-btn cancel" onClick={() => setIsSettingsOpen(false)}>
+              Отмена
+            </button>
+            <button className="settings-btn save" onClick={handleSave} disabled={settingsSaving}>
+              {settingsSaving ? 'Сохранение...' : 'Сохранить'}
+            </button>
+          </div>
+        </main>
       </div>
     </div>
   );

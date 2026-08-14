@@ -2,6 +2,28 @@ import React from 'react';
 import { ArrowDown } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 
+function formatDateDivider(timestamp) {
+  if (!timestamp) return null;
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) return null;
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) {
+    return 'Сегодня';
+  }
+  if (date.toDateString() === yesterday.toDateString()) {
+    return 'Вчера';
+  }
+  const isThisYear = date.getFullYear() === today.getFullYear();
+  return date.toLocaleDateString('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: isThisYear ? undefined : 'numeric'
+  });
+}
+
 /**
  * Presentational messages window + scroll-to-bottom control.
  * Scroll pagination / auto-scroll policy stay owned by ChatArea.
@@ -9,6 +31,7 @@ import MessageBubble from './MessageBubble';
 export default function MessageList({
   activeChat,
   currentUser,
+  renderAvatar,
   chatBodyRef,
   messagesEndRef,
   chatBodyStyle,
@@ -36,26 +59,40 @@ export default function MessageList({
         style={chatBodyStyle}
       >
         <div className="messages-list">
-          {activeChat.messages.map((msg, index) => (
-            <MessageBubble
-              key={msg.id}
-              msg={msg}
-              index={index}
-              activeChat={activeChat}
-              currentUser={currentUser}
-              showMsgActionsId={showMsgActionsId}
-              setShowMsgActionsId={setShowMsgActionsId}
-              retryMenuMsgId={retryMenuMsgId}
-              setRetryMenuMsgId={setRetryMenuMsgId}
-              setReplyingTo={setReplyingTo}
-              setOpenedImageUrl={setOpenedImageUrl}
-              deleteMessage={deleteMessage}
-              toggleReaction={toggleReaction}
-              retrySendMessage={retrySendMessage}
-              deleteFailedMessage={deleteFailedMessage}
-              emojis={emojis}
-            />
-          ))}
+          {activeChat.messages.map((msg, index) => {
+            const prevMsg = activeChat.messages[index - 1];
+            const showDateDivider = !prevMsg || (
+              new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString()
+            );
+            const dateDividerText = showDateDivider ? formatDateDivider(msg.timestamp) : null;
+            return (
+              <React.Fragment key={msg.id}>
+                {dateDividerText && (
+                  <div className="chat-date-divider">
+                    <span>{dateDividerText}</span>
+                  </div>
+                )}
+                <MessageBubble
+                  msg={msg}
+                  index={index}
+                  activeChat={activeChat}
+                  currentUser={currentUser}
+                  renderAvatar={renderAvatar}
+                  showMsgActionsId={showMsgActionsId}
+                  setShowMsgActionsId={setShowMsgActionsId}
+                  retryMenuMsgId={retryMenuMsgId}
+                  setRetryMenuMsgId={setRetryMenuMsgId}
+                  setReplyingTo={setReplyingTo}
+                  setOpenedImageUrl={setOpenedImageUrl}
+                  deleteMessage={deleteMessage}
+                  toggleReaction={toggleReaction}
+                  retrySendMessage={retrySendMessage}
+                  deleteFailedMessage={deleteFailedMessage}
+                  emojis={emojis}
+                />
+              </React.Fragment>
+            );
+          })}
           <div ref={messagesEndRef} />
         </div>
       </div>

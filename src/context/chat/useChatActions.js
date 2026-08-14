@@ -189,7 +189,8 @@ export function useChatActions({
   }, [setChats]);
 
   const sendMessage = useCallback(async (text, replyToId = null, media = null, offlineMediaBlob = null, offlineMediaType = null, customMessageId = null) => {
-    if (!text.trim() && !media && !offlineMediaBlob) return;
+    const cleanText = typeof text === 'string' ? text.trim() : '';
+    if (!cleanText && !media && !offlineMediaBlob) return;
     if (!currentUser || !activeChatId) return;
 
     const messageId = customMessageId || crypto.randomUUID();
@@ -198,7 +199,7 @@ export function useChatActions({
       id: messageId,
       senderId: currentUser.id,
       senderName: currentUser.name || 'Вы',
-      text: text,
+      text: typeof text === 'string' ? text : '',
       media: media,
       replyTo: replyToId,
       read: false,

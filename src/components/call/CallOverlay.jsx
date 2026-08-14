@@ -2,7 +2,20 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useChat } from '../../context/ChatContext';
 import { useCalls } from '../../context/CallContext';
 import './CallOverlay.css';
-import { Mic, MicOff, PhoneOff, Phone, Video, VideoOff, Monitor, Minimize2, Maximize2, RefreshCw, SlidersHorizontal, X } from 'lucide-react';
+import {
+  Mic,
+  MicOff,
+  PhoneOff,
+  Phone,
+  Video,
+  VideoOff,
+  Monitor,
+  Minimize2,
+  Maximize2,
+  RefreshCw,
+  SlidersHorizontal,
+  X
+} from 'lucide-react';
 import {
   playCallConnect,
   playCallDisconnect,
@@ -299,29 +312,33 @@ export default function CallOverlay() {
         onMouseDown={isCompact ? undefined : handleCardMouseDown}
         onTouchStart={isCompact ? undefined : handleCardTouchStart}
       >
+        {/* Top Bar with Actions */}
         {!isIncoming && (
-          <div className="call-header-actions">
-            {showRemoteVideo && (
+          <div className="call-top-bar">
+            <div className="call-header-actions">
+              {showRemoteVideo && (
+                <button
+                  type="button"
+                  className="call-action-icon-btn"
+                  onClick={() => setIsVideoContain((prev) => !prev)}
+                  title={isVideoContain ? 'Заполнить экран' : 'Вписать в экран'}
+                >
+                  <Maximize2 size={15} />
+                </button>
+              )}
               <button
                 type="button"
                 className="call-action-icon-btn"
-                onClick={() => setIsVideoContain((prev) => !prev)}
-                title={isVideoContain ? 'Заполнить экран' : 'Вписать в экран'}
+                onClick={() => setIsMinimized(true)}
+                title="Свернуть"
               >
-                <Maximize2 size={16} />
+                <Minimize2 size={15} />
               </button>
-            )}
-            <button
-              type="button"
-              className="call-action-icon-btn"
-              onClick={() => setIsMinimized(true)}
-              title="Свернуть"
-            >
-              <Minimize2 size={16} />
-            </button>
+            </div>
           </div>
         )}
 
+        {/* Video Feeds */}
         {showRemoteVideo && (
           <video ref={remoteVideoRef} autoPlay playsInline className="remote-video-feed" />
         )}
@@ -344,6 +361,7 @@ export default function CallOverlay() {
           </div>
         )}
 
+        {/* Media Error Toast */}
         {mediaError && (
           <div className="call-media-error" role="alert">
             <span>{mediaError}</span>
@@ -361,12 +379,13 @@ export default function CallOverlay() {
           </div>
         )}
 
-        {activeChat && activeChat.type === 'group' ? (
+        {/* Group Call View or 1:1 Voice Call View */}
+        {isGroupCall ? (
           <div className="group-call-container">
-            <h2 className="call-user-name" style={{ marginBottom: '8px' }}>
-              Голосовой чат: {displayName}
+            <h2 className="call-user-name" style={{ marginBottom: '4px' }}>
+              {displayName}
             </h2>
-            <p className="call-status-subtitle" style={{ marginBottom: '16px' }}>
+            <p className="call-status-subtitle" style={{ marginBottom: '14px' }}>
               {statusText}
             </p>
             <div className="group-call-stage-list">
@@ -411,22 +430,31 @@ export default function CallOverlay() {
           </div>
         ) : (
           <>
+            {/* Avatar & Dynamic Triple Voice Pulse Rings */}
             <div className={`call-avatar-section ${!showBackgroundAvatar ? 'fade-out' : ''}`}>
               {callState.status === 'connected' &&
-                callState.webrtcState === 'connected' &&
-                callState.isRemoteSpeaking && (
+                callState.webrtcState === 'connected' && (
                   <>
                     <div
                       className="wave-pulse wave-1"
-                      style={{ transform: `scale(${pulseScale * 1.15})`, opacity: 0.15 }}
+                      style={{
+                        transform: `translate(-50%, -50%) scale(${pulseScale * 1.12})`,
+                        opacity: callState.isRemoteSpeaking ? 0.35 : 0.12
+                      }}
                     />
                     <div
                       className="wave-pulse wave-2"
-                      style={{ transform: `scale(${pulseScale * 1.35})`, opacity: 0.1 }}
+                      style={{
+                        transform: `translate(-50%, -50%) scale(${pulseScale * 1.28})`,
+                        opacity: callState.isRemoteSpeaking ? 0.25 : 0.08
+                      }}
                     />
                     <div
                       className="wave-pulse wave-3"
-                      style={{ transform: `scale(${pulseScale * 1.55})`, opacity: 0.05 }}
+                      style={{
+                        transform: `translate(-50%, -50%) scale(${pulseScale * 1.45})`,
+                        opacity: callState.isRemoteSpeaking ? 0.15 : 0.04
+                      }}
                     />
                   </>
                 )}
@@ -434,9 +462,11 @@ export default function CallOverlay() {
                 {renderAvatar(avatarContent, '👤')}
               </div>
             </div>
+
             <h2 className="call-user-name" id="call-overlay-title">
               {displayName}
             </h2>
+
             <div className="call-status-container">
               <p className="call-status-subtitle">{statusText}</p>
               {callState.status === 'connected' &&
@@ -449,15 +479,16 @@ export default function CallOverlay() {
                   </div>
                 )}
             </div>
+
             {callState.status === 'connected' && callState.webrtcState === 'failed' && (
-              <p className="call-connection-hint">
-                Соединение через STUN может не проходить за NAT. Нажмите «Повторить» или завершите
-                звонок.
+              <p className="call-connection-hint" style={{ fontSize: '11.5px', color: '#ff7675', marginBottom: '14px' }}>
+                Нет WebRTC-связи (сеть/NAT). Нажмите «Повторить» или завершите звонок.
               </p>
             )}
           </>
         )}
 
+        {/* Floating Controls Dock */}
         <div className="call-controls">
           {callState.status === 'incoming' ? (
             <div className="incoming-buttons" style={{ display: 'flex', gap: '24px' }}>
@@ -495,6 +526,7 @@ export default function CallOverlay() {
                   {localVideoStream && !isScreenSharing ? <VideoOff size={20} /> : <Video size={20} />}
                 </button>
               )}
+
               <button
                 type="button"
                 className={`call-ctrl-btn ctrl-secondary ${callState.muted ? 'active-mute' : ''}`}
@@ -504,15 +536,17 @@ export default function CallOverlay() {
               >
                 {callState.muted ? <MicOff size={20} /> : <Mic size={20} />}
               </button>
+
               <button
                 type="button"
-                className={`call-ctrl-btn ctrl-secondary ${voiceEnhancementEnabled ? 'active-video' : ''}`}
+                className={`call-ctrl-btn ctrl-secondary ${voiceEnhancementEnabled ? 'active-enhancement active-video' : ''}`}
                 onClick={toggleVoiceEnhancement}
                 disabled={callState.status !== 'connected'}
                 title={voiceEnhancementEnabled ? 'Отключить улучшение голоса' : 'Включить улучшение голоса'}
               >
                 <SlidersHorizontal size={20} />
               </button>
+
               {showVideoControls && isScreenShareSupported && (
                 <button
                   type="button"
@@ -526,6 +560,7 @@ export default function CallOverlay() {
                   <Monitor size={20} />
                 </button>
               )}
+
               {callState.status === 'connected' &&
                 callState.webrtcState === 'failed' &&
                 typeof retryCallConnection === 'function' && (
@@ -538,6 +573,7 @@ export default function CallOverlay() {
                     <RefreshCw size={20} />
                   </button>
                 )}
+
               <button
                 type="button"
                 className="call-ctrl-btn call-hangup ctrl-secondary"
