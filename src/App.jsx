@@ -3,7 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { E2EEProvider } from './context/E2EEContext';
 import { ChatProvider, useChat } from './context/ChatContext';
 import { CallProvider, useCalls } from './context/CallContext';
-import { RewardProvider, useRewards } from './context/RewardContext';
+
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import ChatInfo from './components/ChatInfo';
@@ -13,7 +13,6 @@ import NewChatModal from './components/NewChatModal';
 import CreateStoryModal from './components/CreateStoryModal';
 import MainMenuDrawer from './components/MainMenuDrawer';
 import E2EESetupModal from './components/E2EESetupModal';
-import RewardsModal from './components/rewards/RewardsModal';
 import { isMisconfigured } from './supabaseClient';
 import { normalizeExternalHttpsUrl } from './utils/urlSecurity';
 import { X } from 'lucide-react';
@@ -180,12 +179,6 @@ const isNewerVersion = (latest, current) => {
 function MainLayout() {
   const { currentUser, authLoading } = useAuth();
   const { activeChatId, isDrawerOpen, setIsDrawerOpen } = useChat();
-  const { 
-    isRewardsModalOpen, 
-    setIsRewardsModalOpen, 
-    claimToast, 
-    dismissClaimToast 
-  } = useRewards();
   const [showUpdate, setShowUpdate] = useState(false);
   const [releaseInfo, setReleaseInfo] = useState(null);
 
@@ -307,21 +300,6 @@ function MainLayout() {
       <MainMenuDrawer />
       <DeferredCallOverlay />
       <E2EESetupModal />
-      {isRewardsModalOpen && (
-        <RewardsModal onClose={() => setIsRewardsModalOpen(false)} />
-      )}
-      {claimToast && (
-        <div className="reward-claim-toast" onClick={dismissClaimToast}>
-          <div className="toast-coin-badge">🪙 +{claimToast.coins}</div>
-          <div className="toast-text-col">
-            <strong>{claimToast.message}</strong>
-            <span>Нажмите, чтобы открыть лутбокс в Coiny Лавке</span>
-          </div>
-          <button type="button" className="toast-close-btn" onClick={dismissClaimToast}>
-            <X size={14} />
-          </button>
-        </div>
-      )}
       <UpdateModal show={showUpdate} releaseInfo={releaseInfo} onClose={() => setShowUpdate(false)} />
     </div>
   );
@@ -358,9 +336,7 @@ function App() {
       <E2EEProvider>
         <ChatProvider>
           <CallProvider>
-            <RewardProvider>
-              <MainLayout />
-            </RewardProvider>
+            <MainLayout />
           </CallProvider>
         </ChatProvider>
       </E2EEProvider>

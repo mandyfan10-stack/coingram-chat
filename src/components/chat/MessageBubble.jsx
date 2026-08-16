@@ -18,6 +18,7 @@ import {
   DecryptedSticker
 } from './mediaPlayers';
 
+
 const TELEGRAM_SENDER_COLORS = [
   '#e17076', '#faa774', '#a695e7', '#7bc862',
   '#6ec9cb', '#65aadd', '#ee7aae', '#e5a55d'
@@ -261,9 +262,7 @@ export default function MessageBubble({
       {isGroupOther && (
         <div className="message-avatar-col">
           {isLastInGroup ? (
-            <div className="message-sender-avatar">
-              {renderAvatar ? renderAvatar(senderAvatar, '👤') : <span className="avatar-fallback">{senderAvatar || '👤'}</span>}
-            </div>
+            <div className="message-sender-avatar">{renderAvatar(senderAvatar, 'user')}</div>
           ) : (
             <div className="avatar-spacer" />
           )}
@@ -284,7 +283,7 @@ export default function MessageBubble({
         }}
       >
         {showSenderName && isFirstInGroup && (
-          <span className="sender-name" style={{ color: getSenderColor(msg.senderId || msg.senderName) }}>
+          <span className="sender-name" style={{ color: getSenderColor(msg.senderId || msg.senderName), display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
             {msg.senderName}
           </span>
         )}

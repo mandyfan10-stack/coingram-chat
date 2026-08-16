@@ -93,7 +93,9 @@ Deno.serve(async (request: Request) => {
       supabase.from("chats").select("avatar,avatar_path"),
       supabase.from("stories").select("media,media_path,expires_at")
     ]);
-    if (profiles.error || chats.error || stories.error) throw profiles.error || chats.error || stories.error;
+    if (profiles.error || chats.error || stories.error) {
+      throw profiles.error || chats.error || stories.error;
+    }
 
     const references = new Map<string, Set<string>>([
       ["public-media", new Set()], ["avatars", new Set()], ["wallpapers", new Set()],

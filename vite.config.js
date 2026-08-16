@@ -43,14 +43,15 @@ export default defineConfig(({ mode }) => {
   }
   const supabaseOrigin = trustedOrigin(environment.VITE_SUPABASE_URL)
   const supabaseSocketOrigin = supabaseOrigin ? supabaseOrigin.replace(/^https:/, 'wss:') : null
-  const developmentSources = mode === 'development' ? ['http://localhost:*', 'ws://localhost:*'] : []
+  const isDev = mode === 'development' || mode === 'mock' || !process.env.NODE_ENV || process.env.NODE_ENV === 'development'
+  const developmentSources = isDev ? ['http://localhost:*', 'ws://localhost:*'] : []
   const remoteSources = [supabaseOrigin, supabaseSocketOrigin].filter(Boolean)
   const gifDomains = ['https://*.giphy.com', 'https://*.tenor.com', 'https://media.giphy.com', 'https://media.tenor.com', 'https://c.tenor.com', 'https://tenor.googleapis.com', 'https://img.icons8.com']
   const connectSources = ["'self'", ...remoteSources, 'https://api.github.com', 'https://api.giphy.com', 'https://tenor.googleapis.com', ...gifDomains, ...developmentSources].join(' ')
   const mediaSources = ["'self'", 'data:', 'blob:', supabaseOrigin, ...gifDomains].filter(Boolean).join(' ')
   // Vite injects the React Refresh preamble as an inline module in development.
   // Keep production strict while allowing the dev-only preamble to execute.
-  const scriptSources = mode === 'development'
+  const scriptSources = isDev
     ? "script-src 'self' 'unsafe-inline'"
     : "script-src 'self'"
   const metaCsp = [
@@ -66,7 +67,7 @@ export default defineConfig(({ mode }) => {
     "base-uri 'self'",
     "form-action 'self'",
     "frame-src 'none'",
-    ...(mode === 'development' ? [] : ['upgrade-insecure-requests'])
+    ...(isDev ? [] : ['upgrade-insecure-requests'])
   ].join('; ')
   const headerCsp = [
     metaCsp,

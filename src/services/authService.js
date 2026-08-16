@@ -7,7 +7,6 @@ import {
   hashMockPassword,
   mockPasswordMatches
 } from './authEmail';
-
 function isInvalidCredentialsError(error) {
   if (!error) return false;
   const message = String(error.message || '').toLowerCase();

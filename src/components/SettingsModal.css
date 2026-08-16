@@ -639,6 +639,10 @@ html.theme-rainbow-pearl .reaction-badge.active {
   gap: 20px;
 }
 
+.settings-body > * {
+  flex-shrink: 0;
+}
+
 .settings-footer {
   padding: 12px 20px;
   border-top: 1px solid var(--border-color);
@@ -674,15 +678,6 @@ html.theme-rainbow-pearl .reaction-badge.active {
   .settings-sidebar-footer {
     display: none;
   }
-}
-
-.settings-avatar-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-color);
 }
 
 .settings-section {

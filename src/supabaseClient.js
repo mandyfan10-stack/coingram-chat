@@ -12,17 +12,30 @@ const supabasePublishableKey = String(
   '',
 ).trim();
 
+/** Explicit escape hatch for rare production demo builds without Supabase. */
+export const allowMockInProduction =
+  String(viteEnv.VITE_ALLOW_MOCK || '').trim().toLowerCase() === 'true' ||
+  String(viteEnv.VITE_ALLOW_MOCK || '').trim() === '1';
+
+const envForceMock =
+  String(viteEnv.VITE_MOCK || viteEnv.VITE_FORCE_MOCK || '').trim().toLowerCase() === 'true' ||
+  String(viteEnv.VITE_MOCK || viteEnv.VITE_FORCE_MOCK || '').trim() === '1';
+
+const runtimeMockAllowed = !isProduction || allowMockInProduction;
+const runtimeForceMock = runtimeMockAllowed && (
+  (typeof window !== 'undefined' && window.location?.search && new URLSearchParams(window.location.search).get('mock') === '1')
+  || (typeof window !== 'undefined' && window.localStorage?.getItem?.('coingram_force_mock') === 'true')
+);
+
+export const forceMock = envForceMock || runtimeForceMock;
+
 const isConfigured =
+  !forceMock &&
   Boolean(supabaseProjectUrl) &&
   Boolean(supabasePublishableKey) &&
   supabaseProjectUrl !== 'your-supabase-project-url' &&
   supabasePublishableKey !== 'your-supabase-publishable-key' &&
   supabasePublishableKey !== 'your-supabase-anon-key';
-
-/** Explicit escape hatch for rare production demo builds without Supabase. */
-export const allowMockInProduction =
-  String(viteEnv.VITE_ALLOW_MOCK || '').trim().toLowerCase() === 'true' ||
-  String(viteEnv.VITE_ALLOW_MOCK || '').trim() === '1';
 
 export const isSupabaseConfigured = !!isConfigured;
 
@@ -31,7 +44,7 @@ export const isSupabaseConfigured = !!isConfigured;
  * missing, or in production only with VITE_ALLOW_MOCK=true.
  */
 export const isMockMode =
-  !isSupabaseConfigured && (!isProduction || allowMockInProduction);
+  forceMock || (!isSupabaseConfigured && (!isProduction || allowMockInProduction));
 
 /**
  * Production build shipped without Supabase credentials and without mock

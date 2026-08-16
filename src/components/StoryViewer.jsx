@@ -3,6 +3,7 @@ import { useChat } from '../context/ChatContext';
 import { X, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import useResolvedMedia from '../hooks/useResolvedMedia';
 
+
 export default function StoryViewer() {
   const {
     stories,
@@ -193,9 +194,7 @@ export default function StoryViewer() {
         {/* Story Header */}
         <div className="story-header">
           <div className="story-user-info">
-            <span className="story-user-avatar" style={{ padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              {renderAvatar(displayStory.userAvatar, '🪙')}
-            </span>
+            <div className="story-user-avatar" style={{ padding: 0 }}>{renderAvatar(displayStory.userAvatar, 'user')}</div>
             <div className="story-user-meta">
               <span className="story-user-name">{displayStory.userName}</span>
               <span className="story-user-time">{displayStory.timestamp}</span>

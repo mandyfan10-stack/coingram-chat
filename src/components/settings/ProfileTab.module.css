@@ -1,0 +1,9 @@
+.previewSection {
+  flex: 0 0 auto;
+  min-width: 0;
+}
+
+.uploading {
+  font-size: 9px;
+  font-weight: 800;
+}

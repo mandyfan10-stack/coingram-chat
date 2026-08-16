@@ -4,6 +4,7 @@ import { dataService } from '../services/dataLayer';
 import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, MessageSquarePlus, Eye, Plus, Lock, WifiOff } from 'lucide-react';
 import { isSavedMessagesChat } from '../utils/savedMessages';
 
+
 export default function Sidebar() {
   const {
     chats,
@@ -226,9 +227,7 @@ export default function Sidebar() {
               }}
             >
               <div className={`story-avatar-wrapper ${hasMyStories ? (hasUnviewedMyStories ? 'unviewed' : 'viewed') : 'plus-icon'}`}>
-                <span className="story-avatar-initials" style={{ padding: 0 }}>
-                  {renderAvatar(currentUser?.avatar, '🪙')}
-                </span>
+                <div className="story-avatar-initials" style={{ padding: 0 }}>{renderAvatar(currentUser?.avatar, 'user')}</div>
               </div>
               <span className="story-username" style={{ whiteSpace: 'nowrap', overflow: 'visible', textOverflow: 'clip' }}>Моя история</span>
             </div>
@@ -262,9 +261,7 @@ export default function Sidebar() {
               onClick={() => viewStory(story.storyToOpenId)}
             >
               <div className="story-avatar-wrapper">
-                <span className="story-avatar-initials" style={{ padding: 0 }}>
-                  {renderAvatar(story.userAvatar, '🪙')}
-                </span>
+                <div className="story-avatar-initials" style={{ padding: 0 }}>{renderAvatar(story.userAvatar, 'user')}</div>
               </div>
               <span className="story-username">{story.userName}</span>
             </div>
@@ -309,15 +306,15 @@ export default function Sidebar() {
                 onClick={() => setActiveChatId(chat.id)}
               >
                 {/* Avatar */}
-                <div className="chat-avatar" style={{ background: chat.avatarColor }}>
-                  {renderAvatar(chat.avatar, '👤')}
+                <div className="chat-avatar">
+                  {renderAvatar(chat.avatar, 'user')}
                   {isOnline && <span className="online-badge" />}
                 </div>
 
                 {/* Info info */}
                 <div className="chat-info-block">
                   <div className="chat-info-header">
-                    <span className="chat-name">
+                    <span className="chat-name" style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
                       {chat.name}
                       {chat.type === 'personal' && (
                         <Lock size={12} className="e2ee-sidebar-lock-icon" title="Сквозное шифрование" style={{ marginLeft: '4px', verticalAlign: 'middle', display: 'inline-block' }} />
@@ -384,9 +381,7 @@ export default function Sidebar() {
                   onClick={() => handleSelectGlobalUser(user)}
                   disabled={openingProfileId === user.id}
                 >
-                  <div className="chat-avatar" style={{ background: user.avatar_color || 'var(--accent-gradient)' }}>
-                    {renderAvatar(user.avatar, '👤')}
-                  </div>
+                  <div className="chat-avatar">{renderAvatar(user.avatar, 'user')}</div>
                   <div className="chat-info-block">
                     <div className="chat-info-header">
                       <span className="chat-name">{user.display_name || user.username}</span>

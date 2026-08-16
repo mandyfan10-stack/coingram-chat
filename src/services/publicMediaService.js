@@ -5,7 +5,7 @@ const LIMITS = {
   avatar: 5 * 1024 * 1024,
   story: 10 * 1024 * 1024,
   wallpaper: 10 * 1024 * 1024,
-  'group-avatar': 5 * 1024 * 1024
+  'group-avatar': 5 * 1024 * 1024,
 };
 
 export async function uploadSanitizedPublicImage(file, kind, { chatId } = {}) {

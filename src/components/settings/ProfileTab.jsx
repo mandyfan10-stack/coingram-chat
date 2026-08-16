@@ -1,6 +1,7 @@
 import React from 'react';
-import { UserCircle, Copy, Upload, Sparkles } from 'lucide-react';
-import { useRewards } from '../../context/RewardContext';
+import { UserCircle, Copy, Upload } from 'lucide-react';
+import ProfilePreview from './ProfilePreview';
+import styles from './ProfileTab.module.css';
 
 export default function ProfileTab({
   currentUser,
@@ -18,51 +19,21 @@ export default function ProfileTab({
   handleCopyInviteLink,
   avatarInputRef,
   handleAvatarUpload,
-  isUploadingAvatar
+  isUploadingAvatar,
 }) {
-  const { 
-    coins, 
-    equippedFrameItem, 
-    equippedBadgeItem, 
-    equippedGlowItem, 
-    setIsRewardsModalOpen 
-  } = useRewards();
-
   return (
     <>
-      {/* Avatar Section */}
-      <div className={`settings-avatar-section ${equippedGlowItem ? equippedGlowItem.className : ''}`}>
-        <div 
-          className={`currentUser-avatar ${equippedFrameItem ? equippedFrameItem.className : ''}`} 
-          style={{ background: currentUser.avatarColor, cursor: 'pointer', position: 'relative' }}
-          onClick={() => avatarInputRef.current?.click()}
-          title="Загрузить новое фото"
-        >
-          {renderAvatar(currentUser.avatar, <UserCircle size={44} color="#ffffff" />)}
-          <div className="avatar-upload-overlay" style={{ display: 'flex' }}>
-            <Upload size={18} />
-          </div>
-        </div>
-        <h4>
-          {currentUser.name}
-          {equippedBadgeItem && (
-            <span className="user-status-badge" title={equippedBadgeItem.name}>
-              {equippedBadgeItem.symbol}
-            </span>
-          )}
-        </h4>
-        <span>@{currentUser.username}</span>
-
-        {/* Quick Profile Decorations & Inventory Action */}
-        <button
-          type="button"
-          className="settings-rewards-shortcut-btn"
-          onClick={() => setIsRewardsModalOpen(true)}
-        >
-          <Sparkles size={15} />
-          <span>Украшения профиля (🪙 {coins})</span>
-        </button>
-
+      <div className={styles.previewSection}>
+        <ProfilePreview
+          variant="compact"
+          currentUser={currentUser}
+          renderAvatar={renderAvatar}
+          avatarFallback={<UserCircle size={40} color="#ffffff" />}
+          displayName={name || currentUser.name}
+          onAvatarClick={() => avatarInputRef.current?.click()}
+          avatarActionDisabled={isUploadingAvatar}
+          avatarOverlay={isUploadingAvatar ? <span className={styles.uploading}>Загрузка…</span> : <Upload size={20} />}
+        />
         <input 
           ref={avatarInputRef}
           type="file"
@@ -70,12 +41,8 @@ export default function ProfileTab({
           onChange={handleAvatarUpload}
           style={{ display: 'none' }}
         />
-        {isUploadingAvatar && (
-          <span style={{ fontSize: '11px', color: 'var(--accent-color)' }}>Загрузка фото...</span>
-        )}
       </div>
 
-          {/* Profile Settings */}
           <div className="settings-section">
             <h5 className="section-title"><UserCircle size={16} /> Профиль</h5>
             

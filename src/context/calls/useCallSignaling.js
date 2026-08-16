@@ -40,7 +40,13 @@ export function useCallSignaling({
       );
       signalingChannel
         .on('broadcast', { event: 'incoming-call' }, (payload) => {
-          const { callerId, callerName, callerAvatar, callerAvatarColor, chatId } = payload.payload;
+          const {
+            callerId,
+            callerName,
+            callerAvatar,
+            callerAvatarColor,
+            chatId
+          } = payload.payload;
           if (callerId === currentUserRef.current?.id) return;
           // Busy guard: never clobber an active call (C2).
           setCallState((prev) => {
@@ -51,7 +57,11 @@ export function useCallSignaling({
               duration: 0,
               muted: false,
               isOutgoing: false,
-              callerInfo: { name: callerName, avatar: callerAvatar, avatarColor: callerAvatarColor },
+              callerInfo: {
+                name: callerName,
+                avatar: callerAvatar,
+                avatarColor: callerAvatarColor
+              },
               otherUserId: callerId,
               webrtcState: 'disconnected',
               isRemoteScreenSharing: false,

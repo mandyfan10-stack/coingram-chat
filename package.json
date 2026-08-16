@@ -6,6 +6,7 @@
   "main": "electron-main.cjs",
   "scripts": {
     "dev": "vite",
+    "dev:mock": "vite --mode mock",
     "build": "vite build",
     "test": "node testE2EE.js && npm run test:unit",
     "test:unit": "node --experimental-strip-types --test tests/*.test.mjs",

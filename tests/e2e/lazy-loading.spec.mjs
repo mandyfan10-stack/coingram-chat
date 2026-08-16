@@ -29,7 +29,7 @@ test('secondary UI chunks load only when their surfaces open', async ({ page }) 
   )).toBe(true);
   await expect.poll(() => page.evaluate(() => document.activeElement?.className || '')).toContain('settings-close-btn');
 
-  await page.locator('.settings-tab-btn').filter({ hasText: 'Стикеры' }).click();
+  await page.locator('.settings-nav-item').filter({ hasText: 'Стикеры' }).click();
   await expect.poll(async () => (
     (await loadedScripts(page)).some((name) => name.includes('StickersTab-'))
   )).toBe(true);
@@ -41,7 +41,7 @@ test('secondary UI chunks load only when their surfaces open', async ({ page }) 
 
   await page.locator('[data-chat-username="echo_bot"]').click();
   await page.locator('.chat-header').click();
-  await page.locator('.info-action-btn[title="Звонок"]').click();
+  await page.getByRole('button', { name: 'Звонок', exact: true }).click();
   await expect(page.locator('.call-overlay-wrapper.active')).toBeVisible();
   await expect.poll(async () => (
     (await loadedScripts(page)).some((name) => name.includes('CallOverlay-'))
@@ -61,6 +61,7 @@ test('settings focus and presence remain stable during rapid mobile reopen', asy
   const dialog = page.locator('.settings-container[role="dialog"]');
   const overlay = dialog.locator('..');
   const closeButton = dialog.locator('.settings-close-btn');
+  const firstFocusable = dialog.locator('.settings-sidebar-profile');
   const saveButton = dialog.locator('.settings-btn.save');
 
   await menuButton.click();
@@ -77,10 +78,11 @@ test('settings focus and presence remain stable during rapid mobile reopen', asy
   expect(bounds.top).toBeGreaterThanOrEqual(0);
   expect(bounds.bottom).toBeLessThanOrEqual(800);
 
+  await firstFocusable.focus();
   await page.keyboard.press('Shift+Tab');
   await expect(saveButton).toBeFocused();
   await page.keyboard.press('Tab');
-  await expect(closeButton).toBeFocused();
+  await expect(firstFocusable).toBeFocused();
 
   await closeButton.click();
   await menuButton.click();

@@ -25,6 +25,13 @@ test('settings modal enters after mount and provides complete dialog focus behav
   assert.match(modal, /closeButtonRef\.current\?\.focus\(\{ preventScroll: true \}\)/);
 });
 
+test('settings modal no longer opens a custom profile styling dialog', () => {
+  assert.doesNotMatch(modal, /settingsTab === 'cosmetics'/);
+  assert.doesNotMatch(modal, /cosmetics-dialog/);
+  assert.doesNotMatch(modal, /Закрыть оформление профиля/);
+  assert.doesNotMatch(styles, /\.cosmetics-dialog/);
+});
+
 test('settings motion is subtle, non-interactive while hidden, and reduced-motion safe', () => {
   assert.match(styles, /pointer-events: none/);
   assert.match(styles, /translateY\(12px\) scale\(0\.98\)/);

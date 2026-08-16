@@ -26,6 +26,7 @@ import {
 import { useCallCardChrome } from './useCallCardChrome';
 import { useCallLocalPreviewDrag } from './useCallLocalPreviewDrag';
 
+
 function getIsCompactViewport() {
   if (typeof window === 'undefined') return false;
   return window.innerWidth <= 480 || window.innerHeight <= 560;
@@ -212,15 +213,12 @@ export default function CallOverlay() {
   const isGroupCall = activeChat?.type === 'group';
 
   let displayName = '';
-  let avatarColor = 'linear-gradient(135deg, #74b9ff, #0984e3)';
   let avatarContent = '👤';
   if (callState.status === 'incoming' && callState.callerInfo) {
     displayName = callState.callerInfo.name;
-    avatarColor = callState.callerInfo.avatarColor;
     avatarContent = callState.callerInfo.avatar;
   } else if (activeChat) {
     displayName = activeChat.name;
-    avatarColor = activeChat.avatarColor;
     avatarContent = activeChat.avatar;
   } else {
     displayName = 'Звонок...';
@@ -273,9 +271,7 @@ export default function CallOverlay() {
         role="region"
         aria-label={`Активный звонок: ${displayName}, ${statusText}`}
       >
-        <div className="call-bubble-avatar" style={{ background: avatarColor }}>
-          {renderAvatar(avatarContent, <User size={24} color="#ffffff" />)}
-        </div>
+        <div className="call-bubble-avatar">{renderAvatar(avatarContent, <User size={24} color="#ffffff" />)}</div>
         {callState.status === 'connected' && callState.webrtcState === 'connected' && (
           <div className="call-bubble-pulse" />
         )}
@@ -414,12 +410,7 @@ export default function CallOverlay() {
             <div className="group-call-stage-list">
               {sortedGroupParticipants.map((p) => (
                 <div key={p.id} className={`group-call-member-row ${p.speaking ? 'speaking' : ''}`}>
-                  <div
-                    className={`group-call-avatar-wrapper ${p.speaking ? 'speaking' : ''}`}
-                    style={{
-                      background: p.avatarColor || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)'
-                    }}
-                  >
+                  <div className={`group-call-avatar-wrapper ${p.speaking ? 'speaking' : ''}`}>
                     {renderAvatar(p.avatar, <User size={16} color="#ffffff" />)}
                   </div>
                   <div className="group-call-member-info">
@@ -481,9 +472,7 @@ export default function CallOverlay() {
                     />
                   </>
                 )}
-              <div className="call-avatar-circle" style={{ background: avatarColor }}>
-                {renderAvatar(avatarContent, <User size={48} color="#ffffff" />)}
-              </div>
+              <div className="call-avatar-circle">{renderAvatar(avatarContent, <User size={48} color="#ffffff" />)}</div>
             </div>
 
             <h2 className="call-user-name" id="call-overlay-title">

@@ -24,6 +24,8 @@ test('runtime mode exports distinguish mock vs misconfigured production', () => 
   assert.match(supabaseClient, /export const isMisconfigured/);
   assert.match(supabaseClient, /VITE_ALLOW_MOCK/);
   assert.match(supabaseClient, /import\.meta\.env\.PROD/);
+  assert.match(supabaseClient, /runtimeMockAllowed/);
+  assert.match(supabaseClient, /!isProduction \|\| allowMockInProduction/);
 });
 
 test('App blocks misconfigured production before providers', () => {

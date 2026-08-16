@@ -16,7 +16,7 @@ type MediaKind = "avatar" | "story" | "wallpaper" | "group-avatar";
 const MAX_PIXELS = 16_000_000;
 const MAX_DIMENSION = 4096;
 const MAX_DECOMPRESSION_RATIO = 2000;
-const KIND_CONFIG: Record<MediaKind, { bucket: string; maxBytes: number; prefix: string }> = {
+const KIND_CONFIG: Record<MediaKind, { bucket: string; maxBytes: number; prefix: string; minRatio?: number; maxRatio?: number }> = {
   avatar: { bucket: "avatars", maxBytes: 5 * 1024 * 1024, prefix: "avatar" },
   story: { bucket: "stories", maxBytes: 10 * 1024 * 1024, prefix: "story" },
   wallpaper: { bucket: "wallpapers", maxBytes: 10 * 1024 * 1024, prefix: "wallpaper" },
@@ -149,6 +149,13 @@ Deno.serve(async (request: Request) => {
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (detectedMime(bytes) !== file.type) return json(415, { error: "File signature does not match its MIME type" }, corsOrigin);
     const { output, width, height } = sanitizeImage(bytes);
+    const ratio = width / height;
+    if (
+      (config.minRatio && ratio < config.minRatio)
+      || (config.maxRatio && ratio > config.maxRatio)
+    ) {
+      return json(400, { error: "Image aspect ratio is not allowed for this slot" }, corsOrigin);
+    }
     const ownerPrefix = mediaKind === "group-avatar" ? String(chatId) : user.id;
     const path = `${ownerPrefix}/${config.prefix}_${crypto.randomUUID()}.webp`;
     const { error: uploadError } = await service.storage.from(config.bucket).upload(path, output, {

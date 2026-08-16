@@ -2,6 +2,7 @@ import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import { isMockOnlyBotProfile, isMockOnlyBotUsername } from '../utils/mockOnlyBots';
 import { isSavedMessagesChat, SAVED_MESSAGES_DISPLAY_NAME } from '../utils/savedMessages';
 
+
 function buildDefaultMockChats() {
   return [
     {
@@ -334,7 +335,9 @@ export const chatService = {
         if (isMockOnlyBotProfile(profile)) return;
         uniqueProfiles.set(profile.id, profile);
       });
-    return [...uniqueProfiles.values()].slice(0, limit);
+    return [...uniqueProfiles.values()]
+      .map(profile => ({ ...profile }))
+      .slice(0, limit);
   },
 
   createChat: async (userId, target, type, initialMembers = []) => {

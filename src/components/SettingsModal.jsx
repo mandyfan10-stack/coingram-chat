@@ -39,6 +39,7 @@ export default function SettingsModal() {
   const [isVisible, setIsVisible] = useState(false);
   const dialogRef = useRef(null);
   const closeButtonRef = useRef(null);
+  const didSetInitialFocusRef = useRef(false);
 
   useEffect(() => {
     let firstFrame;
@@ -59,9 +60,15 @@ export default function SettingsModal() {
   }, [isSettingsOpen]);
 
   useEffect(() => {
+    if (!isSettingsOpen) didSetInitialFocusRef.current = false;
+  }, [isSettingsOpen]);
+
+  useEffect(() => {
     if (!isSettingsOpen || !isVisible) return undefined;
+    if (didSetInitialFocusRef.current) return undefined;
     const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const focusDialog = () => {
+      didSetInitialFocusRef.current = true;
       closeButtonRef.current?.focus({ preventScroll: true });
     };
     const focusTimer = window.setTimeout(focusDialog, reduceMotion ? 32 : 260);
@@ -330,9 +337,7 @@ export default function SettingsModal() {
             tabIndex={0}
             title="Перейти в профиль"
           >
-            <div className="settings-sidebar-avatar" style={{ background: currentUser.avatarColor }}>
-              {renderAvatar(currentUser.avatar, <User size={20} color="#ffffff" />)}
-            </div>
+            <div className="settings-sidebar-avatar">{renderAvatar(currentUser.avatar, <User size={20} color="#ffffff" />)}</div>
             <div className="settings-sidebar-userinfo">
               <span className="settings-sidebar-name">{currentUser.name || 'Пользователь'}</span>
               <span className="settings-sidebar-username">@{currentUser.username}</span>

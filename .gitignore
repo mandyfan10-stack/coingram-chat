@@ -26,6 +26,7 @@ dist-ssr
 .vercel
 .env
 .env.e2e
+.env.mock
 playwright-report/
 test-results/
 
