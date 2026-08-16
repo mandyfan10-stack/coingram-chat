@@ -3,6 +3,7 @@ import { useChat } from '../context/ChatContext';
 import { dataService } from '../services/dataLayer';
 import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, MessageSquarePlus, Eye, Plus, Lock, WifiOff } from 'lucide-react';
 import { isSavedMessagesChat } from '../utils/savedMessages';
+import { chatAvatarFallback, personAvatarFallback } from '../context/chat/avatarFallback';
 
 
 export default function Sidebar() {
@@ -227,7 +228,7 @@ export default function Sidebar() {
               }}
             >
               <div className={`story-avatar-wrapper ${hasMyStories ? (hasUnviewedMyStories ? 'unviewed' : 'viewed') : 'plus-icon'}`}>
-                <div className="story-avatar-initials" style={{ padding: 0 }}>{renderAvatar(currentUser?.avatar, 'user')}</div>
+                <div className="story-avatar-initials" style={{ padding: 0 }}>{renderAvatar(currentUser?.avatar, personAvatarFallback(currentUser))}</div>
               </div>
               <span className="story-username" style={{ whiteSpace: 'nowrap', overflow: 'visible', textOverflow: 'clip' }}>Моя история</span>
             </div>
@@ -261,7 +262,7 @@ export default function Sidebar() {
               onClick={() => viewStory(story.storyToOpenId)}
             >
               <div className="story-avatar-wrapper">
-                <div className="story-avatar-initials" style={{ padding: 0 }}>{renderAvatar(story.userAvatar, 'user')}</div>
+                <div className="story-avatar-initials" style={{ padding: 0 }}>{renderAvatar(story.userAvatar, personAvatarFallback(story))}</div>
               </div>
               <span className="story-username">{story.userName}</span>
             </div>
@@ -307,7 +308,7 @@ export default function Sidebar() {
               >
                 {/* Avatar */}
                 <div className="chat-avatar">
-                  {renderAvatar(chat.avatar, 'user')}
+                  {renderAvatar(chat.avatar, chatAvatarFallback(chat))}
                   {isOnline && <span className="online-badge" />}
                 </div>
 
@@ -381,7 +382,7 @@ export default function Sidebar() {
                   onClick={() => handleSelectGlobalUser(user)}
                   disabled={openingProfileId === user.id}
                 >
-                  <div className="chat-avatar">{renderAvatar(user.avatar, 'user')}</div>
+                  <div className="chat-avatar">{renderAvatar(user.avatar, personAvatarFallback(user))}</div>
                   <div className="chat-info-block">
                     <div className="chat-info-header">
                       <span className="chat-name">{user.display_name || user.username}</span>

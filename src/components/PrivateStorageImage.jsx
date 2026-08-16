@@ -52,7 +52,12 @@ export default function PrivateStorageImage({ src, alt, fallback = '👤', ...pr
   }, [src]);
 
   if (image.source !== src || (!image.url && !image.error)) return null;
-  if (image.error) return <span className="avatar-text">{fallback}</span>;
+  if (image.error) {
+    if (typeof fallback === 'string' || typeof fallback === 'number') {
+      return <span className="avatar-text">{fallback}</span>;
+    }
+    return fallback ?? null;
+  }
 
   return (
     <img

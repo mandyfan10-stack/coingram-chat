@@ -10,6 +10,7 @@ import {
 import { normalizeReaction } from '../../utils/reactionUtils';
 import { SingleCheck, DoubleCheck, PendingClock } from './messageStatusIcons';
 import { renderMessageTextWithLinks } from './renderMessageText';
+import { personAvatarFallback } from '../../context/chat/avatarFallback';
 import {
   DecryptedImage,
   DecryptedVideoPlayer,
@@ -262,7 +263,7 @@ export default function MessageBubble({
       {isGroupOther && (
         <div className="message-avatar-col">
           {isLastInGroup ? (
-            <div className="message-sender-avatar">{renderAvatar(senderAvatar, 'user')}</div>
+            <div className="message-sender-avatar">{renderAvatar(senderAvatar, personAvatarFallback(senderMember || { name: msg.senderName }))}</div>
           ) : (
             <div className="avatar-spacer" />
           )}

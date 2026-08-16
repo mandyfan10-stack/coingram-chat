@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useChat } from '../context/ChatContext';
 import { X, ChevronLeft, ChevronRight, Pause, Play } from 'lucide-react';
 import useResolvedMedia from '../hooks/useResolvedMedia';
+import { personAvatarFallback } from '../context/chat/avatarFallback';
 
 
 export default function StoryViewer() {
@@ -194,7 +195,7 @@ export default function StoryViewer() {
         {/* Story Header */}
         <div className="story-header">
           <div className="story-user-info">
-            <div className="story-user-avatar" style={{ padding: 0 }}>{renderAvatar(displayStory.userAvatar, 'user')}</div>
+            <div className="story-user-avatar" style={{ padding: 0 }}>{renderAvatar(displayStory.userAvatar, personAvatarFallback(displayStory))}</div>
             <div className="story-user-meta">
               <span className="story-user-name">{displayStory.userName}</span>
               <span className="story-user-time">{displayStory.timestamp}</span>

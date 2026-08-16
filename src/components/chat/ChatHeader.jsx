@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Lock, MoreVertical } from 'lucide-react';
 import { isSavedMessagesChat, savedMessagesDisplayName } from '../../utils/savedMessages';
+import { chatAvatarFallback } from '../../context/chat/avatarFallback';
 
 
 export default function ChatHeader({
@@ -32,7 +33,7 @@ export default function ChatHeader({
         >
           <ArrowLeft size={20} />
         </button>
-        <div className="chat-avatar header-avatar">{renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? 'channel' : 'group')}</div>
+        <div className="chat-avatar header-avatar">{renderAvatar(activeChat.avatar, chatAvatarFallback(activeChat))}</div>
         <div className="chat-header-meta">
           <h4 className="chat-header-name">
             {title}

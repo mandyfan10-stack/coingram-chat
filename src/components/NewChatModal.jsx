@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useChat } from '../context/ChatContext';
 import { dataService } from '../services/dataLayer';
 import { X, Search, Users, MessageSquare } from 'lucide-react';
+import { personAvatarFallback } from '../context/chat/avatarFallback';
 
 
 export default function NewChatModal() {
@@ -195,7 +196,7 @@ export default function NewChatModal() {
                       className="search-user-item"
                       onClick={() => handleSelectUser(user)}
                     >
-                      <div className="chat-avatar">{renderAvatar(user.avatar, 'user')}</div>
+                      <div className="chat-avatar">{renderAvatar(user.avatar, personAvatarFallback(user))}</div>
                       <div className="search-user-info">
                         <span className="search-user-name">
                           {user.display_name || user.username}
@@ -282,7 +283,7 @@ export default function NewChatModal() {
                           }}
                           style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '8px' }}
                         >
-                          <div className="chat-avatar" style={{ width: '28px', height: '28px', minWidth: '28px', fontSize: '12px' }}>{renderAvatar(user.avatar, 'user')}</div>
+                          <div className="chat-avatar" style={{ width: '28px', height: '28px', minWidth: '28px', fontSize: '12px' }}>{renderAvatar(user.avatar, personAvatarFallback(user))}</div>
                           <div className="search-user-info" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
                             <span className="search-user-name" style={{ fontSize: '13px', fontWeight: '500' }}>{user.display_name || user.username}</span>
                             <span className="search-user-username" style={{ fontSize: '11px', opacity: 0.7 }}>@{user.username}</span>
@@ -380,7 +381,7 @@ export default function NewChatModal() {
                           }}
                           style={{ padding: '6px 10px', display: 'flex', alignItems: 'center', gap: '8px' }}
                         >
-                          <div className="chat-avatar" style={{ width: '28px', height: '28px', minWidth: '28px', fontSize: '12px' }}>{renderAvatar(user.avatar, 'user')}</div>
+                          <div className="chat-avatar" style={{ width: '28px', height: '28px', minWidth: '28px', fontSize: '12px' }}>{renderAvatar(user.avatar, personAvatarFallback(user))}</div>
                           <div className="search-user-info" style={{ flexGrow: 1, display: 'flex', flexDirection: 'column', textAlign: 'left' }}>
                             <span className="search-user-name" style={{ fontSize: '13px', fontWeight: '500' }}>{user.display_name || user.username}</span>
                             <span className="search-user-username" style={{ fontSize: '11px', opacity: 0.7 }}>@{user.username}</span>
