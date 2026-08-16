@@ -22,14 +22,12 @@ import {
   Shield,
   Crown,
   MoreVertical,
-  User,
-  Users,
-  Megaphone,
   Image as ImageIcon,
   Play
 } from 'lucide-react';
 import useResolvedMedia from '../hooks/useResolvedMedia';
 import { isSavedMessagesChat } from '../utils/savedMessages';
+import { chatAvatarFallback, personAvatarFallback } from '../context/chat/avatarFallback';
 import { normalizeExternalHttpsUrl } from '../utils/urlSecurity';
 import ImageViewer from './chat/ImageViewer';
 
@@ -384,7 +382,7 @@ export default function ChatInfo() {
               onClick={() => isOwner && isGroupOrChannel && fileInputRef.current?.click()}
               title={isOwner && isGroupOrChannel ? 'Сменить фото чата' : activeChat.name}
             >
-              <div className="info-avatar-hero">{renderAvatar(activeChat.avatar, activeChat.type === 'channel' ? <Megaphone size={36} color="#ffffff" /> : activeChat.type === 'group' ? <Users size={36} color="#ffffff" /> : <User size={36} color="#ffffff" />)}</div>
+              <div className="info-avatar-hero">{renderAvatar(activeChat.avatar, chatAvatarFallback(activeChat))}</div>
               {isOwner && isGroupOrChannel && (
                 <div className="avatar-edit-badge" title="Сменить фото">
                   <Camera size={14} />
@@ -612,7 +610,7 @@ export default function ChatInfo() {
                       style={{ cursor: !isMe ? 'pointer' : 'default' }}
                     >
                       <div className="info-member-avatar-wrap">
-                        <div className="info-member-avatar">{renderAvatar(member.avatar, <User size={18} color="#ffffff" />)}</div>
+                        <div className="info-member-avatar">{renderAvatar(member.avatar, personAvatarFallback(member))}</div>
                         {isOnline && <div className="member-online-dot" />}
                       </div>
 

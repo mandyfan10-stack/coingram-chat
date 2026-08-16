@@ -1,6 +1,7 @@
 import React from 'react';
 import { UserCircle, Copy, Upload } from 'lucide-react';
 import ProfilePreview from './ProfilePreview';
+import { personAvatarFallback } from '../../context/chat/avatarFallback';
 import styles from './ProfileTab.module.css';
 
 export default function ProfileTab({
@@ -28,7 +29,7 @@ export default function ProfileTab({
           variant="compact"
           currentUser={currentUser}
           renderAvatar={renderAvatar}
-          avatarFallback={<UserCircle size={40} color="#ffffff" />}
+          avatarFallback={personAvatarFallback({ ...currentUser, name: name || currentUser.name })}
           displayName={name || currentUser.name}
           onAvatarClick={() => avatarInputRef.current?.click()}
           avatarActionDisabled={isUploadingAvatar}

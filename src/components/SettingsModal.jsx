@@ -9,6 +9,7 @@ import ProfileTab from './settings/ProfileTab';
 import AppearanceTab from './settings/AppearanceTab';
 import E2EETab from './settings/E2EETab';
 import { uploadSanitizedPublicImage } from '../services/publicMediaService';
+import { personAvatarFallback } from '../context/chat/avatarFallback';
 
 const StickersTab = lazy(() => import('./settings/StickersTab'));
 
@@ -337,7 +338,7 @@ export default function SettingsModal() {
             tabIndex={0}
             title="Перейти в профиль"
           >
-            <div className="settings-sidebar-avatar">{renderAvatar(currentUser.avatar, <User size={20} color="#ffffff" />)}</div>
+            <div className="settings-sidebar-avatar">{renderAvatar(currentUser.avatar, personAvatarFallback(currentUser))}</div>
             <div className="settings-sidebar-userinfo">
               <span className="settings-sidebar-name">{currentUser.name || 'Пользователь'}</span>
               <span className="settings-sidebar-username">@{currentUser.username}</span>

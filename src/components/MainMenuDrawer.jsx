@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { isSavedMessagesChat, SAVED_MESSAGES_DISPLAY_NAME } from '../utils/savedMessages';
 import { uploadSanitizedPublicImage } from '../services/publicMediaService';
+import { personAvatarFallback } from '../context/chat/avatarFallback';
 
 export default function MainMenuDrawer() {
   const {
@@ -188,7 +189,7 @@ export default function MainMenuDrawer() {
               onClick={() => avatarInputRef.current?.click()}
               title="Загрузить фото профиля"
             >
-              {renderAvatar(currentUser.avatar, <UserCircle size={34} color="#ffffff" />)}
+              {renderAvatar(currentUser.avatar, personAvatarFallback(currentUser))}
               {isUploading && (
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '10px' }}>
                   ...

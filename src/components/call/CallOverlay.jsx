@@ -14,8 +14,7 @@ import {
   Maximize2,
   RefreshCw,
   SlidersHorizontal,
-  X,
-  User
+  X
 } from 'lucide-react';
 import {
   playCallConnect,
@@ -25,6 +24,7 @@ import {
 } from '../../utils/callSounds';
 import { useCallCardChrome } from './useCallCardChrome';
 import { useCallLocalPreviewDrag } from './useCallLocalPreviewDrag';
+import { chatAvatarFallback, personAvatarFallback } from '../../context/chat/avatarFallback';
 
 
 function getIsCompactViewport() {
@@ -271,7 +271,7 @@ export default function CallOverlay() {
         role="region"
         aria-label={`Активный звонок: ${displayName}, ${statusText}`}
       >
-        <div className="call-bubble-avatar">{renderAvatar(avatarContent, <User size={24} color="#ffffff" />)}</div>
+        <div className="call-bubble-avatar">{renderAvatar(avatarContent, isGroupCall ? chatAvatarFallback(activeChat) : personAvatarFallback({ name: displayName }))}</div>
         {callState.status === 'connected' && callState.webrtcState === 'connected' && (
           <div className="call-bubble-pulse" />
         )}
@@ -411,7 +411,7 @@ export default function CallOverlay() {
               {sortedGroupParticipants.map((p) => (
                 <div key={p.id} className={`group-call-member-row ${p.speaking ? 'speaking' : ''}`}>
                   <div className={`group-call-avatar-wrapper ${p.speaking ? 'speaking' : ''}`}>
-                    {renderAvatar(p.avatar, <User size={16} color="#ffffff" />)}
+                    {renderAvatar(p.avatar, personAvatarFallback(p))}
                   </div>
                   <div className="group-call-member-info">
                     <span className="group-call-member-name">{p.name}</span>
@@ -472,7 +472,7 @@ export default function CallOverlay() {
                     />
                   </>
                 )}
-              <div className="call-avatar-circle">{renderAvatar(avatarContent, <User size={48} color="#ffffff" />)}</div>
+              <div className="call-avatar-circle">{renderAvatar(avatarContent, isGroupCall ? chatAvatarFallback(activeChat) : personAvatarFallback({ name: displayName }))}</div>
             </div>
 
             <h2 className="call-user-name" id="call-overlay-title">
