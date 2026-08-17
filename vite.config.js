@@ -52,8 +52,8 @@ export default defineConfig(({ mode }) => {
   // Vite injects the React Refresh preamble as an inline module in development.
   // Keep production strict while allowing the dev-only preamble to execute.
   const scriptSources = isDev
-    ? "script-src 'self' 'unsafe-inline'"
-    : "script-src 'self'"
+    ? "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'"
+    : "script-src 'self' 'wasm-unsafe-eval'"
   const metaCsp = [
     "default-src 'self'",
     scriptSources,

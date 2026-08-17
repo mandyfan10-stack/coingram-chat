@@ -59,7 +59,7 @@ test('Electron source enforces app protocol, navigation, permission and fuse bou
   assert.match(fuses, /strictlyRequireAllFuses: true/);
   assert.match(csp, /content="__COINY_CSP__"/);
   const vite = await read('vite.config.js');
-  assert.match(vite, /"script-src 'self'"/);
+  assert.match(vite, /"script-src 'self' 'wasm-unsafe-eval'"/);
   assert.match(vite, /"object-src 'none'"/);
   assert.match(vite, /"frame-src 'none'"/);
   assert.match(vite, /"base-uri 'self'"/);
