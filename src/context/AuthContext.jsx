@@ -5,6 +5,25 @@ import { clearLocalAppData } from '../utils/localDataCleanup.js';
 
 const AuthContext = createContext();
 
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 10_000;
+const AUTH_PROFILE_TIMEOUT_MS = 8_000;
+
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
+
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -35,7 +54,11 @@ export const AuthProvider = ({ children }) => {
         // onAuthStateChange because it can deadlock the auth client.
         setTimeout(async () => {
           try {
-            const profile = await dataService.fetchProfile(session.user.id);
+            const profile = await withTimeout(
+              dataService.fetchProfile(session.user.id),
+              AUTH_PROFILE_TIMEOUT_MS,
+              'fetchProfile'
+            );
             if (cancelled || requestId !== authRequestId) return;
             if (!profile) {
               await supabase.auth.signOut({ scope: 'local' });
@@ -68,13 +91,34 @@ export const AuthProvider = ({ children }) => {
         }, 0);
       };
 
+      // Recover the persisted session immediately. INITIAL_SESSION from the
+      // listener can stall behind navigator.locks / token refresh.
+      supabase.auth.getSession()
+        .then(({ data }) => {
+          if (!cancelled) applySession(data?.session ?? null);
+        })
+        .catch((error) => {
+          console.warn('Auth session bootstrap failed:', error);
+        });
+
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
         applySession(session);
       });
 
+      const bootstrapTimer = setTimeout(() => {
+        if (cancelled) return;
+        setAuthLoading((stillLoading) => {
+          if (stillLoading) {
+            console.warn('Auth bootstrap timed out; showing the login screen.');
+          }
+          return false;
+        });
+      }, AUTH_BOOTSTRAP_TIMEOUT_MS);
+
       return () => {
         cancelled = true;
         authRequestId += 1;
+        clearTimeout(bootstrapTimer);
         subscription?.unsubscribe();
       };
     } else {

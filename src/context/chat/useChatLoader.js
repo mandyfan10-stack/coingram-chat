@@ -20,10 +20,12 @@ export function useChatLoader({
 }) {
   const [messagePagination, setMessagePagination] = useState({});
 
+  const currentUserId = currentUser?.id;
+
   const fetchChats = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUserId) return;
     try {
-      const data = await dataService.fetchChats(currentUser.id);
+      const data = await dataService.fetchChats(currentUserId);
       // Guard non-array payloads (RPC/edge/proxy) so we never throw "X is not iterable".
       const list = Array.isArray(data) ? data : [];
 
@@ -31,7 +33,7 @@ export function useChatLoader({
         const members = Array.isArray(chat?.members) ? chat.members : [];
         const rawMessages = Array.isArray(chat?.messages) ? chat.messages : [];
         const otherMember = chat.type === 'personal'
-          ? members.find((m) => m.id !== currentUser.id)
+          ? members.find((m) => m.id !== currentUserId)
           : null;
 
         let sharedKey = null;
@@ -41,7 +43,7 @@ export function useChatLoader({
             sharedKey = await resolveSharedKey({
               chatId: chat.id,
               chat: { ...chat, members },
-              currentUserId: currentUser.id,
+              currentUserId,
               e2eePrivateKey: e2eePrivateKeyRef.current,
               sharedKeysCache: sharedKeysCacheRef.current,
               setSharedKeysCache
@@ -56,13 +58,13 @@ export function useChatLoader({
         return { ...chat, members, messages };
       }));
 
-      const parsed = await loadOfflineQueue(currentUser.id);
+      const parsed = await loadOfflineQueue(currentUserId);
       const localQueue = Array.isArray(parsed) ? parsed : [];
 
       for (const q of localQueue) {
         if (q?.hasOfflineMedia && q.optimisticId) {
           try {
-            const blob = await getOfflineAttachment(q.optimisticId, currentUser.id);
+            const blob = await getOfflineAttachment(q.optimisticId, currentUserId);
             if (blob) q.media = createManagedObjectUrl(`offline:${q.optimisticId}`, blob);
           } catch (e) {
             console.error(e);
@@ -76,8 +78,8 @@ export function useChatLoader({
           .filter((q) => q && q.chatId === c.id)
           .map((q) => ({
             id: q.optimisticId,
-            senderId: currentUser.id,
-            senderName: currentUser.name || 'Вы',
+            senderId: currentUserId,
+            senderName: currentUser?.name || 'Вы',
             text: q.text,
             media: q.media,
             replyTo: q.replyToId,
@@ -138,7 +140,7 @@ export function useChatLoader({
     } catch (e) {
       console.error('Failed to load chats', e);
     }
-  }, [currentUser, setSharedKeysCache, setChats, e2eePrivateKeyRef, sharedKeysCacheRef]);
+  }, [currentUserId, currentUser?.name, setSharedKeysCache, setChats, e2eePrivateKeyRef, sharedKeysCacheRef]);
 
   const loadActiveChatMessages = useCallback(async (chatId) => {
     if (!chatId || !currentUser) return;

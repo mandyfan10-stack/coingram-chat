@@ -14,9 +14,14 @@ const e2eHelpers = await readFile(new URL('./e2e/helpers.mjs', import.meta.url),
 
 test('auth state callbacks do not await Supabase profile calls directly', () => {
   assert.doesNotMatch(authContext, /onAuthStateChange\s*\(\s*async/);
-  assert.doesNotMatch(authContext, /auth\.getSession\(\)/);
+  assert.match(authContext, /auth\.getSession\(\)/);
+  assert.match(authContext, /AUTH_BOOTSTRAP_TIMEOUT_MS/);
+  assert.match(authContext, /AUTH_PROFILE_TIMEOUT_MS/);
   assert.match(authContext, /setTimeout\(async \(\) =>/);
   assert.match(authContext, /signOut\(\{ scope: 'local' \}\)/);
+  const listenerStart = authContext.indexOf('onAuthStateChange');
+  assert.ok(listenerStart > 0);
+  assert.doesNotMatch(authContext.slice(listenerStart, listenerStart + 280), /getSession/);
   assert.match(authService, /\.maybeSingle\(\)/);
   assert.match(dataLayer, /fetchProfile:\s*authService\.fetchProfile/);
   assert.match(authContext, /email: session\.user\.email/);

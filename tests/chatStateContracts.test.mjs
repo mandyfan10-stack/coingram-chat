@@ -35,6 +35,19 @@ test('latest-message RPC is batched and keeps caller RLS', () => {
   assert.match(latestMessagesMigration, /grant execute[\s\S]*to authenticated/i);
 });
 
+test('chat list load does not auto-join every public channel', () => {
+  assert.match(chatService, /const CHAT_SELECT = 'id, name, type/);
+  assert.doesNotMatch(chatService, /Failed to auto-join public chat/);
+  assert.doesNotMatch(chatService, /from\('chats'\)\s*\.select\('\*'\)/);
+});
+
+test('startup chat bootstrap is not retriggered by realtime chat-id changes', () => {
+  assert.equal((chatRealtime.match(/useEffect\(/g) || []).length, 2);
+  assert.match(chatRealtime, /Do not tie this to[\s\S]*realtimeChatIds/);
+  assert.match(chatRealtime, /\[currentUserId, fetchChats, fetchStories\]/);
+  assert.doesNotMatch(chatRealtime, /if \(currentUser\) \{\s*fetchChats\(\);\s*fetchStories\(\);/);
+});
+
 test('presence uses auth ids and typing expiry is isolated per chat and cleaned up', () => {
   assert.match(chatRealtime, /presence:\s*\{\s*key:\s*currentUser\.id\s*\}/);
   assert.match(chatRealtime, /const timeoutKey = `\$\{chatId\}:\$\{userId\}`/);

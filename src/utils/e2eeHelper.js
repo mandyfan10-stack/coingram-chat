@@ -1,5 +1,3 @@
-import { argon2id } from 'hash-wasm';
-
 if (typeof window === 'undefined') {
   globalThis.window = { crypto: globalThis.crypto };
 }
@@ -121,6 +119,7 @@ async function deriveArgon2idKey(secret, salt, parameters = ARGON2ID_PARAMETERS)
   ) {
     throw new Error('Unsafe Argon2id parameters.');
   }
+  const { argon2id } = await import('hash-wasm');
   const rawKey = await argon2id({
     password: secret,
     salt,

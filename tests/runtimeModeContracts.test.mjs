@@ -19,6 +19,12 @@ const iceServers = await readFile(
   'utf8'
 );
 
+test('Supabase auth client recovers from a stuck navigator lock', () => {
+  assert.match(supabaseClient, /detectSessionInUrl:\s*false/);
+  assert.match(supabaseClient, /lock:\s*requestAuthLock/);
+  assert.match(supabaseClient, /AbortError/);
+});
+
 test('runtime mode exports distinguish mock vs misconfigured production', () => {
   assert.match(supabaseClient, /export const isMockMode/);
   assert.match(supabaseClient, /export const isMisconfigured/);

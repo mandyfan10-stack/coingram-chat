@@ -27,12 +27,20 @@ export function useChatRealtime({
   typingChannelRef,
   typingTimeoutsRef
 }) {
+  const currentUserId = currentUser?.id;
+  // Load the sidebar once per signed-in user. Do not tie this to
+  // realtimeChatIds — that string changes after the first fetch and would
+  // refetch + tear down every realtime channel on startup.
+  useEffect(() => {
+    if (!currentUserId) return undefined;
+    fetchChats();
+    if (dataService.isLive()) fetchStories();
+    return undefined;
+  }, [currentUserId, fetchChats, fetchStories]);
+
   useEffect(() => {
     if (dataService.isLive()) {
       if (currentUser) {
-        fetchChats();
-        fetchStories();
-
         const msgChannel = supabase
           .channel('db-messages')
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
@@ -194,6 +202,7 @@ export function useChatRealtime({
           })
           .subscribe();
 
+        let memberRefreshTimer = 0;
         const memberChannel = supabase
           .channel('db-members')
           .on('postgres_changes', {
@@ -202,7 +211,10 @@ export function useChatRealtime({
             table: 'chat_members',
             filter: `profile_id=eq.${currentUser.id}`
           }, () => {
-            fetchChats();
+            window.clearTimeout(memberRefreshTimer);
+            memberRefreshTimer = window.setTimeout(() => {
+              fetchChats();
+            }, 250);
           })
           .subscribe();
 
@@ -298,6 +310,7 @@ export function useChatRealtime({
           .subscribe();
 
         return () => {
+          window.clearTimeout(memberRefreshTimer);
           for (const timeout of Object.values(typingTimeoutsRef.current)) clearTimeout(timeout);
           typingTimeoutsRef.current = {};
           msgChannel.unsubscribe();
@@ -308,10 +321,6 @@ export function useChatRealtime({
           typingChannelRef.current = null;
         };
       }
-    } else if (currentUser) {
-      // Use the same loader as the rest of the app so a fresh mock profile gets
-      // the default chat fixtures when localStorage has not been initialized.
-      fetchChats();
     }
   }, [
     currentUser,

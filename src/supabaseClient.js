@@ -53,6 +53,39 @@ export const isMockMode =
 export const isMisconfigured =
   isProduction && !isSupabaseConfigured && !allowMockInProduction;
 
+/**
+ * Auth-js uses navigator.locks. A stuck lock (Electron custom protocol,
+ * another Coiny tab mid-refresh) leaves "Инициализация Coiny..." forever.
+ * Abort the acquire after a few seconds and run the critical section anyway.
+ */
+function requestAuthLock(name, acquireTimeout, execute) {
+  const timeoutMs = Number.isFinite(acquireTimeout) && acquireTimeout > 0
+    ? Math.min(acquireTimeout, 4000)
+    : 4000;
+
+  if (typeof navigator === 'undefined' || typeof navigator.locks?.request !== 'function') {
+    return execute();
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  return navigator.locks.request(name, { mode: 'exclusive', signal: controller.signal }, async () => {
+    clearTimeout(timer);
+    return execute();
+  }).catch((error) => {
+    clearTimeout(timer);
+    if (error?.name === 'AbortError') return execute();
+    throw error;
+  });
+}
+
 export const supabase = isSupabaseConfigured
-  ? createClient(supabaseProjectUrl, supabasePublishableKey)
+  ? createClient(supabaseProjectUrl, supabasePublishableKey, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: false,
+        lock: requestAuthLock
+      }
+    })
   : null;

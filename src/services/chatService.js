@@ -104,15 +104,32 @@ function buildDefaultMockChats() {
   ];
 }
 
+const CHAT_SELECT = 'id, name, type, avatar, avatar_color, bio, username, created_by, settings';
+
 export const chatService = {
   fetchChats: async (userId) => {
     if (isSupabaseConfigured) {
-      let { data: rawChats, error: chatErr } = await supabase
-        .from('chats')
-        .select('*');
+      const { data: memberships, error: membershipError } = await supabase
+        .from('chat_members')
+        .select('chat_id, notifications, pinned')
+        .eq('profile_id', userId);
+      if (membershipError) throw membershipError;
 
-      if (chatErr) throw chatErr;
-      if (!Array.isArray(rawChats)) rawChats = [];
+      const memberChatIds = [...new Set((memberships || []).map((row) => row.chat_id).filter(Boolean))];
+      const [memberChatsResult, createdChatsResult] = await Promise.all([
+        memberChatIds.length > 0
+          ? supabase.from('chats').select(CHAT_SELECT).in('id', memberChatIds)
+          : Promise.resolve({ data: [], error: null }),
+        supabase.from('chats').select(CHAT_SELECT).eq('created_by', userId)
+      ]);
+      if (memberChatsResult.error) throw memberChatsResult.error;
+      if (createdChatsResult.error) throw createdChatsResult.error;
+
+      const chatsById = new Map();
+      for (const chat of [...(memberChatsResult.data || []), ...(createdChatsResult.data || [])]) {
+        if (chat?.id) chatsById.set(chat.id, chat);
+      }
+      let rawChats = [...chatsById.values()];
 
       const hasSaved = rawChats.some((c) =>
         isSavedMessagesChat({
@@ -129,7 +146,7 @@ export const chatService = {
 
           const { data: savedChat, error: savedChatErr } = await supabase
             .from('chats')
-            .select('*')
+            .select(CHAT_SELECT)
             .eq('id', savedChatId)
             .single();
           if (savedChatErr) throw savedChatErr;
@@ -138,28 +155,6 @@ export const chatService = {
           }
         } catch (e) {
           console.warn('Failed to auto-create Saved Messages:', e);
-        }
-      }
-
-      let { data: memberships } = await supabase
-        .from('chat_members')
-        .select('chat_id, notifications, pinned')
-        .eq('profile_id', userId);
-
-      const memberChatIds = new Set((memberships || []).map(m => m.chat_id));
-
-      for (const chat of rawChats) {
-        if (!memberChatIds.has(chat.id) && (chat.type === 'channel' || chat.type === 'group')) {
-          try {
-            await supabase.from('chat_members').insert({
-              chat_id: chat.id,
-              profile_id: userId,
-              role: 'member'
-            });
-            memberChatIds.add(chat.id);
-          } catch (e) {
-            console.warn('Failed to auto-join public chat:', e);
-          }
         }
       }
 
@@ -474,7 +469,7 @@ export const chatService = {
       const cleanUsername = username.trim().toLowerCase();
       const { data: profile, error: profileErr } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, username, display_name, avatar, avatar_color, bio')
         .eq('username', cleanUsername)
         .single();
 
