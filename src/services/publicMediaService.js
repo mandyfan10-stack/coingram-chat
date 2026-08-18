@@ -5,6 +5,7 @@ const LIMITS = {
   avatar: 5 * 1024 * 1024,
   story: 10 * 1024 * 1024,
   wallpaper: 10 * 1024 * 1024,
+  banner: 10 * 1024 * 1024,
   'group-avatar': 5 * 1024 * 1024,
 };
 
@@ -19,7 +20,7 @@ export async function uploadSanitizedPublicImage(file, kind, { chatId } = {}) {
 
   const body = new FormData();
   body.append('file', file);
-  body.append('kind', kind);
+  body.append('kind', kind === 'banner' ? 'wallpaper' : kind);
   if (chatId) body.append('chatId', chatId);
 
   const { data, error } = await supabase.functions.invoke('sanitize-public-image', { body });

@@ -171,7 +171,7 @@ export const authService = {
     if (isSupabaseConfigured) {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, display_name, bio, avatar_color, theme, wallpaper, avatar, public_key, has_e2ee')
+        .select('id, username, display_name, bio, avatar_color, theme, wallpaper, avatar, banner, banner_path, public_key, has_e2ee')
         .eq('id', userId)
         .maybeSingle();
       if (error) throw error;
@@ -191,6 +191,7 @@ export const authService = {
         theme: fields.theme,
         wallpaper: fields.wallpaper,
         avatar: fields.avatar,
+        banner: fields.banner,
         public_key: fields.public_key ?? fields.publicKey,
         has_e2ee: fields.has_e2ee ?? fields.hasE2EE
       };

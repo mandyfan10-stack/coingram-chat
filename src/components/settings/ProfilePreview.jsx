@@ -1,4 +1,6 @@
 import React from 'react';
+import { Camera, Trash2, Loader2 } from 'lucide-react';
+import useResolvedMedia from '../../hooks/useResolvedMedia';
 import styles from './ProfilePreview.module.css';
 
 export default function ProfilePreview({
@@ -7,6 +9,10 @@ export default function ProfilePreview({
   avatarFallback,
   displayName,
   username,
+  banner,
+  onBannerClick,
+  onBannerRemove,
+  isUploadingBanner = false,
   variant = 'studio',
   status,
   action,
@@ -18,6 +24,8 @@ export default function ProfilePreview({
 }) {
   const resolvedName = displayName || currentUser?.name || currentUser?.username || 'Coiny User';
   const resolvedUsername = username || currentUser?.username || 'user';
+  const rawBanner = banner !== undefined ? banner : currentUser?.banner;
+  const { url: bannerUrl } = useResolvedMedia(rawBanner);
   const avatar = renderAvatar
     ? renderAvatar(currentUser?.avatar, avatarFallback)
     : avatarFallback;
@@ -34,8 +42,52 @@ export default function ProfilePreview({
       data-variant={variant}
     >
       <div className={styles.banner} data-testid="profile-preview-banner">
-        <span className={styles.bannerFallback} aria-hidden="true" />
+        {bannerUrl ? (
+          <img src={bannerUrl} alt="Обложка профиля" className={styles.bannerImage} />
+        ) : (
+          <span className={styles.bannerFallback} aria-hidden="true" />
+        )}
         <span className={styles.bannerLight} aria-hidden="true" />
+
+        {(onBannerClick || onBannerRemove) && (
+          <div className={styles.bannerActions}>
+            {onBannerClick && (
+              <button
+                type="button"
+                className={styles.bannerActionBtn}
+                title={rawBanner ? 'Изменить обложку' : 'Загрузить обложку'}
+                aria-label={rawBanner ? 'Изменить обложку' : 'Загрузить обложку'}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBannerClick();
+                }}
+                disabled={isUploadingBanner}
+              >
+                {isUploadingBanner ? (
+                  <Loader2 size={15} className={styles.spinning} />
+                ) : (
+                  <Camera size={15} />
+                )}
+                <span>{rawBanner ? 'Изменить обложку' : 'Загрузить обложку'}</span>
+              </button>
+            )}
+            {onBannerRemove && rawBanner && (
+              <button
+                type="button"
+                className={`${styles.bannerActionBtn} ${styles.bannerDeleteBtn}`}
+                title="Удалить обложку"
+                aria-label="Удалить обложку"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBannerRemove();
+                }}
+                disabled={isUploadingBanner}
+              >
+                <Trash2 size={15} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       <div className={styles.body}>

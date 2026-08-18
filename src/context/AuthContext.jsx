@@ -75,6 +75,7 @@ export const AuthProvider = ({ children }) => {
               theme: profile.theme,
               wallpaper: profile.wallpaper,
               avatar: profile.avatar,
+              banner: profile.banner,
               has_e2ee: profile.has_e2ee,
               public_key: profile.public_key
             });

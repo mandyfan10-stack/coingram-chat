@@ -97,6 +97,38 @@
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
   border-bottom: 1px solid var(--border-color);
   position: relative;
+  overflow: hidden;
+}
+
+.info-hero-section.has-banner {
+  padding-top: 48px;
+}
+
+.info-hero-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 90px;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.info-hero-banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.info-hero-banner-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.15) 0%, var(--bg-secondary) 100%);
+}
+
+.info-hero-section > *:not(.info-hero-banner) {
+  position: relative;
+  z-index: 1;
 }
 
 .info-avatar-wrapper {
@@ -106,6 +138,10 @@
   margin-bottom: 12px;
   border-radius: 50%;
   cursor: default;
+}
+
+.info-hero-section.has-banner .info-avatar-hero {
+  border: 3px solid var(--bg-secondary);
 }
 
 .info-avatar-wrapper.editable {

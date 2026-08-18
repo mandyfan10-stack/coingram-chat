@@ -12,6 +12,8 @@ export interface Profile {
   avatar_color?: string;
   theme?: string;
   wallpaper?: string;
+  banner?: string;
+  banner_path?: string;
   lastSeen?: string | null;
   last_seen?: string | null;
   publicKey?: string | null;

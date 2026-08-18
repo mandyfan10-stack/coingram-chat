@@ -348,10 +348,14 @@ export default function ChatInfo() {
     );
   }, [activeChat?.members, memberSearchQuery]);
 
+  const isPersonal = activeChat?.type === 'personal';
+  const otherMember = isPersonal ? (activeChat?.members || []).find((m) => m.id !== currentUser?.id) : null;
+  const contactBanner = otherMember?.banner || activeChat?.banner;
+  const { url: bannerUrl } = useResolvedMedia(contactBanner);
+
   if (!activeChat) return null;
 
   const isSavedMessages = isSavedMessagesChat(activeChat);
-  const isPersonal = activeChat.type === 'personal';
   const isGroupOrChannel = activeChat.type === 'group' || activeChat.type === 'channel';
   const statusText = getChatStatus(activeChat);
   const isOnlineStatus = statusText.toLowerCase().includes('в сети');
@@ -376,7 +380,13 @@ export default function ChatInfo() {
 
         <div className="chat-info-scrollable">
           {/* Main Profile Hero */}
-          <div className="info-hero-section">
+          <div className={`info-hero-section ${bannerUrl ? 'has-banner' : ''}`}>
+            {bannerUrl && (
+              <div className="info-hero-banner">
+                <img src={bannerUrl} alt="Баннер" className="info-hero-banner-img" />
+                <div className="info-hero-banner-overlay" />
+              </div>
+            )}
             <div
               className={`info-avatar-wrapper ${isOwner && isGroupOrChannel ? 'editable' : ''}`}
               onClick={() => isOwner && isGroupOrChannel && fileInputRef.current?.click()}

@@ -21,6 +21,10 @@ export default function ProfileTab({
   avatarInputRef,
   handleAvatarUpload,
   isUploadingAvatar,
+  bannerInputRef,
+  handleBannerUpload,
+  handleBannerRemove,
+  isUploadingBanner,
 }) {
   return (
     <>
@@ -34,12 +38,22 @@ export default function ProfileTab({
           onAvatarClick={() => avatarInputRef.current?.click()}
           avatarActionDisabled={isUploadingAvatar}
           avatarOverlay={isUploadingAvatar ? <span className={styles.uploading}>Загрузка…</span> : <Upload size={20} />}
+          onBannerClick={() => bannerInputRef.current?.click()}
+          onBannerRemove={handleBannerRemove}
+          isUploadingBanner={isUploadingBanner}
         />
         <input 
           ref={avatarInputRef}
           type="file"
           accept="image/*"
           onChange={handleAvatarUpload}
+          style={{ display: 'none' }}
+        />
+        <input 
+          ref={bannerInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleBannerUpload}
           style={{ display: 'none' }}
         />
       </div>

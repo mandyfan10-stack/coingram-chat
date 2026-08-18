@@ -169,6 +169,8 @@ export default function SettingsModal() {
 
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const avatarInputRef = React.useRef(null);
+  const [isUploadingBanner, setIsUploadingBanner] = useState(false);
+  const bannerInputRef = React.useRef(null);
 
   const handleAvatarUpload = async (e) => {
     if (e.target.files && e.target.files[0]) {
@@ -190,7 +192,45 @@ export default function SettingsModal() {
         alert(`Ошибка при загрузке аватара: ${err.message || err}`);
       } finally {
         setIsUploadingAvatar(false);
+        if (e.target) e.target.value = '';
       }
+    }
+  };
+
+  const handleBannerUpload = async (e) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setIsUploadingBanner(true);
+      try {
+        if (isSupabaseConfigured) {
+          const { reference } = await uploadSanitizedPublicImage(file, 'banner');
+          await updateProfile({ banner: reference });
+        } else {
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            await updateProfile({ banner: event.target.result });
+          };
+          reader.readAsDataURL(file);
+        }
+      } catch (err) {
+        console.error('Banner upload failed', err);
+        alert(`Ошибка при загрузке баннера: ${err.message || err}`);
+      } finally {
+        setIsUploadingBanner(false);
+        if (e.target) e.target.value = '';
+      }
+    }
+  };
+
+  const handleBannerRemove = async () => {
+    try {
+      setIsUploadingBanner(true);
+      await updateProfile({ banner: null });
+    } catch (err) {
+      console.error('Banner remove failed', err);
+      alert(`Ошибка при удалении баннера: ${err.message || err}`);
+    } finally {
+      setIsUploadingBanner(false);
     }
   };
 
@@ -424,6 +464,10 @@ export default function SettingsModal() {
                 avatarInputRef={avatarInputRef}
                 handleAvatarUpload={handleAvatarUpload}
                 isUploadingAvatar={isUploadingAvatar}
+                bannerInputRef={bannerInputRef}
+                handleBannerUpload={handleBannerUpload}
+                handleBannerRemove={handleBannerRemove}
+                isUploadingBanner={isUploadingBanner}
               />
             )}
 
