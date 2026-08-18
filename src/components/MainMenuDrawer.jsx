@@ -206,13 +206,6 @@ export default function MainMenuDrawer() {
               <span className="drawer-user-name">
                 {currentUser.name}
               </span>
-              <button 
-                className="drawer-status-btn"
-                onClick={() => avatarInputRef.current?.click()}
-                disabled={isUploading}
-              >
-                {isUploading ? 'Загрузка...' : 'Обновить фото'}
-              </button>
               <input 
                 ref={avatarInputRef}
                 type="file"
