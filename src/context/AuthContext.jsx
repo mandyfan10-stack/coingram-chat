@@ -5,8 +5,8 @@ import { clearLocalAppData } from '../utils/localDataCleanup.js';
 
 const AuthContext = createContext();
 
-const AUTH_BOOTSTRAP_TIMEOUT_MS = 10_000;
-const AUTH_PROFILE_TIMEOUT_MS = 8_000;
+const AUTH_BOOTSTRAP_TIMEOUT_MS = 4_000;
+const AUTH_PROFILE_TIMEOUT_MS = 3_500;
 
 function withTimeout(promise, ms, label) {
   return new Promise((resolve, reject) => {
