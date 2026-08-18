@@ -20,6 +20,8 @@ create table public.profiles (
   bio text default '',
   theme text default 'telegram-blue',
   wallpaper text default 'classic',
+  banner text,
+  banner_path text,
   last_seen timestamp with time zone default now(),
   public_key text,
   has_e2ee boolean default false

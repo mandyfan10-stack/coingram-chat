@@ -174,6 +174,19 @@ export const authService = {
         .select('id, username, display_name, bio, avatar_color, theme, wallpaper, avatar, banner, banner_path, public_key, has_e2ee')
         .eq('id', userId)
         .maybeSingle();
+
+      // Graceful fallback if banner column has not yet been added to Supabase DB
+      if (error && (error.code === '42703' || String(error.message || '').includes('banner'))) {
+        const fallback = await supabase
+          .from('profiles')
+          .select('id, username, display_name, bio, avatar_color, theme, wallpaper, avatar, public_key, has_e2ee')
+          .eq('id', userId)
+          .maybeSingle();
+        if (!fallback.error) {
+          return fallback.data;
+        }
+      }
+
       if (error) throw error;
       return data;
     }
@@ -201,6 +214,18 @@ export const authService = {
         .from('profiles')
         .update(payload)
         .eq('id', userId);
+
+      // If banner column does not exist yet in DB, retry without banner
+      if (error && (error.code === '42703' || String(error.message || '').includes('banner')) && 'banner' in payload) {
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.banner;
+        const retry = await supabase
+          .from('profiles')
+          .update(fallbackPayload)
+          .eq('id', userId);
+        if (!retry.error) return;
+      }
+
       if (error) throw error;
       return;
     }
