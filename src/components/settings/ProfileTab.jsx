@@ -9,11 +9,6 @@ export default function ProfileTab({
   renderAvatar,
   name,
   setName,
-  email,
-  setEmail,
-  emailStatus,
-  emailLoading,
-  emailEditable,
   bio,
   setBio,
   copied,
@@ -81,26 +76,6 @@ export default function ProfileTab({
                 disabled
                 className="disabled-input"
               />
-            </div>
-
-            <div className="input-group">
-              <label htmlFor="email-input">Email</label>
-              <input
-                id="email-input"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                disabled={!emailEditable || emailLoading}
-              />
-              <span className="input-help-text">
-                После изменения потребуется подтвердить новый адрес по ссылке из письма.
-              </span>
-              {emailStatus.text && (
-                <span className="input-help-text" style={{ color: emailStatus.type === 'error' ? '#ff4d4f' : '#2ecc71' }}>
-                  {emailStatus.text}
-                </span>
-              )}
             </div>
 
             <div className="input-group">

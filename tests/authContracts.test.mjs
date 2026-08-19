@@ -7,7 +7,6 @@ const authService = await readFile(new URL('../src/services/authService.js', imp
 const authEmail = await readFile(new URL('../src/services/authEmail.ts', import.meta.url), 'utf8');
 const dataLayer = await readFile(new URL('../src/services/dataLayer.js', import.meta.url), 'utf8');
 const settingsModal = await readFile(new URL('../src/components/SettingsModal.jsx', import.meta.url), 'utf8');
-const profileTab = await readFile(new URL('../src/components/settings/ProfileTab.jsx', import.meta.url), 'utf8');
 const e2eeTab = await readFile(new URL('../src/components/settings/E2EETab.jsx', import.meta.url), 'utf8');
 const authScreen = await readFile(new URL('../src/components/AuthScreen.jsx', import.meta.url), 'utf8');
 const e2eHelpers = await readFile(new URL('./e2e/helpers.mjs', import.meta.url), 'utf8');
@@ -30,7 +29,6 @@ test('auth state callbacks do not await Supabase profile calls directly', () => 
 
 test('email is exposed and editable from settings', () => {
   assert.match(settingsModal, /updateEmail/);
-  assert.match(profileTab, /id="email-input"/);
   assert.match(e2eeTab, /id="settings-email-input"/);
 });
 

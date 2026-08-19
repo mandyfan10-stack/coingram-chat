@@ -452,11 +452,6 @@ export default function SettingsModal() {
                 renderAvatar={renderAvatar}
                 name={name}
                 setName={setName}
-                email={email}
-                setEmail={setEmail}
-                emailStatus={emailStatus}
-                emailLoading={settingsSaving}
-                emailEditable={isSupabaseConfigured}
                 bio={bio}
                 setBio={setBio}
                 copied={copied}
