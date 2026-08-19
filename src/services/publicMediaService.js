@@ -20,7 +20,7 @@ export async function uploadSanitizedPublicImage(file, kind, { chatId } = {}) {
 
   const body = new FormData();
   body.append('file', file);
-  body.append('kind', kind === 'banner' ? 'wallpaper' : kind);
+  body.append('kind', kind);
   if (chatId) body.append('chatId', chatId);
 
   const { data, error } = await supabase.functions.invoke('sanitize-public-image', { body });

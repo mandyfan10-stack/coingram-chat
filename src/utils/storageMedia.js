@@ -1,7 +1,7 @@
 import { supabaseProjectUrl } from '../supabaseClient.js';
 import { getStorageObjectPath, getStorageReference } from './urlSecurity.js';
 
-const PRIVATE_MEDIA_BUCKETS = ['chat-attachments', 'avatars', 'stories', 'wallpapers', 'group-avatars'];
+const PRIVATE_MEDIA_BUCKETS = ['chat-attachments', 'avatars', 'stories', 'wallpapers', 'banners', 'group-avatars'];
 
 export function getPrivateAttachmentPath(url) {
   return getStorageObjectPath(url, 'chat-attachments', supabaseProjectUrl);

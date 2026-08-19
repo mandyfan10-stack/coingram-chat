@@ -27,6 +27,7 @@ test('heavy secondary surfaces stay behind dynamic imports', () => {
   assert.match(app, /lazy\(\(\) => import\('\.\/components\/CallOverlay'\)\)/);
   assert.match(viteConfig, /manualChunks\(id\)/);
   assert.doesNotMatch(app, /PulsePanel|pulse-edge-tab|isPulseOpen/);
+  assert.doesNotMatch(chatProvider, /isPulseOpen|setIsPulseOpen/);
   // StickersTab may be static or lazy depending on bundle strategy
   assert.match(settings, /StickersTab/);
 });

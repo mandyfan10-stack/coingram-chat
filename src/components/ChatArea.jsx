@@ -42,7 +42,6 @@ export default function ChatArea() {
     toggleReaction,
     isInfoOpen,
     setIsInfoOpen,
-    setIsPulseOpen,
     typingStatuses,
     sendTypingStatus,
     wallpaper,
@@ -910,7 +909,6 @@ function formatDateDivider(timestamp) {
         isTypingText={isTypingText}
         isInfoOpen={isInfoOpen}
         setIsInfoOpen={setIsInfoOpen}
-        setIsPulseOpen={setIsPulseOpen}
         setActiveChatId={setActiveChatId}
       />
       {!isOnline && (

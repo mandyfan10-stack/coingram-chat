@@ -21,9 +21,10 @@ test('custom profile styling is gone from mock settings', async ({ page }) => {
 
   await expect(page.locator('.drawer-menu-item').filter({ hasText: 'Оформление профиля' })).toHaveCount(0);
   await expect(dialog.getByRole('heading', { name: 'Своё оформление' })).toHaveCount(0);
-  await expect(dialog.getByRole('button', { name: /Загрузить|Заменить|Снять/ })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: /^(Загрузить|Заменить|Снять)$/ })).toHaveCount(0);
   await expect(dialog.getByText('Рамка')).toHaveCount(0);
   await expect(dialog.getByText('Значок')).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Загрузить обложку' })).toBeVisible();
 });
 
 test('profile banner keeps fixed geometry and the form scrolls at 806x590', async ({ page }) => {

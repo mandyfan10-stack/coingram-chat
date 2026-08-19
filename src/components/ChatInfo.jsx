@@ -428,8 +428,9 @@ export default function ChatInfo() {
                 {/* 1. Call */}
                 <button
                   type="button"
-                  className="quick-action-item"
+                  className="quick-action-item info-action-btn"
                   title="Звонок"
+                  data-testid="start-call"
                   onClick={() => startCall(activeChat.id)}
                 >
                   <div className="quick-action-icon-circle">

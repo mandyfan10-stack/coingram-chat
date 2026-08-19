@@ -59,6 +59,7 @@ select is(
 select is((select public from storage.buckets where id = 'avatars'), false, 'avatars are private');
 select is((select public from storage.buckets where id = 'stories'), false, 'stories are private');
 select is((select public from storage.buckets where id = 'wallpapers'), false, 'wallpapers are private');
+select is((select public from storage.buckets where id = 'banners'), false, 'banners are private');
 select is((select public from storage.buckets where id = 'stickers'), true, 'stickers remain intentionally public');
 
 select * from finish();

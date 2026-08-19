@@ -11,7 +11,7 @@ const wasmBytes = await Deno.readFile(
 );
 await initializeImageMagick(wasmBytes);
 
-type MediaKind = "avatar" | "story" | "wallpaper" | "group-avatar";
+type MediaKind = "avatar" | "story" | "wallpaper" | "banner" | "group-avatar";
 
 const MAX_PIXELS = 16_000_000;
 const MAX_DIMENSION = 4096;
@@ -20,6 +20,7 @@ const KIND_CONFIG: Record<MediaKind, { bucket: string; maxBytes: number; prefix:
   avatar: { bucket: "avatars", maxBytes: 5 * 1024 * 1024, prefix: "avatar" },
   story: { bucket: "stories", maxBytes: 10 * 1024 * 1024, prefix: "story" },
   wallpaper: { bucket: "wallpapers", maxBytes: 10 * 1024 * 1024, prefix: "wallpaper" },
+  banner: { bucket: "banners", maxBytes: 10 * 1024 * 1024, prefix: "banner", minRatio: 1.2, maxRatio: 6 },
   "group-avatar": { bucket: "group-avatars", maxBytes: 5 * 1024 * 1024, prefix: "avatar" },
 };
 
@@ -171,6 +172,8 @@ Deno.serve(async (request: Request) => {
       ({ error: metadataError } = await service.from("profiles").update({ avatar: reference, avatar_path: path }).eq("id", user.id));
     } else if (mediaKind === "wallpaper") {
       ({ error: metadataError } = await service.from("profiles").update({ wallpaper: reference, wallpaper_path: path }).eq("id", user.id));
+    } else if (mediaKind === "banner") {
+      ({ error: metadataError } = await service.from("profiles").update({ banner: reference, banner_path: path }).eq("id", user.id));
     } else if (mediaKind === "group-avatar") {
       ({ error: metadataError } = await service.from("chats").update({ avatar: reference, avatar_path: path }).eq("id", chatId));
     }

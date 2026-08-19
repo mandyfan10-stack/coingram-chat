@@ -89,7 +89,7 @@ Deno.serve(async (request: Request) => {
       .map(file => file.path);
 
     const [profiles, chats, stories] = await Promise.all([
-      supabase.from("profiles").select("avatar,avatar_path,wallpaper,wallpaper_path"),
+      supabase.from("profiles").select("avatar,avatar_path,wallpaper,wallpaper_path,banner,banner_path"),
       supabase.from("chats").select("avatar,avatar_path"),
       supabase.from("stories").select("media,media_path,expires_at")
     ]);
@@ -99,7 +99,7 @@ Deno.serve(async (request: Request) => {
 
     const references = new Map<string, Set<string>>([
       ["public-media", new Set()], ["avatars", new Set()], ["wallpapers", new Set()],
-      ["group-avatars", new Set()], ["stories", new Set()]
+      ["banners", new Set()], ["group-avatars", new Set()], ["stories", new Set()]
     ]);
     const remember = (bucket: string, value: unknown) => {
       const path = referencedPath(value, bucket);
@@ -108,6 +108,7 @@ Deno.serve(async (request: Request) => {
     for (const row of profiles.data || []) {
       remember("public-media", row.avatar); remember("public-media", row.wallpaper);
       remember("avatars", row.avatar_path); remember("wallpapers", row.wallpaper_path);
+      remember("public-media", row.banner); remember("banners", row.banner_path);
     }
     for (const row of chats.data || []) {
       remember("public-media", row.avatar); remember("group-avatars", row.avatar_path);

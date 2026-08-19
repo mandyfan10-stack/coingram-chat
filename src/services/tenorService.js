@@ -1,7 +1,7 @@
 import { TRENDING_GIFS } from '../components/chat/emojiData';
 
-const TENOR_API_KEY = 'AIzaSyCZt6SSh5VgVPzD9fhyzG1DprdPRhtoaR4';
-const TENOR_CLIENT_KEY = 'tenor_web';
+const TENOR_API_KEY = String(import.meta.env?.VITE_TENOR_API_KEY || '').trim();
+const TENOR_CLIENT_KEY = 'coiny_web';
 const BASE_URL = 'https://tenor.googleapis.com/v2';
 
 export const TENOR_CATEGORIES = [
@@ -31,39 +31,50 @@ function normalizeTenorItem(item) {
   };
 }
 
+function fallbackGifs(query = '') {
+  const clean = String(query || '').trim().toLowerCase();
+  const results = clean
+    ? TRENDING_GIFS.filter(
+      (gif) => gif.title.toLowerCase().includes(clean) || (gif.tags && gif.tags.some((tag) => tag.includes(clean)))
+    )
+    : TRENDING_GIFS;
+  return { results, nextPos: null };
+}
+
+async function fetchTenor(path, params) {
+  if (!TENOR_API_KEY) return null;
+
+  const url = new URL(`${BASE_URL}/${path}`);
+  url.searchParams.set('key', TENOR_API_KEY);
+  url.searchParams.set('client_key', TENOR_CLIENT_KEY);
+  url.searchParams.set('media_filter', 'gif,tinygif,nanogif');
+  url.searchParams.set('contentfilter', 'medium');
+  for (const [name, value] of Object.entries(params)) {
+    if (value != null && value !== '') url.searchParams.set(name, String(value));
+  }
+
+  const response = await fetch(url.toString());
+  if (!response.ok) {
+    throw new Error(`Tenor API responded with status ${response.status}`);
+  }
+  return response.json();
+}
+
 /**
  * Fetch featured/trending GIFs from Tenor
  */
 export async function fetchTrendingTenorGifs(pos = null, limit = 20) {
   try {
-    const url = new URL(`${BASE_URL}/featured`);
-    url.searchParams.set('key', TENOR_API_KEY);
-    url.searchParams.set('client_key', TENOR_CLIENT_KEY);
-    url.searchParams.set('limit', String(limit));
-    url.searchParams.set('media_filter', 'gif,tinygif,nanogif');
-    url.searchParams.set('contentfilter', 'medium');
-    if (pos) {
-      url.searchParams.set('pos', pos);
-    }
-
-    const response = await fetch(url.toString());
-    if (!response.ok) {
-      throw new Error(`Tenor API responded with status ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await fetchTenor('featured', { limit, pos });
+    if (!data) return fallbackGifs();
     const results = (data.results || []).map(normalizeTenorItem);
-
     return {
       results: results.length > 0 ? results : TRENDING_GIFS,
       nextPos: data.next || null
     };
   } catch (err) {
     console.warn('Tenor API offline/failed, using fallback curated GIFs:', err);
-    return {
-      results: TRENDING_GIFS,
-      nextPos: null
-    };
+    return fallbackGifs();
   }
 }
 
@@ -76,38 +87,14 @@ export async function searchTenorGifs(query, pos = null, limit = 20) {
   }
 
   try {
-    const url = new URL(`${BASE_URL}/search`);
-    url.searchParams.set('q', query.trim());
-    url.searchParams.set('key', TENOR_API_KEY);
-    url.searchParams.set('client_key', TENOR_CLIENT_KEY);
-    url.searchParams.set('limit', String(limit));
-    url.searchParams.set('media_filter', 'gif,tinygif,nanogif');
-    url.searchParams.set('contentfilter', 'medium');
-    if (pos) {
-      url.searchParams.set('pos', pos);
-    }
-
-    const response = await fetch(url.toString());
-    if (!response.ok) {
-      throw new Error(`Tenor Search API responded with status ${response.status}`);
-    }
-
-    const data = await response.json();
-    const results = (data.results || []).map(normalizeTenorItem);
-
+    const data = await fetchTenor('search', { q: query.trim(), limit, pos });
+    if (!data) return fallbackGifs(query);
     return {
-      results,
+      results: (data.results || []).map(normalizeTenorItem),
       nextPos: data.next || null
     };
   } catch (err) {
     console.warn('Tenor Search API error, searching local fallback GIFs:', err);
-    const clean = query.trim().toLowerCase();
-    const fallbackResults = TRENDING_GIFS.filter(
-      (g) => g.title.toLowerCase().includes(clean) || (g.tags && g.tags.some((t) => t.includes(clean)))
-    );
-    return {
-      results: fallbackResults,
-      nextPos: null
-    };
+    return fallbackGifs(query);
   }
 }

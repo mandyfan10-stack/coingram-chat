@@ -169,10 +169,26 @@ export const chatService = {
         .in('chat_id', chatIds);
       const e2eeConversationMap = new Map((e2eeConversations || []).map((row) => [row.chat_id, row]));
 
-      const { data: allMembersRaw } = await supabase
+      const MEMBER_PROFILE_SELECT =
+        'chat_id, profile_id, role, profiles(display_name, username, avatar, avatar_color, bio, last_seen, public_key, has_e2ee, banner)';
+      const MEMBER_PROFILE_SELECT_LEGACY =
+        'chat_id, profile_id, role, profiles(display_name, username, avatar, avatar_color, bio, last_seen, public_key, has_e2ee)';
+      let membersResult = await supabase
         .from('chat_members')
-        .select('chat_id, profile_id, role, profiles(display_name, username, avatar, avatar_color, bio, last_seen, public_key, has_e2ee)')
+        .select(MEMBER_PROFILE_SELECT)
         .in('chat_id', chatIds);
+      if (
+        membersResult.error
+        && (membersResult.error.code === '42703'
+          || String(membersResult.error.message || '').includes('banner'))
+      ) {
+        membersResult = await supabase
+          .from('chat_members')
+          .select(MEMBER_PROFILE_SELECT_LEGACY)
+          .in('chat_id', chatIds);
+      }
+      if (membersResult.error) throw membersResult.error;
+      const allMembersRaw = membersResult.data;
 
       const { data: latestMessages, error: latestMessagesError } = await supabase
         .rpc('get_latest_chat_messages', { p_chat_ids: chatIds });
@@ -197,7 +213,8 @@ export const chatService = {
           role: m.role || 'member',
           lastSeen: m.profiles?.last_seen || null,
           publicKey: m.profiles?.public_key || null,
-          hasE2ee: m.profiles?.has_e2ee || false
+          hasE2ee: m.profiles?.has_e2ee || false,
+          banner: m.profiles?.banner || null
         }));
 
         const otherMember = chat.type === 'personal'

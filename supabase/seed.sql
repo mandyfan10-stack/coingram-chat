@@ -1,0 +1,2 @@
+-- No local seed fixtures. Mock-mode demo data lives in the client.
+-- Keep this file so `supabase db reset` does not fail on a missing seed path.

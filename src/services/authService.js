@@ -205,6 +205,7 @@ export const authService = {
         wallpaper: fields.wallpaper,
         avatar: fields.avatar,
         banner: fields.banner,
+        banner_path: fields.banner_path,
         public_key: fields.public_key ?? fields.publicKey,
         has_e2ee: fields.has_e2ee ?? fields.hasE2EE
       };

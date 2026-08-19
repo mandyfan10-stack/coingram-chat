@@ -160,8 +160,9 @@ test('call hardening binds MLS signaling and fully disposable DSP', async () => 
   assert.match(dsp, /replaceTrack/);
   assert.match(dsp, /context\?\.close/);
   assert.match(dsp, /echoCancellation: true/);
-  assert.match(ice, /iceTransportPolicy: options\.allowDirectConnection \? 'all' : 'relay'/);
-  assert.match(ice, /TURN is unavailable|STUN_SERVERS/);
+  assert.match(ice, /iceTransportPolicy: hasRelay && !options\.allowDirectConnection \? 'relay' : 'all'/);
+  assert.match(ice, /STUN_SERVERS/);
+  assert.match(ice, /turn-credentials/);
 });
 
 test('logout cleanup and the v1 compatibility boundary remain explicit', async () => {

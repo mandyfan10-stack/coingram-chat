@@ -44,7 +44,7 @@ test('two users establish and finish a WebRTC audio call with remote media', asy
 
     await openPersonalChat(firstPage, qa.second.username);
     await firstPage.locator('.chat-header-btn[title="Информация"]').click();
-    await firstPage.locator('.info-action-btn[title="Звонок"]').click();
+    await firstPage.getByTestId('start-call').or(firstPage.locator('.info-action-btn[title="Звонок"], .quick-action-item[title="Звонок"]')).click({ timeout: 15_000 });
 
     const accept = secondPage.locator('.call-accept[title="Ответить на звонок"]');
     await expect(accept).toBeVisible({ timeout: 30_000 });

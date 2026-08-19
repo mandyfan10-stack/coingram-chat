@@ -225,7 +225,7 @@ export default function SettingsModal() {
   const handleBannerRemove = async () => {
     try {
       setIsUploadingBanner(true);
-      await updateProfile({ banner: null });
+      await updateProfile({ banner: null, banner_path: null });
     } catch (err) {
       console.error('Banner remove failed', err);
       alert(`Ошибка при удалении баннера: ${err.message || err}`);

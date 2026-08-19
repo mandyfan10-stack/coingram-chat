@@ -19,6 +19,8 @@ test('ChatHeader has info action only — call entry stays in ChatInfo', () => {
   assert.doesNotMatch(chatHeader, /startCall/);
   assert.doesNotMatch(chatHeader, /useCalls/);
   assert.doesNotMatch(chatHeader, /from 'lucide-react'[\s\S]*Phone|Phone[\s\S]*from 'lucide-react'/);
+  assert.match(chatHeader, /showE2eeLock/);
+  assert.match(chatHeader, /requiresPersonalE2EE/);
 });
 
 test('V5: call stack has no alert(); mediaError surface exists', () => {

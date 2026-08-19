@@ -1,6 +1,8 @@
 import React from 'react';
 import { ArrowLeft, Lock, MoreVertical } from 'lucide-react';
-import { isSavedMessagesChat, savedMessagesDisplayName } from '../../utils/savedMessages';
+import { useAuth } from '../../context/AuthContext';
+import { useE2EE } from '../../context/E2EEContext';
+import { isSavedMessagesChat, requiresPersonalE2EE, savedMessagesDisplayName } from '../../utils/savedMessages';
 import { chatAvatarFallback } from '../../context/chat/avatarFallback';
 
 export default function ChatHeader({
@@ -12,11 +14,17 @@ export default function ChatHeader({
   setIsInfoOpen,
   setActiveChatId
 }) {
+  const { currentUser } = useAuth();
+  const { e2eePrivateKey } = useE2EE();
   const toggleInfo = () => {
     setIsInfoOpen(!isInfoOpen);
   };
   const isSaved = isSavedMessagesChat(activeChat);
   const title = isSaved ? savedMessagesDisplayName(activeChat) : activeChat.name;
+  const otherMember = (activeChat.members || []).find((member) => member?.id && member.id !== currentUser?.id);
+  const showE2eeLock = requiresPersonalE2EE(activeChat)
+    && Boolean(e2eePrivateKey)
+    && Boolean(otherMember?.publicKey || otherMember?.hasE2ee);
 
   return (
     <header className="chat-header" onClick={toggleInfo}>
@@ -36,7 +44,7 @@ export default function ChatHeader({
         <div className="chat-header-meta">
           <h4 className="chat-header-name">
             {title}
-            {activeChat.type === 'personal' && !isSaved && (
+            {showE2eeLock && (
               <Lock
                 size={15}
                 className="e2ee-header-lock-icon"

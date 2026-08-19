@@ -45,9 +45,11 @@ test('auth mock auto-create requires isMockMode', () => {
   assert.match(authService, /if \(!isMockMode\)/);
 });
 
-test('ICE servers are STUN-only without public TURN credentials', () => {
+test('ICE servers fetch short-lived TURN credentials and never ship static relays', () => {
   assert.match(iceServers, /stun:/);
-  assert.doesNotMatch(iceServers, /turn:/i);
+  assert.match(iceServers, /turn-credentials/);
+  assert.match(iceServers, /normalizeFetchedIceServers/);
   assert.doesNotMatch(iceServers, /openrelay/i);
-  assert.doesNotMatch(iceServers, /credential\s*:/);
+  assert.doesNotMatch(iceServers, /turn:turn\.example/i);
+  assert.doesNotMatch(iceServers, /urls:\s*['"]turns?:/i);
 });
