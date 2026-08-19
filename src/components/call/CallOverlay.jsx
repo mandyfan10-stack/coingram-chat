@@ -231,7 +231,29 @@ export default function CallOverlay() {
     statusText = mediaError ? 'Звонок завершен' : 'Звонок завершен';
   }
 
-  const groupParticipantCount = groupCallParticipants?.length || 0;
+  const sortedGroupParticipants = useMemo(() => {
+    const participants = groupCallParticipants ? [...groupCallParticipants] : [];
+    const currentUserId = currentUser?.id || 'current';
+    if (isGroupCall && !participants.some((p) => p.id === currentUserId || p.id === 'current' || p.name === 'Вы')) {
+      participants.unshift({
+        id: currentUserId,
+        name: 'Вы',
+        avatar: currentUser?.avatar || '👤',
+        avatarColor: currentUser?.avatar_color || currentUser?.avatarColor || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)',
+        muted: Boolean(callState.muted),
+        videoStream: localVideoStream,
+        speaking: Boolean(callState.isLocalSpeaking),
+        isReal: true
+      });
+    }
+    return participants.sort((a, b) => {
+      if (a.speaking && !b.speaking) return -1;
+      if (!a.speaking && b.speaking) return 1;
+      return 0;
+    });
+  }, [groupCallParticipants, isGroupCall, currentUser, callState.muted, callState.isLocalSpeaking, localVideoStream]);
+
+  const groupParticipantCount = sortedGroupParticipants.length;
   const participantCountLabel =
     groupParticipantCount === 1
       ? '1 участник'
@@ -243,15 +265,6 @@ export default function CallOverlay() {
     callState.status === 'connected' && callState.webrtcState === 'connected'
       ? `${participantCountLabel} • ${formatTime(elapsed)}`
       : `${participantCountLabel} • ${statusText}`;
-
-  const sortedGroupParticipants = useMemo(() => {
-    if (!groupCallParticipants) return [];
-    return [...groupCallParticipants].sort((a, b) => {
-      if (a.speaking && !b.speaking) return -1;
-      if (!a.speaking && b.speaking) return 1;
-      return 0;
-    });
-  }, [groupCallParticipants]);
 
   // Unified list of all active video & screen streams for Discord-style switcher
   const streamTiles = useMemo(() => {

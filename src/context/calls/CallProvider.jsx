@@ -589,6 +589,22 @@ export const CallProvider = ({ children }) => {
                 });
               });
 
+              // Ensure the local user is always counted in the group call
+              if (currentUserRef.current?.id && !syncedParticipants.has(currentUserRef.current.id)) {
+                syncedParticipants.set(currentUserRef.current.id, {
+                  id: currentUserRef.current.id,
+                  name: 'Вы',
+                  avatar: currentUserRef.current.avatar || '👤',
+                  avatarColor: currentUserRef.current.avatarColor
+                    || currentUserRef.current.avatar_color
+                    || 'linear-gradient(135deg, #a1c4fd, #c2e9fb)',
+                  muted: Boolean(callStateRef.current.muted),
+                  videoStream: localVideoStreamRef.current,
+                  speaking: Boolean(callStateRef.current.isLocalSpeaking),
+                  isReal: true
+                });
+              }
+
               // Teardown resources for peers who left presence without hangup message
               Object.keys(pcsRef.current).forEach(peerId => {
                 if (!syncedParticipants.has(peerId) && peerId !== currentUserRef.current?.id) {
