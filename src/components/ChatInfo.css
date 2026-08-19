@@ -717,6 +717,16 @@
   transition: background var(--transition-fast);
 }
 
+.info-doc-item.is-voice-item {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.info-doc-voice-box .voice-player-bubble {
+  background: transparent;
+  padding: 0;
+}
+
 .info-doc-item:hover,
 .info-link-item:hover {
   background: rgba(255, 255, 255, 0.07);

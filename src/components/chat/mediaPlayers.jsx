@@ -54,7 +54,7 @@ function DecryptedRegularVideoPlayer({ mediaUrl, chatId, onOpen }) {
   return <RegularVideoPlayer videoUrl={url} onOpen={onOpen} />;
 }
 
-function DecryptedVoicePlayer({ mediaUrl, chatId }) {
+function DecryptedVoicePlayer({ mediaUrl, chatId, duration }) {
   const { url, loading, error } = useResolvedMedia(mediaUrl, chatId, 'audio/webm');
   if (loading) {
     return (
@@ -65,7 +65,7 @@ function DecryptedVoicePlayer({ mediaUrl, chatId }) {
     );
   }
   if (error || !url) return <AttachmentUnavailable compact />;
-  return <VoiceMessagePlayer audioUrl={url} />;
+  return <VoiceMessagePlayer audioUrl={url} duration={duration} />;
 }
 
 function DecryptedSticker({ mediaUrl, chatId }) {
@@ -82,12 +82,55 @@ function DecryptedSticker({ mediaUrl, chatId }) {
   return <StickerMessage mediaUrl={url} sourceUrl={mediaUrl} />;
 }
 
-function VoiceMessagePlayer({ audioUrl, duration }) {
+function VoiceMessagePlayer({ audioUrl, duration = 0 }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [maxDuration, setMaxDuration] = useState(duration || 0);
   const audioRef = useRef(null);
-  const isCalculatingRef = useRef(false);
+
+  // Safely probe WebM duration on an off-screen Audio probe without corrupting the main player's currentTime
+  useEffect(() => {
+    if (!audioUrl) return;
+
+    if (duration > 0) {
+      setMaxDuration(duration);
+    }
+
+    let probe = new Audio();
+    probe.preload = 'metadata';
+    probe.src = audioUrl;
+
+    const handleProbeCompute = () => {
+      if (probe && probe.duration && !isNaN(probe.duration) && probe.duration !== Infinity) {
+        setMaxDuration(probe.duration);
+        probe.src = '';
+      } else if (probe && probe.duration === Infinity) {
+        const onSeeked = () => {
+          if (probe) {
+            probe.removeEventListener('seeked', onSeeked);
+            if (probe.duration && !isNaN(probe.duration) && probe.duration !== Infinity) {
+              setMaxDuration(probe.duration);
+            }
+            probe.src = '';
+          }
+        };
+        probe.addEventListener('seeked', onSeeked);
+        probe.currentTime = 1e101;
+      }
+    };
+
+    probe.addEventListener('loadedmetadata', handleProbeCompute);
+    probe.addEventListener('durationchange', handleProbeCompute);
+
+    return () => {
+      if (probe) {
+        probe.removeEventListener('loadedmetadata', handleProbeCompute);
+        probe.removeEventListener('durationchange', handleProbeCompute);
+        probe.src = '';
+        probe = null;
+      }
+    };
+  }, [audioUrl, duration]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -97,53 +140,43 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
     const handlePause = () => setIsPlaying(false);
     const handleEnded = () => {
       setIsPlaying(false);
-      if (audio.duration && !isNaN(audio.duration) && audio.duration !== Infinity) {
-        setCurrentTime(audio.duration);
-      }
+      setCurrentTime(0);
+      audio.currentTime = 0;
     };
 
     const handleTimeUpdate = () => {
-      if (!isCalculatingRef.current && audio.paused) {
+      if (audio.paused) {
         setCurrentTime(audio.currentTime);
+      }
+      if (audio.duration && !isNaN(audio.duration) && audio.duration !== Infinity) {
+        setMaxDuration(audio.duration);
       }
     };
 
-    const handleDurationCompute = () => {
-      if (audio.duration === Infinity) {
-        isCalculatingRef.current = true;
-        audio.currentTime = 1e101;
-        
-        const onSeeked = () => {
-          audio.removeEventListener('seeked', onSeeked);
-          setMaxDuration(audio.duration);
-          audio.currentTime = 0;
-          setTimeout(() => {
-            isCalculatingRef.current = false;
-          }, 150);
-        };
-        audio.addEventListener('seeked', onSeeked);
-      } else if (audio.duration && !isNaN(audio.duration) && audio.duration !== Infinity) {
+    const handleLoadedMetadata = () => {
+      if (audio.duration && !isNaN(audio.duration) && audio.duration !== Infinity) {
         setMaxDuration(audio.duration);
       }
+      audio.currentTime = 0;
+      setCurrentTime(0);
     };
 
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('timeupdate', handleTimeUpdate);
-    audio.addEventListener('loadedmetadata', handleDurationCompute);
-    audio.addEventListener('durationchange', handleDurationCompute);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
 
     setIsPlaying(false);
     setCurrentTime(0);
+    audio.currentTime = 0;
 
     return () => {
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('ended', handleEnded);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
-      audio.removeEventListener('loadedmetadata', handleDurationCompute);
-      audio.removeEventListener('durationchange', handleDurationCompute);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
   }, [audioUrl]);
 
@@ -153,7 +186,7 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
     let animId;
     const updateSmoothProgress = () => {
       const audio = audioRef.current;
-      if (audio && !isCalculatingRef.current) {
+      if (audio) {
         setCurrentTime(audio.currentTime);
         if (audio.duration && !isNaN(audio.duration) && audio.duration !== Infinity) {
           setMaxDuration(audio.duration);
@@ -172,7 +205,7 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
     if (!audio.paused) {
       audio.pause();
     } else {
-      if (audio.ended || (audio.duration && audio.currentTime >= audio.duration - 0.05)) {
+      if (audio.ended || (maxDuration > 0 && audio.currentTime >= maxDuration - 0.05)) {
         audio.currentTime = 0;
         setCurrentTime(0);
       }
@@ -190,7 +223,7 @@ function VoiceMessagePlayer({ audioUrl, duration }) {
   };
 
   const formatTime = (time) => {
-    if (isNaN(time) || time === Infinity) return '0:00';
+    if (isNaN(time) || time === Infinity || time < 0) return '0:00';
     const m = Math.floor(time / 60);
     const s = Math.floor(time % 60);
     return `${m}:${s < 10 ? '0' : ''}${s}`;

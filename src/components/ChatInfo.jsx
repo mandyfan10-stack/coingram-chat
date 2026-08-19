@@ -30,6 +30,7 @@ import { isSavedMessagesChat } from '../utils/savedMessages';
 import { chatAvatarFallback, personAvatarFallback } from '../context/chat/avatarFallback';
 import { normalizeExternalHttpsUrl } from '../utils/urlSecurity';
 import ImageViewer from './chat/ImageViewer';
+import { DecryptedVoicePlayer } from './chat/mediaPlayers';
 
 import './ChatInfo.css';
 
@@ -269,27 +270,51 @@ export default function ChatInfo() {
     if (activeChat && activeChat.messages) {
       activeChat.messages.forEach((m) => {
         if (m.media) {
-          const isImage =
-            /\.(jpeg|jpg|gif|png|webp|svg)/i.test(m.media) ||
-            m.media.startsWith('data:image') ||
-            m.text?.includes('Изображение');
+          const isVoice = Boolean(
+            m.text?.startsWith('🎤') ||
+            m.text?.includes('Голосовое сообщение') ||
+            (typeof m.media === 'string' && (m.media.includes('audio_') || m.media.startsWith('data:audio/')))
+          );
+          const isVideoNote = Boolean(
+            m.text?.startsWith('🎬 Видеосообщение') ||
+            m.text?.includes('Видеосообщение')
+          );
           const isVideo =
-            /\.(mp4|webm|mov|ogv|mkv)/i.test(m.media) ||
-            m.media.startsWith('data:video') ||
-            m.text?.startsWith('🎬') ||
-            m.text?.includes('Видео') ||
-            m.text?.includes('Видеосообщение');
+            !isVoice &&
+            (/\.(mp4|mov|ogv|mkv)/i.test(m.media) ||
+              (m.media.includes('.webm') && !m.media.includes('audio_')) ||
+              m.media.startsWith('data:video') ||
+              m.text?.startsWith('🎬') ||
+              m.text?.includes('Видео'));
+          const isImage =
+            !isVoice &&
+            !isVideo &&
+            (/\.(jpeg|jpg|gif|png|webp|svg)/i.test(m.media) ||
+              m.media.startsWith('data:image') ||
+              m.text?.includes('Изображение'));
 
-          if (isImage || isVideo) {
+          if (isImage || isVideo || isVideoNote) {
             mFiles.push({
               url: m.media,
-              isVideo: Boolean(isVideo),
+              isVideo: Boolean(isVideo || isVideoNote),
               timestamp: m.timestamp
+            });
+          } else if (isVoice) {
+            const match = m.text?.match(/\((\d+):(\d+)\)/);
+            const voiceDuration = match ? parseInt(match[1], 10) * 60 + parseInt(match[2], 10) : 0;
+            dFiles.push({
+              name: m.text || 'Голосовое сообщение',
+              media: m.media,
+              isVoice: true,
+              duration: voiceDuration,
+              size: 'Голосовое',
+              date: new Date(m.timestamp).toLocaleDateString([], { day: '2-digit', month: 'short' })
             });
           } else {
             const filename = m.media.split('/').pop().split('_').slice(1).join('_') || m.text || 'Вложенный файл';
             dFiles.push({
               name: filename,
+              media: m.media,
               size: 'Вложение',
               date: new Date(m.timestamp).toLocaleDateString([], { day: '2-digit', month: 'short' })
             });
@@ -770,16 +795,31 @@ export default function ChatInfo() {
               <div className="info-docs-list">
                 {docFiles.length > 0 ? (
                   docFiles.map((doc, idx) => (
-                    <div key={idx} className="info-doc-item">
-                      <div className="info-doc-icon-box">
-                        <FileText size={18} />
-                      </div>
-                      <div className="info-doc-info-text">
-                        <span className="info-doc-title">{doc.name}</span>
-                        <span className="info-doc-subtext">
-                          {doc.size} • {doc.date}
-                        </span>
-                      </div>
+                    <div key={idx} className={`info-doc-item ${doc.isVoice ? 'is-voice-item' : ''}`}>
+                      {doc.isVoice ? (
+                        <div className="info-doc-voice-box" style={{ width: '100%' }}>
+                          <DecryptedVoicePlayer
+                            mediaUrl={doc.media}
+                            chatId={activeChat.id}
+                            duration={doc.duration}
+                          />
+                          <span className="info-doc-subtext" style={{ display: 'block', marginTop: '4px', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            {doc.date}
+                          </span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="info-doc-icon-box">
+                            <FileText size={18} />
+                          </div>
+                          <div className="info-doc-info-text">
+                            <span className="info-doc-title">{doc.name}</span>
+                            <span className="info-doc-subtext">
+                              {doc.size} • {doc.date}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))
                 ) : (

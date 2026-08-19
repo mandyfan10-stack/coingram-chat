@@ -394,7 +394,14 @@ export default function MessageBubble({
           <div className="bubble-content">
             {isVoice ? (
               <div style={{ display: 'flex', alignItems: 'center' }}>
-                <DecryptedVoicePlayer mediaUrl={msg.media} chatId={activeChat.id} />
+                <DecryptedVoicePlayer
+                  mediaUrl={msg.media}
+                  chatId={activeChat.id}
+                  duration={(() => {
+                    const match = msg.text?.match(/\((\d+):(\d+)\)/);
+                    return match ? parseInt(match[1], 10) * 60 + parseInt(match[2], 10) : 0;
+                  })()}
+                />
                 {renderMetadata()}
               </div>
             ) : (msg.text && msg.text.startsWith('```')) ? (
