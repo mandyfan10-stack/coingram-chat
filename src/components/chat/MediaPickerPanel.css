@@ -481,21 +481,6 @@
   display: block;
 }
 
-.gif-cell-title {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
-  color: white;
-  font-size: 11px;
-  padding: 4px 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: left;
-}
-
 .gif-load-more-wrapper {
   grid-column: span 2;
   display: flex;

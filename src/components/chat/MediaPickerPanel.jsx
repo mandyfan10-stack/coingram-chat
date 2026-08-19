@@ -556,7 +556,6 @@ export default function MediaPickerPanel({
                       className="gif-preview-img"
                       loading="lazy"
                     />
-                    <span className="gif-cell-title">{gif.title}</span>
                   </button>
                 ))}
 
