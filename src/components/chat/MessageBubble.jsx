@@ -60,13 +60,39 @@ export default function MessageBubble({
 }) {
   const isMe = msg.senderId === currentUser?.id || msg.senderId === 'current';
   const isGroupOther = activeChat?.type === 'group' && !isMe;
-  const showSenderName = isGroupOther;
   const replyMsg = msg.replyTo ? activeChat.messages.find(m => m.id === msg.replyTo) : null;
 
   const nextMsg = activeChat.messages[index + 1];
   const prevMsg = activeChat.messages[index - 1];
-  const isLastInGroup = !nextMsg || nextMsg.senderId !== msg.senderId;
-  const isFirstInGroup = !prevMsg || prevMsg.senderId !== msg.senderId;
+
+  const getSenderKey = (m) => {
+    if (!m) return null;
+    return m.senderId || m.sender_id || m.senderName || null;
+  };
+
+  const currentSenderKey = getSenderKey(msg);
+  const prevSenderKey = getSenderKey(prevMsg);
+  const nextSenderKey = getSenderKey(nextMsg);
+
+  const isSameSenderAsPrev = Boolean(
+    prevMsg &&
+    prevSenderKey &&
+    currentSenderKey &&
+    prevSenderKey === currentSenderKey &&
+    Math.abs(new Date(msg.timestamp).getTime() - new Date(prevMsg.timestamp).getTime()) < 10 * 60 * 1000
+  );
+
+  const isSameSenderAsNext = Boolean(
+    nextMsg &&
+    nextSenderKey &&
+    currentSenderKey &&
+    nextSenderKey === currentSenderKey &&
+    Math.abs(new Date(nextMsg.timestamp).getTime() - new Date(msg.timestamp).getTime()) < 10 * 60 * 1000
+  );
+
+  const isFirstInGroup = !isSameSenderAsPrev;
+  const isLastInGroup = !isSameSenderAsNext;
+  const showSenderName = isGroupOther && isFirstInGroup;
 
   const isVoice = Boolean(msg.media && msg.text && (msg.text.startsWith('🎤 Голосовое сообщение') || msg.text.startsWith('Голосовое сообщение')));
   const isVideoNote = Boolean(msg.media && msg.text && (msg.text.startsWith('🎬 Видеосообщение') || msg.text.startsWith('Видеосообщение')));
@@ -108,7 +134,8 @@ export default function MessageBubble({
     msg.text !== 'Изображение'
   );
 
-  const senderMember = activeChat?.members?.find(m => m.id === msg.senderId);
+  const senderMember = activeChat?.members?.find(m => m.id === msg.senderId || m.id === msg.sender_id);
+  const senderDisplayName = msg.senderName || senderMember?.name || senderMember?.display_name || 'Участник';
   const senderAvatar = senderMember?.avatar || msg.senderAvatar || '👤';
 
   const { openUserProfile } = useChat();
@@ -117,15 +144,15 @@ export default function MessageBubble({
     e.stopPropagation();
     if (!openUserProfile) return;
     const targetUser = senderMember || {
-      id: msg.senderId,
-      name: msg.senderName,
+      id: msg.senderId || msg.sender_id,
+      name: senderDisplayName,
       username: '',
-      avatar: msg.senderAvatar || '👤'
+      avatar: senderAvatar
     };
     if (targetUser.id && targetUser.id !== currentUser?.id && targetUser.id !== 'current') {
       openUserProfile(targetUser);
     }
-  }, [openUserProfile, senderMember, msg.senderId, msg.senderName, msg.senderAvatar, currentUser?.id]);
+  }, [openUserProfile, senderMember, msg.senderId, msg.sender_id, senderDisplayName, senderAvatar, currentUser?.id]);
 
   const smileBtnRef = useRef(null);
   const drawerRef = useRef(null);
@@ -283,10 +310,10 @@ export default function MessageBubble({
             <div
               className="message-sender-avatar interactive"
               onClick={handleSenderClick}
-              title={`Открыть профиль ${msg.senderName}`}
+              title={`Открыть профиль ${senderDisplayName}`}
               style={{ cursor: 'pointer' }}
             >
-              {renderAvatar(senderAvatar, personAvatarFallback(senderMember || { name: msg.senderName }))}
+              {renderAvatar(senderAvatar, personAvatarFallback(senderMember || { name: senderDisplayName }))}
             </div>
           ) : (
             <div className="avatar-spacer" />
@@ -296,7 +323,7 @@ export default function MessageBubble({
 
       {/* Bubble */}
       <div
-        className={`message-bubble ${isMe ? 'bubble-me' : 'bubble-other'} ${isVideoNote ? 'bubble-video' : ''} ${isSticker ? 'bubble-sticker' : ''} ${isPureImage || isPureVideo ? 'bubble-media-only' : ''} ${isImageWithCaption || isVideoWithCaption ? 'bubble-media-with-caption' : ''}`}
+        className={`message-bubble ${isMe ? 'bubble-me' : 'bubble-other'} ${isVideoNote ? 'bubble-video' : ''} ${isSticker ? 'bubble-sticker' : ''} ${isPureImage || isPureVideo ? 'bubble-media-only' : ''} ${showSenderName ? 'has-sender-name' : ''} ${isImageWithCaption || isVideoWithCaption ? 'bubble-media-with-caption' : ''}`}
         onPointerDown={handleBubblePointerDown}
         onPointerMove={handleBubblePointerMove}
         onPointerUp={clearLongPress}
@@ -307,14 +334,14 @@ export default function MessageBubble({
           }
         }}
       >
-        {showSenderName && isFirstInGroup && (
+        {showSenderName && (
           <span
             className="sender-name interactive"
             onClick={handleSenderClick}
-            style={{ color: getSenderColor(msg.senderId || msg.senderName), display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
-            title={`Открыть профиль ${msg.senderName}`}
+            style={{ color: getSenderColor(msg.senderId || msg.sender_id || senderDisplayName), display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+            title={`Открыть профиль ${senderDisplayName}`}
           >
-            {msg.senderName}
+            {senderDisplayName}
           </span>
         )}
 

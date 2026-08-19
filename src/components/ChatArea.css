@@ -332,6 +332,15 @@
   overflow: hidden;
 }
 
+.message-bubble.bubble-media-only.has-sender-name {
+  padding: 4px 6px 0 6px !important;
+  background: var(--bubble-other) !important;
+}
+
+.message-bubble.bubble-media-only.has-sender-name .sender-name {
+  padding: 2px 4px 4px 4px;
+}
+
 .message-bubble.bubble-media-only .bubble-media-wrapper {
   margin: 0;
   border-radius: inherit;
