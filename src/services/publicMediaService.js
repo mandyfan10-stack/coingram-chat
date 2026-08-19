@@ -24,7 +24,19 @@ export async function uploadSanitizedPublicImage(file, kind, { chatId } = {}) {
   if (chatId) body.append('chatId', chatId);
 
   const { data, error } = await supabase.functions.invoke('sanitize-public-image', { body });
-  if (error) throw error;
+  if (error) {
+    let detail = error.message || 'Edge Function returned a non-2xx status code';
+    try {
+      const response = error.context;
+      if (response && typeof response.json === 'function') {
+        const payload = await response.json();
+        if (payload?.error) detail = String(payload.error);
+      }
+    } catch {
+      /* keep the gateway message */
+    }
+    throw new Error(detail);
+  }
   if (!data?.reference || !data?.path) throw new Error('Сервер вернул некорректный путь изображения.');
   return data;
 }

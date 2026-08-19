@@ -5,6 +5,7 @@ import {
   initializeImageMagick,
   MagickFormat,
 } from "npm:@imagemagick/magick-wasm@0.0.42";
+import { allowedOrigin } from "../_shared/appOrigins.ts";
 
 const wasmBytes = await Deno.readFile(
   new URL("magick.wasm", import.meta.resolve("npm:@imagemagick/magick-wasm@0.0.42")),
@@ -20,28 +21,9 @@ const KIND_CONFIG: Record<MediaKind, { bucket: string; maxBytes: number; prefix:
   avatar: { bucket: "avatars", maxBytes: 5 * 1024 * 1024, prefix: "avatar" },
   story: { bucket: "stories", maxBytes: 10 * 1024 * 1024, prefix: "story" },
   wallpaper: { bucket: "wallpapers", maxBytes: 10 * 1024 * 1024, prefix: "wallpaper" },
-  banner: { bucket: "banners", maxBytes: 10 * 1024 * 1024, prefix: "banner", minRatio: 1.2, maxRatio: 6 },
+  banner: { bucket: "banners", maxBytes: 10 * 1024 * 1024, prefix: "banner" },
   "group-avatar": { bucket: "group-avatars", maxBytes: 5 * 1024 * 1024, prefix: "avatar" },
 };
-
-function allowedOrigin(origin: string | null): string | null {
-  if (!origin) return null;
-  const configured = (Deno.env.get("ALLOWED_APP_ORIGINS") || "")
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-  if (configured.includes(origin)) return origin;
-  if (["app://coiny", "capacitor://localhost", "https://localhost"].includes(origin)) return origin;
-  try {
-    const parsed = new URL(origin);
-    if (["http:", "https:"].includes(parsed.protocol) && ["localhost", "127.0.0.1"].includes(parsed.hostname)) {
-      return origin;
-    }
-  } catch {
-    // Rejected below.
-  }
-  return null;
-}
 
 function headers(origin: string | null): HeadersInit {
   return {
@@ -123,16 +105,14 @@ Deno.serve(async (request: Request) => {
     const file = form.get("file");
     const kind = form.get("kind");
     const chatId = form.get("chatId");
-    if (!(file instanceof File) || typeof kind !== "string" || !(kind in KIND_CONFIG)) {
+    if (!(file instanceof Blob) || typeof kind !== "string" || !(kind in KIND_CONFIG)) {
       return json(400, { error: "A supported image file and media kind are required" }, corsOrigin);
     }
 
     const mediaKind = kind as MediaKind;
     const config = KIND_CONFIG[mediaKind];
     if (file.size < 1 || file.size > config.maxBytes) return json(413, { error: "Image is too large" }, corsOrigin);
-    if (!["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type)) {
-      return json(415, { error: "Unsupported image MIME type" }, corsOrigin);
-    }
+    const declaredType = String(file.type || "").toLowerCase().split(";")[0].trim();
 
     if (mediaKind === "group-avatar") {
       if (typeof chatId !== "string" || !/^[0-9a-f-]{36}$/i.test(chatId)) {
@@ -148,7 +128,11 @@ Deno.serve(async (request: Request) => {
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer());
-    if (detectedMime(bytes) !== file.type) return json(415, { error: "File signature does not match its MIME type" }, corsOrigin);
+    const detectedType = detectedMime(bytes);
+    if (!detectedType) return json(415, { error: "Unsupported image MIME type" }, corsOrigin);
+    if (declaredType && declaredType !== detectedType) {
+      return json(415, { error: "File signature does not match its MIME type" }, corsOrigin);
+    }
     const { output, width, height } = sanitizeImage(bytes);
     const ratio = width / height;
     if (

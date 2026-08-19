@@ -127,15 +127,18 @@ test('offline syncing is single-flight, session-scoped, and preserves newly queu
 });
 
 test('image and sticker Edge Functions enforce content validation and bounded processing', async () => {
-  const [images, stickers] = await Promise.all([
+  const [images, stickers, origins] = await Promise.all([
     read('supabase/functions/sanitize-public-image/index.ts'),
-    read('supabase/functions/import-sticker-pack/index.ts')
+    read('supabase/functions/import-sticker-pack/index.ts'),
+    read('supabase/functions/_shared/appOrigins.ts')
   ]);
   assert.match(images, /detectedMime/);
   assert.match(images, /MAX_PIXELS/);
   assert.match(images, /MAX_DECOMPRESSION_RATIO/);
   assert.match(images, /image\.strip\(\)/);
   assert.match(images, /MagickFormat\.WebP/);
+  assert.match(images, /file instanceof Blob/);
+  assert.match(origins, /mandyfan10-stack\.github\.io/);
   assert.match(stickers, /MAX_STICKERS/);
   assert.match(stickers, /AbortSignal\.timeout/);
   assert.match(stickers, /MAX_DECOMPRESSION_RATIO/);

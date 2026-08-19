@@ -1,26 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2.112.2";
 import pako from "npm:pako@2.1.0";
+import { allowedOrigin } from "../_shared/appOrigins.ts";
 
 const MAX_STICKERS = 120;
 const MAX_COMPRESSED_BYTES = 2 * 1024 * 1024;
 const MAX_LOTTIE_BYTES = 5 * 1024 * 1024;
 const MAX_DECOMPRESSION_RATIO = 100;
 const REQUEST_TIMEOUT_MS = 10_000;
-
-function allowedOrigin(origin: string | null): string | null {
-  if (!origin) return null;
-  const configured = (Deno.env.get("ALLOWED_APP_ORIGINS") || "").split(",").map((item) => item.trim());
-  if (configured.includes(origin)) return origin;
-  if (["app://coiny", "capacitor://localhost", "https://localhost"].includes(origin)) return origin;
-  try {
-    const parsed = new URL(origin);
-    if (["localhost", "127.0.0.1"].includes(parsed.hostname) && ["http:", "https:"].includes(parsed.protocol)) return origin;
-  } catch {
-    // Rejected by the caller.
-  }
-  return null;
-}
 
 function responseHeaders(origin: string | null): HeadersInit {
   return {
