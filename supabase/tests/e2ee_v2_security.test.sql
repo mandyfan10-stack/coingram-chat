@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(25);
+select plan(26);
 
 select has_table('public', 'e2ee_identities', 'E2EE identities table exists');
 select has_table('public', 'e2ee_recovery_backups', 'E2EE recovery backups table exists');
