@@ -128,10 +128,9 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  margin: 12px 0 8px 0;
-  position: sticky;
-  top: 8px;
-  z-index: 6;
+  margin: 16px 0 10px 0;
+  position: relative;
+  z-index: 2;
   pointer-events: none;
 }
 
