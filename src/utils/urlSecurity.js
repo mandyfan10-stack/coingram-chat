@@ -44,7 +44,10 @@ export function getStorageObjectPath(value, bucket, allowedProjectUrl = '') {
 
     if (parsed.protocol !== 'https:') return null;
     const configuredOrigin = allowedProjectUrl ? new URL(allowedProjectUrl).origin : null;
-    const trustedOrigin = Boolean(configuredOrigin && parsed.origin === configuredOrigin);
+    const trustedOrigin = Boolean(
+      (configuredOrigin && parsed.origin === configuredOrigin) ||
+      (configuredOrigin && parsed.hostname.endsWith('.supabase.co'))
+    );
     if (!trustedOrigin) return null;
 
     const marker = '/storage/v1/object/';
