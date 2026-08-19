@@ -10,6 +10,7 @@ export default function NewChatModal() {
     isNewChatOpen,
     setIsNewChatOpen,
     createChat,
+    setIsInfoOpen,
     currentUser,
     newChatModalTab,
     renderAvatar
@@ -109,7 +110,10 @@ export default function NewChatModal() {
 
   const handleSelectUser = async (user) => {
     setIsNewChatOpen(false);
-    await createChat(user, 'personal');
+    const chat = await createChat(user, 'personal');
+    if (chat) {
+      setIsInfoOpen(true);
+    }
   };
 
   const handleCreateGroupSubmit = async (e) => {

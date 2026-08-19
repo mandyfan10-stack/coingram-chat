@@ -68,10 +68,12 @@ export function useChatActions({
           const targetProfile = typeof target === 'object' ? target : {};
           createdChat = {
             ...newChat,
-            name: newChat.name || targetProfile.display_name || targetProfile.username || String(target),
-            avatar: newChat.avatar || targetProfile.avatar || '??',
-            avatarColor: newChat.avatarColor || targetProfile.avatar_color,
+            name: newChat.name || targetProfile.display_name || targetProfile.username || targetProfile.name || String(target),
+            avatar: newChat.avatar || targetProfile.avatar || '👤',
+            avatarColor: newChat.avatarColor || targetProfile.avatar_color || targetProfile.avatarColor,
             username: newChat.username || targetProfile.username || '',
+            bio: newChat.bio || targetProfile.bio || '',
+            banner: newChat.banner || targetProfile.banner || null,
             createdBy: currentUser.id,
             pinned: false,
             notifications: true,
@@ -82,14 +84,17 @@ export function useChatActions({
               username: currentUser.username,
               avatar: currentUser.avatar || '👤',
               avatarColor: currentUser.avatarColor,
+              bio: currentUser.bio || '',
+              banner: currentUser.banner || null,
               role: 'member'
             }, {
               id: targetProfile.id,
-              name: targetProfile.display_name || targetProfile.username || newChat.name,
+              name: targetProfile.display_name || targetProfile.username || targetProfile.name || newChat.name,
               username: targetProfile.username || newChat.username,
               avatar: targetProfile.avatar || newChat.avatar || '👤',
-              avatarColor: targetProfile.avatar_color || newChat.avatarColor,
-              bio: targetProfile.bio || '',
+              avatarColor: targetProfile.avatar_color || targetProfile.avatarColor || newChat.avatarColor,
+              bio: targetProfile.bio || newChat.bio || '',
+              banner: targetProfile.banner || newChat.banner || null,
               role: 'member'
             }].filter((member) => member.id),
             settings: {

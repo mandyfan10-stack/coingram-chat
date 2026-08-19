@@ -125,7 +125,6 @@ export default function ChatInfo() {
     onlineUsers,
     isInfoOpen,
     setIsInfoOpen,
-    setActiveChatId,
     renderAvatar,
     deleteChat,
     clearChatMessages,
@@ -133,7 +132,8 @@ export default function ChatInfo() {
     updateChatSettings,
     addMemberToChat,
     toggleMemberRole,
-    loadOlderMessages
+    loadOlderMessages,
+    openUserProfile
   } = useChat();
 
   const { startCall } = useCalls();
@@ -357,13 +357,13 @@ export default function ChatInfo() {
   }, [activeChat?.members, memberSearchQuery]);
 
   const isPersonal = activeChat?.type === 'personal';
+  const isSavedMessages = isSavedMessagesChat(activeChat);
   const otherMember = isPersonal ? (activeChat?.members || []).find((m) => m.id !== currentUser?.id) : null;
-  const contactBanner = otherMember?.banner || activeChat?.banner;
+  const contactBanner = isSavedMessages ? currentUser?.banner : (otherMember?.banner || activeChat?.banner);
   const { url: bannerUrl } = useResolvedMedia(contactBanner);
 
   if (!activeChat) return null;
 
-  const isSavedMessages = isSavedMessagesChat(activeChat);
   const isGroupOrChannel = activeChat.type === 'group' || activeChat.type === 'channel';
   const statusText = getChatStatus(activeChat);
   const isOnlineStatus = statusText.toLowerCase().includes('в сети');
@@ -623,10 +623,13 @@ export default function ChatInfo() {
                       className="info-member-row"
                       onClick={() => {
                         if (!isMe && member.id !== 'current') {
-                          if (member.id === 'alice') setActiveChatId('chat-1');
+                          if (openUserProfile) {
+                            openUserProfile(member);
+                          }
                         }
                       }}
                       style={{ cursor: !isMe ? 'pointer' : 'default' }}
+                      title={!isMe ? `Открыть профиль ${member.name}` : ''}
                     >
                       <div className="info-member-avatar-wrap">
                         <div className="info-member-avatar">{renderAvatar(member.avatar, personAvatarFallback(member))}</div>

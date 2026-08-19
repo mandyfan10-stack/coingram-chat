@@ -112,6 +112,20 @@ export const ChatProvider = ({ children }) => {
 
   const renderAvatar = useCallback((avatar, fallback = '👤') => renderAvatarView(avatar, fallback), []);
 
+  const openUserProfile = useCallback(async (userProfile) => {
+    if (!userProfile) return null;
+    const profileId = userProfile.id || userProfile.profile_id;
+    if (!profileId || profileId === currentUser?.id || profileId === 'current') {
+      ui.setIsSettingsOpen(true);
+      return null;
+    }
+    const chat = await actions.createChat(userProfile, 'personal');
+    if (chat) {
+      ui.setIsInfoOpen(true);
+    }
+    return chat;
+  }, [actions, currentUser, ui]);
+
   return (
     <ChatContext.Provider value={{
       getChatStatus: presence.getChatStatus,
@@ -125,6 +139,7 @@ export const ChatProvider = ({ children }) => {
       activeChat,
       sendMessage: actions.sendMessage,
       createChat: actions.createChat,
+      openUserProfile,
       deleteMessage: actions.deleteMessage,
       toggleReaction: actions.toggleReaction,
       stories: stories.stories,

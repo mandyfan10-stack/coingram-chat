@@ -203,6 +203,26 @@
   box-shadow: var(--shadow-sm);
 }
 
+.message-sender-avatar.interactive {
+  cursor: pointer;
+  transition: transform var(--transition-fast), filter var(--transition-fast);
+}
+
+.message-sender-avatar.interactive:hover {
+  transform: scale(1.1);
+  filter: brightness(1.15);
+}
+
+.sender-name.interactive {
+  cursor: pointer;
+  transition: opacity var(--transition-fast);
+}
+
+.sender-name.interactive:hover {
+  text-decoration: underline;
+  opacity: 0.9;
+}
+
 .message-avatar-col .avatar-spacer {
   width: 32px;
   height: 32px;

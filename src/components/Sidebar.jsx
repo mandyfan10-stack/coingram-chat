@@ -26,6 +26,7 @@ export default function Sidebar() {
     setNewChatModalTab,
     renderAvatar,
     createChat,
+    setIsInfoOpen,
     isOnline
   } = useChat();
 
@@ -98,6 +99,7 @@ export default function Sidebar() {
     ));
     if (existingChat) {
       setActiveChatId(existingChat.id);
+      setIsInfoOpen(true);
       setSearchQuery('');
       setGlobalResults([]);
       return;
@@ -107,6 +109,7 @@ export default function Sidebar() {
       const chat = await createChat(user, 'personal');
       if (chat) {
         setActiveChatId(chat.id);
+        setIsInfoOpen(true);
         setSearchQuery('');
         setGlobalResults([]);
       }

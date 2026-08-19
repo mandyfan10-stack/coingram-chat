@@ -11,6 +11,7 @@ import { normalizeReaction } from '../../utils/reactionUtils';
 import { SingleCheck, DoubleCheck, PendingClock } from './messageStatusIcons';
 import { renderMessageTextWithLinks } from './renderMessageText';
 import { personAvatarFallback } from '../../context/chat/avatarFallback';
+import { useChat } from '../../context/ChatContext';
 import {
   DecryptedImage,
   DecryptedVideoPlayer,
@@ -109,6 +110,22 @@ export default function MessageBubble({
 
   const senderMember = activeChat?.members?.find(m => m.id === msg.senderId);
   const senderAvatar = senderMember?.avatar || msg.senderAvatar || '👤';
+
+  const { openUserProfile } = useChat();
+
+  const handleSenderClick = useCallback((e) => {
+    e.stopPropagation();
+    if (!openUserProfile) return;
+    const targetUser = senderMember || {
+      id: msg.senderId,
+      name: msg.senderName,
+      username: '',
+      avatar: msg.senderAvatar || '👤'
+    };
+    if (targetUser.id && targetUser.id !== currentUser?.id && targetUser.id !== 'current') {
+      openUserProfile(targetUser);
+    }
+  }, [openUserProfile, senderMember, msg.senderId, msg.senderName, msg.senderAvatar, currentUser?.id]);
 
   const smileBtnRef = useRef(null);
   const drawerRef = useRef(null);
@@ -263,7 +280,14 @@ export default function MessageBubble({
       {isGroupOther && (
         <div className="message-avatar-col">
           {isLastInGroup ? (
-            <div className="message-sender-avatar">{renderAvatar(senderAvatar, personAvatarFallback(senderMember || { name: msg.senderName }))}</div>
+            <div
+              className="message-sender-avatar interactive"
+              onClick={handleSenderClick}
+              title={`Открыть профиль ${msg.senderName}`}
+              style={{ cursor: 'pointer' }}
+            >
+              {renderAvatar(senderAvatar, personAvatarFallback(senderMember || { name: msg.senderName }))}
+            </div>
           ) : (
             <div className="avatar-spacer" />
           )}
@@ -284,7 +308,12 @@ export default function MessageBubble({
         }}
       >
         {showSenderName && isFirstInGroup && (
-          <span className="sender-name" style={{ color: getSenderColor(msg.senderId || msg.senderName), display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+          <span
+            className="sender-name interactive"
+            onClick={handleSenderClick}
+            style={{ color: getSenderColor(msg.senderId || msg.senderName), display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+            title={`Открыть профиль ${msg.senderName}`}
+          >
             {msg.senderName}
           </span>
         )}

@@ -263,6 +263,7 @@ export const chatService = {
           avatarColor: otherMember ? otherMember.avatarColor : chat.avatar_color,
           bio: otherMember ? otherMember.bio : chat.bio,
           username: otherMember ? otherMember.username : chat.username,
+          banner: otherMember ? otherMember.banner : (chat.banner || null),
           createdBy: chat.created_by,
           pinned: membership?.pinned || false,
           notifications: membership?.notifications ?? true,
@@ -325,7 +326,7 @@ export const chatService = {
     const createQuery = column => {
       let request = supabase
         .from('profiles')
-        .select('id, username, display_name, avatar, avatar_color, bio')
+        .select('id, username, display_name, avatar, avatar_color, bio, banner')
         .neq('id', excludeUserId)
         .ilike(column, pattern)
         .limit(limit);
@@ -363,7 +364,7 @@ export const chatService = {
           }
           const { data, error } = await supabase
             .from('profiles')
-            .select('id, username, display_name, avatar, avatar_color')
+            .select('id, username, display_name, avatar, avatar_color, bio, banner')
             .eq('username', cleanTarget)
             .single();
           if (error || !data) {
@@ -388,7 +389,9 @@ export const chatService = {
           type: 'personal',
           avatar: profile.avatar || '👤',
           avatarColor: profile.avatar_color,
-          username: profile.username
+          username: profile.username,
+          bio: profile.bio || '',
+          banner: profile.banner || null
         };
       }
 
