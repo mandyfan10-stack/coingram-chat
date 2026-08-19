@@ -35,7 +35,9 @@ function fallbackGifs(query = '') {
   const clean = String(query || '').trim().toLowerCase();
   const results = clean
     ? TRENDING_GIFS.filter(
-      (gif) => gif.title.toLowerCase().includes(clean) || (gif.tags && gif.tags.some((tag) => tag.includes(clean)))
+      (gif) =>
+        gif.title.toLowerCase().includes(clean) ||
+        (gif.tags && gif.tags.some((tag) => tag.toLowerCase().includes(clean) || clean.includes(tag.toLowerCase())))
     )
     : TRENDING_GIFS;
   return { results, nextPos: null };
