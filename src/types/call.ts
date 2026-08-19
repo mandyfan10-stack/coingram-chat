@@ -32,6 +32,10 @@ export interface GroupCallParticipant {
   avatarColor?: string;
   muted?: boolean;
   videoStream?: MediaStream | null;
+  cameraStream?: MediaStream | null;
+  screenStream?: MediaStream | null;
+  isCameraActive?: boolean;
+  isScreenSharing?: boolean;
   speaking?: boolean;
   isReal?: boolean;
 }

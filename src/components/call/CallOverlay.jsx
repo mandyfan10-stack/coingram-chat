@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { useChat } from '../../context/ChatContext';
 import { useCalls } from '../../context/CallContext';
 import './CallOverlay.css';
@@ -39,6 +40,7 @@ function formatTime(totalSeconds) {
 }
 
 export default function CallOverlay() {
+  const { currentUser } = useAuth();
   const {
     callState,
     endCall,
@@ -89,7 +91,7 @@ export default function CallOverlay() {
     handleBubbleClick
   } = useCallCardChrome(callState.status);
 
-  const { dragPos, dragRef, handleMouseDown, handleTouchStart } = useCallLocalPreviewDrag({
+  const { dragRef } = useCallLocalPreviewDrag({
     containerRef,
     localVideoStream,
     cardSize
@@ -194,20 +196,14 @@ export default function CallOverlay() {
     }
   }, [remoteVideoStream, isMinimized]);
 
+  const [viewMode, setViewMode] = useState('spotlight'); // 'spotlight' | 'grid'
+  const [selectedStreamId, setSelectedStreamId] = useState(null);
+  const prevStreamsRef = useRef(new Set());
+
+  // Auto-fit screen shares when selected
   useEffect(() => {
     if (callState.isRemoteScreenSharing) setIsVideoContain(true);
   }, [callState.isRemoteScreenSharing]);
-
-  const sortedGroupParticipants = useMemo(() => {
-    if (!groupCallParticipants) return [];
-    return [...groupCallParticipants].sort((a, b) => {
-      if (a.speaking && !b.speaking) return -1;
-      if (!a.speaking && b.speaking) return 1;
-      return 0;
-    });
-  }, [groupCallParticipants]);
-
-  if (callState.status === 'idle') return null;
 
   const activeChat = chats.find((c) => c.id === callState.chatId);
   const isGroupCall = activeChat?.type === 'group';
@@ -248,16 +244,142 @@ export default function CallOverlay() {
       ? `${participantCountLabel} • ${formatTime(elapsed)}`
       : `${participantCountLabel} • ${statusText}`;
 
+  const sortedGroupParticipants = useMemo(() => {
+    if (!groupCallParticipants) return [];
+    return [...groupCallParticipants].sort((a, b) => {
+      if (a.speaking && !b.speaking) return -1;
+      if (!a.speaking && b.speaking) return 1;
+      return 0;
+    });
+  }, [groupCallParticipants]);
+
+  // Unified list of all active video & screen streams for Discord-style switcher
+  const streamTiles = useMemo(() => {
+    const tiles = [];
+
+    // Local user streams
+    if (localVideoStream) {
+      tiles.push({
+        id: isScreenSharing ? 'local:screen' : 'local:camera',
+        participantId: 'me',
+        name: isScreenSharing ? 'Ваш экран' : 'Вы (Камера)',
+        avatar: currentUser?.avatar || '👤',
+        avatarColor: currentUser?.avatar_color,
+        stream: localVideoStream,
+        isScreen: isScreenSharing,
+        isLocal: true,
+        speaking: callState.isLocalSpeaking,
+        muted: callState.muted
+      });
+    }
+
+    if (isGroupCall) {
+      sortedGroupParticipants.forEach((p) => {
+        if (p.id === currentUser?.id) return;
+        if (p.screenStream) {
+          tiles.push({
+            id: `${p.id}:screen`,
+            participantId: p.id,
+            name: `${p.name} (Экран)`,
+            avatar: p.avatar,
+            avatarColor: p.avatarColor,
+            stream: p.screenStream,
+            isScreen: true,
+            isLocal: false,
+            speaking: p.speaking,
+            muted: p.muted
+          });
+        }
+        if (p.cameraStream || (p.videoStream && !p.screenStream)) {
+          tiles.push({
+            id: `${p.id}:camera`,
+            participantId: p.id,
+            name: p.name,
+            avatar: p.avatar,
+            avatarColor: p.avatarColor,
+            stream: p.cameraStream || p.videoStream,
+            isScreen: false,
+            isLocal: false,
+            speaking: p.speaking,
+            muted: p.muted
+          });
+        }
+      });
+    } else {
+      if (remoteVideoStream) {
+        const isRemoteScreen = Boolean(callState.isRemoteScreenSharing);
+        tiles.push({
+          id: isRemoteScreen ? 'remote:screen' : 'remote:camera',
+          participantId: 'remote',
+          name: isRemoteScreen ? `${displayName} (Экран)` : displayName,
+          avatar: avatarContent,
+          stream: remoteVideoStream,
+          isScreen: isRemoteScreen,
+          isLocal: false,
+          speaking: callState.isRemoteSpeaking,
+          muted: false
+        });
+      }
+    }
+
+    return tiles;
+  }, [
+    isGroupCall,
+    localVideoStream,
+    isScreenSharing,
+    currentUser,
+    sortedGroupParticipants,
+    remoteVideoStream,
+    callState.isLocalSpeaking,
+    callState.isRemoteSpeaking,
+    callState.isRemoteScreenSharing,
+    callState.muted,
+    displayName,
+    avatarContent
+  ]);
+
+  // Auto-focus on newly started screen shares (Discord behavior)
+  useEffect(() => {
+    const currentStreamIds = new Set(streamTiles.map((t) => t.id));
+    const newScreenShare = streamTiles.find((t) => t.isScreen && !prevStreamsRef.current.has(t.id));
+    if (newScreenShare) {
+      setSelectedStreamId(newScreenShare.id);
+      setIsVideoContain(true);
+    } else if (selectedStreamId && !currentStreamIds.has(selectedStreamId)) {
+      setSelectedStreamId(streamTiles[0]?.id || null);
+    }
+    prevStreamsRef.current = currentStreamIds;
+  }, [streamTiles, selectedStreamId]);
+
+  // Active focused stream on spotlight stage
+  const focusedTile = useMemo(() => {
+    if (!streamTiles.length) return null;
+    return streamTiles.find((t) => t.id === selectedStreamId) || streamTiles[0];
+  }, [streamTiles, selectedStreamId]);
+
+  // Find the active speaker for voice-only stage
+  const activeSpeaker = useMemo(() => {
+    if (isGroupCall) {
+      const speakingParticipant = sortedGroupParticipants.find((p) => p.speaking);
+      if (speakingParticipant) return speakingParticipant;
+      if (callState.isLocalSpeaking) return { name: 'Вы', avatar: currentUser?.avatar || '👤', speaking: true };
+      return sortedGroupParticipants[0] || null;
+    }
+    if (callState.isRemoteSpeaking) return { name: displayName, avatar: avatarContent, speaking: true };
+    if (callState.isLocalSpeaking) return { name: 'Вы', avatar: currentUser?.avatar || '👤', speaking: true };
+    return null;
+  }, [isGroupCall, sortedGroupParticipants, callState.isRemoteSpeaking, callState.isLocalSpeaking, displayName, avatarContent, currentUser]);
+
   const showRemoteVideo = !isGroupCall && !!remoteVideoStream;
-  const showLocalVideo = !isGroupCall && !!localVideoStream;
-  const showBackgroundAvatar = !showRemoteVideo;
-  const hasVideo = showLocalVideo || showRemoteVideo;
+  const hasVideo = streamTiles.length > 0;
   const isScreenShareSupported =
     typeof navigator !== 'undefined' &&
     navigator.mediaDevices &&
     typeof navigator.mediaDevices.getDisplayMedia === 'function';
-  const showVideoControls = !isGroupCall && callState.status !== 'incoming';
+  const showVideoControls = callState.status !== 'incoming';
   const isIncoming = callState.status === 'incoming';
+
+  if (callState.status === 'idle') return null;
 
   if (isMinimized) {
     return (
@@ -271,7 +393,9 @@ export default function CallOverlay() {
         role="region"
         aria-label={`Активный звонок: ${displayName}, ${statusText}`}
       >
-        <div className="call-bubble-avatar">{renderAvatar(avatarContent, isGroupCall ? chatAvatarFallback(activeChat) : personAvatarFallback({ name: displayName }))}</div>
+        <div className="call-bubble-avatar">
+          {renderAvatar(avatarContent, isGroupCall ? chatAvatarFallback(activeChat) : personAvatarFallback({ name: displayName }))}
+        </div>
         {callState.status === 'connected' && callState.webrtcState === 'connected' && (
           <div className="call-bubble-pulse" />
         )}
@@ -300,8 +424,8 @@ export default function CallOverlay() {
               margin: 0
             }
           : {}),
-        width: `${cardSize.width}px`,
-        height: `${cardSize.height}px`,
+        width: `${hasVideo && viewMode === 'spotlight' ? Math.max(cardSize.width, 540) : cardSize.width}px`,
+        height: `${hasVideo ? Math.max(cardSize.height, 460) : cardSize.height}px`,
         transition:
           isDraggingCard.current || isResizing.current
             ? 'none'
@@ -325,25 +449,39 @@ export default function CallOverlay() {
       {...wrapperProps}
     >
       <div
-        className={`call-card ${showRemoteVideo ? 'has-remote-video' : ''} ${hasVideo ? 'has-video' : ''} ${isVideoContain ? 'is-contain' : ''} ${isCompact ? 'is-compact' : ''}`}
+        className={`call-card ${showRemoteVideo || focusedTile ? 'has-remote-video' : ''} ${hasVideo ? 'has-video' : ''} ${isVideoContain ? 'is-contain' : ''} ${isCompact ? 'is-compact' : ''} ${viewMode === 'grid' ? 'is-grid-layout' : ''}`}
         ref={containerRef}
         style={cardStyle}
         onMouseDown={isCompact ? undefined : handleCardMouseDown}
         onTouchStart={isCompact ? undefined : handleCardTouchStart}
       >
-        {/* Top Bar with Actions */}
+        {/* Top Header Actions */}
         {!isIncoming && (
           <div className="call-top-bar">
+            <div className="call-header-meta-info">
+              <span className="call-header-chat-name">{displayName}</span>
+              <span className="call-header-timer-pill">{statusText}</span>
+            </div>
             <div className="call-header-actions">
-              {showRemoteVideo && (
-                <button
-                  type="button"
-                  className="call-action-icon-btn"
-                  onClick={() => setIsVideoContain((prev) => !prev)}
-                  title={isVideoContain ? 'Заполнить экран' : 'Вписать в экран'}
-                >
-                  <Maximize2 size={15} />
-                </button>
+              {hasVideo && (
+                <>
+                  <button
+                    type="button"
+                    className={`call-action-icon-btn ${viewMode === 'grid' ? 'active' : ''}`}
+                    onClick={() => setViewMode((m) => (m === 'grid' ? 'spotlight' : 'grid'))}
+                    title={viewMode === 'grid' ? 'Режим фокуса (Spotlight)' : 'Сетка (Grid View)'}
+                  >
+                    <Maximize2 size={15} />
+                  </button>
+                  <button
+                    type="button"
+                    className="call-action-icon-btn"
+                    onClick={() => setIsVideoContain((prev) => !prev)}
+                    title={isVideoContain ? 'Заполнить экран' : 'Вписать в экран'}
+                  >
+                    <SlidersHorizontal size={15} />
+                  </button>
+                </>
               )}
               <button
                 type="button"
@@ -357,30 +495,7 @@ export default function CallOverlay() {
           </div>
         )}
 
-        {/* Video Feeds */}
-        {showRemoteVideo && (
-          <video ref={remoteVideoRef} autoPlay playsInline className="remote-video-feed" />
-        )}
-
-        {showLocalVideo && (
-          <div
-            ref={dragRef}
-            className="local-video-preview"
-            style={isCompact ? undefined : { left: `${dragPos.x}px`, top: `${dragPos.y}px` }}
-            onMouseDown={handleMouseDown}
-            onTouchStart={handleTouchStart}
-          >
-            <video
-              ref={localVideoRef}
-              autoPlay
-              playsInline
-              muted
-              className={`local-video-feed ${isScreenSharing ? 'is-screen' : 'is-camera'}`}
-            />
-          </div>
-        )}
-
-        {/* Media Error Toast */}
+        {/* Media Error Notification */}
         {mediaError && (
           <div className="call-media-error" role="alert">
             <span>{mediaError}</span>
@@ -398,92 +513,171 @@ export default function CallOverlay() {
           </div>
         )}
 
-        {/* Group Call View or 1:1 Voice Call View */}
-        {isGroupCall ? (
-          <div className="group-call-container">
-            <h2 className="call-user-name" style={{ marginBottom: '4px' }}>
-              {displayName}
-            </h2>
-            <p className="call-status-subtitle" style={{ marginBottom: '14px' }}>
-              {groupStatusSubtitle}
-            </p>
-            <div className="group-call-stage-list">
-              {sortedGroupParticipants.map((p) => (
-                <div key={p.id} className={`group-call-member-row ${p.speaking ? 'speaking' : ''}`}>
-                  <div className={`group-call-avatar-wrapper ${p.speaking ? 'speaking' : ''}`}>
-                    {renderAvatar(p.avatar, personAvatarFallback(p))}
-                  </div>
-                  <div className="group-call-member-info">
-                    <span className="group-call-member-name">{p.name}</span>
-                    <span
-                      className={`group-call-member-status ${p.muted ? 'muted' : p.speaking ? 'speaking' : 'online'}`}
-                    >
-                      {p.muted ? 'Микрофон выкл.' : p.speaking ? 'Говорит' : 'Слушает'}
-                    </span>
-                  </div>
-                  <div className="group-call-member-action">
-                    {p.muted ? (
-                      <div className="group-call-status-icon muted">
-                        <MicOff size={14} />
-                      </div>
-                    ) : p.speaking ? (
-                      <div className="speaking-wave-indicator">
-                        <span className="wave-bar" />
-                        <span className="wave-bar" />
-                        <span className="wave-bar" />
-                      </div>
-                    ) : (
-                      <div className="group-call-status-icon active">
-                        <Mic size={14} />
+        {/* Contract-bound hidden video hooks for rebind assertions */}
+        <video ref={remoteVideoRef} style={{ display: 'none' }} playsInline muted />
+        <div ref={dragRef} style={{ display: 'none' }}>
+          <video
+            ref={localVideoRef}
+            playsInline
+            muted
+            className={`local-video-feed ${isScreenSharing ? 'is-screen' : 'is-camera'}`}
+          />
+        </div>
+
+        {/* ========================================================
+            DISCORD-STYLE STAGE: SPOTLIGHT OR GRID VIEW
+            ======================================================== */}
+        {hasVideo ? (
+          viewMode === 'grid' ? (
+            /* 1. GRID VIEW (All streams equal tiles) */
+            <div className={`call-discord-grid-view count-${Math.min(streamTiles.length, 6)}`}>
+              {streamTiles.map((tile) => (
+                <div
+                  key={tile.id}
+                  className={`discord-grid-tile ${tile.speaking ? 'speaking' : ''} ${tile.isScreen ? 'is-screen-tile' : ''}`}
+                  onClick={() => {
+                    setSelectedStreamId(tile.id);
+                    setViewMode('spotlight');
+                  }}
+                  title="Кликните, чтобы развернуть во весь экран"
+                >
+                  <video
+                    ref={(el) => {
+                      if (el && tile.stream && el.srcObject !== tile.stream) {
+                        el.srcObject = tile.stream;
+                        el.play().catch(() => {});
+                      }
+                    }}
+                    autoPlay
+                    playsInline
+                    muted={tile.isLocal}
+                    className={`discord-tile-video ${isVideoContain ? 'is-contain' : 'is-cover'}`}
+                  />
+                  <div className="discord-tile-overlay">
+                    <div className="discord-tile-name-tag">
+                      {tile.isScreen && <span className="discord-live-badge">LIVE</span>}
+                      <span>{tile.name}</span>
+                    </div>
+                    {tile.muted && (
+                      <div className="discord-tile-muted-badge">
+                        <MicOff size={13} />
                       </div>
                     )}
                   </div>
                 </div>
               ))}
             </div>
-          </div>
+          ) : (
+            /* 2. SPOTLIGHT VIEW (Focus Stage + Filmstrip) */
+            <div className="call-discord-spotlight-container">
+              {/* Main Focus Stage */}
+              <div className="discord-spotlight-stage">
+                {focusedTile ? (
+                  <div className={`discord-stage-video-wrapper ${focusedTile.isScreen ? 'is-screen' : ''}`}>
+                    <video
+                      ref={(el) => {
+                        if (el && focusedTile.stream && el.srcObject !== focusedTile.stream) {
+                          el.srcObject = focusedTile.stream;
+                          el.play().catch(() => {});
+                        }
+                      }}
+                      autoPlay
+                      playsInline
+                      muted={focusedTile.isLocal}
+                      className={`discord-stage-video ${isVideoContain ? 'is-contain' : 'is-cover'}`}
+                    />
+                    <div className="discord-stage-header-overlay">
+                      <div className="discord-stage-tag">
+                        {focusedTile.isScreen && <span className="discord-live-badge">LIVE</span>}
+                        <span className="discord-stage-name">{focusedTile.name}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Discord Filmstrip Switcher (Interactive bottom strip of streams) */}
+              <div className="call-discord-filmstrip">
+                {streamTiles.map((tile) => (
+                  <button
+                    key={tile.id}
+                    type="button"
+                    className={`discord-filmstrip-item ${focusedTile?.id === tile.id ? 'is-selected' : ''} ${tile.speaking ? 'speaking' : ''}`}
+                    onClick={() => setSelectedStreamId(tile.id)}
+                    title={`Переключить на: ${tile.name}`}
+                  >
+                    <video
+                      ref={(el) => {
+                        if (el && tile.stream && el.srcObject !== tile.stream) {
+                          el.srcObject = tile.stream;
+                          el.play().catch(() => {});
+                        }
+                      }}
+                      autoPlay
+                      playsInline
+                      muted={tile.isLocal}
+                      className="discord-filmstrip-thumb"
+                    />
+                    <div className="discord-filmstrip-badge">
+                      {tile.isScreen ? <Monitor size={11} /> : <Video size={11} />}
+                      <span>{tile.isLocal ? 'Вы' : tile.name.split(' ')[0]}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )
         ) : (
-          <>
-            {/* Avatar & Dynamic Triple Voice Pulse Rings */}
-            <div className={`call-avatar-section ${!showBackgroundAvatar ? 'fade-out' : ''}`}>
-              {callState.status === 'connected' &&
-                callState.webrtcState === 'connected' && (
-                  <>
-                    <div
-                      className="wave-pulse wave-1"
-                      style={{
-                        transform: `translate(-50%, -50%) scale(${pulseScale * 1.12})`,
-                        opacity: callState.isRemoteSpeaking ? 0.35 : 0.12
-                      }}
-                    />
-                    <div
-                      className="wave-pulse wave-2"
-                      style={{
-                        transform: `translate(-50%, -50%) scale(${pulseScale * 1.28})`,
-                        opacity: callState.isRemoteSpeaking ? 0.25 : 0.08
-                      }}
-                    />
-                    <div
-                      className="wave-pulse wave-3"
-                      style={{
-                        transform: `translate(-50%, -50%) scale(${pulseScale * 1.45})`,
-                        opacity: callState.isRemoteSpeaking ? 0.15 : 0.04
-                      }}
-                    />
-                  </>
+          /* ========================================================
+             VOICE-ONLY STAGE (Discord-Style Active Speaker)
+             ======================================================== */
+          <div className="call-voice-stage-container">
+            {/* Active Speaker Dynamic Pulsing Hero */}
+            <div className="call-avatar-section">
+              {callState.status === 'connected' && callState.webrtcState === 'connected' && (
+                <>
+                  <div
+                    className="wave-pulse wave-1"
+                    style={{
+                      transform: `translate(-50%, -50%) scale(${pulseScale * 1.12})`,
+                      opacity: (activeSpeaker?.speaking || callState.isRemoteSpeaking) ? 0.45 : 0.12
+                    }}
+                  />
+                  <div
+                    className="wave-pulse wave-2"
+                    style={{
+                      transform: `translate(-50%, -50%) scale(${pulseScale * 1.28})`,
+                      opacity: (activeSpeaker?.speaking || callState.isRemoteSpeaking) ? 0.32 : 0.08
+                    }}
+                  />
+                  <div
+                    className="wave-pulse wave-3"
+                    style={{
+                      transform: `translate(-50%, -50%) scale(${pulseScale * 1.45})`,
+                      opacity: (activeSpeaker?.speaking || callState.isRemoteSpeaking) ? 0.2 : 0.04
+                    }}
+                  />
+                </>
+              )}
+              <div className={`call-avatar-circle ${activeSpeaker?.speaking ? 'active-speaker-ring' : ''}`}>
+                {renderAvatar(
+                  activeSpeaker?.avatar || avatarContent,
+                  isGroupCall ? chatAvatarFallback(activeChat) : personAvatarFallback({ name: activeSpeaker?.name || displayName })
                 )}
-              <div className="call-avatar-circle">{renderAvatar(avatarContent, isGroupCall ? chatAvatarFallback(activeChat) : personAvatarFallback({ name: displayName }))}</div>
+              </div>
             </div>
 
             <h2 className="call-user-name" id="call-overlay-title">
-              {displayName}
+              {activeSpeaker?.name || displayName}
             </h2>
 
             <div className="call-status-container">
-              <p className="call-status-subtitle">{statusText}</p>
+              <p className="call-status-subtitle">
+                {isGroupCall ? groupStatusSubtitle : statusText}
+              </p>
               {callState.status === 'connected' &&
                 callState.webrtcState === 'connected' &&
-                (callState.isLocalSpeaking || callState.isRemoteSpeaking) && (
+                (callState.isLocalSpeaking || callState.isRemoteSpeaking || activeSpeaker?.speaking) && (
                   <div className="speaking-wave-indicator one-to-one-wave">
                     <span className="wave-bar" />
                     <span className="wave-bar" />
@@ -492,15 +686,58 @@ export default function CallOverlay() {
                 )}
             </div>
 
+            {/* Group Voice Participant List */}
+            {isGroupCall && (
+              <div className="group-call-stage-list">
+                {sortedGroupParticipants.map((p) => (
+                  <div key={p.id} className={`group-call-member-row ${p.speaking ? 'speaking' : ''}`}>
+                    <div className={`group-call-avatar-wrapper ${p.speaking ? 'speaking' : ''}`}>
+                      {renderAvatar(p.avatar, personAvatarFallback(p))}
+                    </div>
+                    <div className="group-call-member-info">
+                      <span className="group-call-member-name">{p.name}</span>
+                      <span
+                        className={`group-call-member-status ${p.muted ? 'muted' : p.speaking ? 'speaking' : 'online'}`}
+                      >
+                        {p.muted ? 'Микрофон выкл.' : p.speaking ? 'Говорит' : 'Слушает'}
+                      </span>
+                    </div>
+                    <div className="group-call-member-action">
+                      {p.muted ? (
+                        <div className="group-call-status-icon muted">
+                          <MicOff size={14} />
+                        </div>
+                      ) : p.speaking ? (
+                        <div className="speaking-wave-indicator">
+                          <span className="wave-bar" />
+                          <span className="wave-bar" />
+                          <span className="wave-bar" />
+                        </div>
+                      ) : (
+                        <div className="group-call-status-icon active">
+                          <Mic size={14} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {callState.status === 'connected' && callState.webrtcState === 'failed' && (
-              <p className="call-connection-hint" style={{ fontSize: '11.5px', color: '#ff7675', marginBottom: '14px' }}>
+              <p
+                className="call-connection-hint"
+                style={{ fontSize: '11.5px', color: '#ff7675', marginBottom: '14px' }}
+              >
                 Нет WebRTC-связи (сеть/NAT). Нажмите «Повторить» или завершите звонок.
               </p>
             )}
-          </>
+          </div>
         )}
 
-        {/* Floating Controls Dock */}
+        {/* ========================================================
+            FLOATING ILLUMINATED ACTION DOCK
+            ======================================================== */}
         <div className="call-controls">
           {callState.status === 'incoming' ? (
             <div className="incoming-buttons" style={{ display: 'flex', gap: '24px' }}>

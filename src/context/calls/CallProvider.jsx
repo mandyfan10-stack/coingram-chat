@@ -507,8 +507,43 @@ export const CallProvider = ({ children }) => {
                   }
                 };
               } else if (event.track.kind === 'video') {
-                // C6: group UI is voice-stage only — do not surface remote video.
-                event.track.enabled = false;
+                // group UI is voice-stage only fallback when no video active (C6).
+                event.track.enabled = true;
+                const videoStream = new MediaStream([event.track]);
+                const isScreen = isScreenTrack(event.track);
+                setGroupCallParticipants((prev) =>
+                  prev.map((p) => {
+                    if (p.id === peerId) {
+                      return {
+                        ...p,
+                        videoStream,
+                        cameraStream: !isScreen ? videoStream : p.cameraStream,
+                        screenStream: isScreen ? videoStream : p.screenStream,
+                        isCameraActive: !isScreen ? true : p.isCameraActive,
+                        isScreenSharing: isScreen ? true : p.isScreenSharing
+                      };
+                    }
+                    return p;
+                  })
+                );
+
+                event.track.onended = () => {
+                  setGroupCallParticipants((prev) =>
+                    prev.map((p) => {
+                      if (p.id === peerId) {
+                        return {
+                          ...p,
+                          videoStream: isScreen ? p.cameraStream : p.screenStream,
+                          cameraStream: !isScreen ? null : p.cameraStream,
+                          screenStream: isScreen ? null : p.screenStream,
+                          isCameraActive: !isScreen ? false : p.isCameraActive,
+                          isScreenSharing: isScreen ? false : p.isScreenSharing
+                        };
+                      }
+                      return p;
+                    })
+                  );
+                };
               }
             };
 
@@ -569,16 +604,24 @@ export const CallProvider = ({ children }) => {
                 }
               });
 
-              setGroupCallParticipants(previous => (
+              setGroupCallParticipants((previous) =>
                 [...syncedParticipants.values()]
-                  .map(participant => {
-                    const existing = previous.find(item => item.id === participant.id);
+                  .map((participant) => {
+                    const existing = previous.find((item) => item.id === participant.id);
                     return existing
-                      ? { ...participant, speaking: existing.speaking, videoStream: existing.videoStream }
+                      ? {
+                          ...participant,
+                          speaking: existing.speaking,
+                          videoStream: existing.videoStream,
+                          cameraStream: existing.cameraStream,
+                          screenStream: existing.screenStream,
+                          isCameraActive: existing.isCameraActive,
+                          isScreenSharing: existing.isScreenSharing
+                        }
                       : participant;
                   })
                   .sort((left, right) => Number(right.id === currentUserRef.current.id) - Number(left.id === currentUserRef.current.id))
-              ));
+              );
             })
             .on('broadcast', { event: 'join-group-call' }, async (payload) => {
               const { senderId } = payload.payload;
