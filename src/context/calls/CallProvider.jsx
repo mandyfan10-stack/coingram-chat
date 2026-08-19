@@ -997,8 +997,8 @@ export const CallProvider = ({ children }) => {
         {
           id: currentUser.id || 'current',
           name: 'Вы',
-          avatar: currentUser.avatar || '🪙',
-          avatarColor: currentUser.avatarColor,
+          avatar: currentUser.avatar || '👤',
+          avatarColor: currentUser.avatar_color || currentUser.avatarColor,
           muted: false,
           videoStream: null,
           speaking: false
