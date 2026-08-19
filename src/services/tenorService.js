@@ -1,7 +1,7 @@
 import { TRENDING_GIFS } from '../components/chat/emojiData';
 
 const TENOR_API_KEY = String(import.meta.env?.VITE_TENOR_API_KEY || '').trim();
-const TENOR_CLIENT_KEY = 'coiny_web';
+const TENOR_CLIENT_KEY = 'tenor_web';
 const BASE_URL = 'https://tenor.googleapis.com/v2';
 
 export const TENOR_CATEGORIES = [
