@@ -47,7 +47,7 @@ export default defineConfig(({ mode }) => {
   const developmentSources = isDev ? ['http://localhost:*', 'ws://localhost:*'] : []
   const remoteSources = [supabaseOrigin, supabaseSocketOrigin, 'https://*.supabase.co', 'wss://*.supabase.co'].filter(Boolean)
   const gifDomains = ['https://*.giphy.com', 'https://*.tenor.com', 'https://media.giphy.com', 'https://media.tenor.com', 'https://c.tenor.com', 'https://tenor.googleapis.com', 'https://img.icons8.com']
-  const connectSources = ["'self'", ...remoteSources, 'https://api.github.com', 'https://api.giphy.com', 'https://tenor.googleapis.com', ...gifDomains, ...developmentSources].join(' ')
+  const connectSources = ["'self'", 'blob:', 'data:', ...remoteSources, 'https://api.github.com', 'https://api.giphy.com', 'https://tenor.googleapis.com', ...gifDomains, ...developmentSources].join(' ')
   const mediaSources = ["'self'", 'data:', 'blob:', supabaseOrigin, 'https://*.supabase.co', ...gifDomains].filter(Boolean).join(' ')
   // Vite injects the React Refresh preamble as an inline module in development.
   // Keep production strict while allowing the dev-only preamble to execute.

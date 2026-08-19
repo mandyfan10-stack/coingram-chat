@@ -236,18 +236,18 @@ export function searchEmojis(query) {
  * Trending Curated Reaction GIFs with Multilingual Search Tags
  */
 export const TRENDING_GIFS = [
-  { id: 'g1', title: 'Thumbs Up 👍', tags: ['лайк', 'like', 'thumbs up', 'класс', 'супер', 'ok', 'ок', 'добро', 'yes', 'да'], url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif', preview: 'https://media.giphy.com/media/111ebonMs90YLu/200w.gif' },
-  { id: 'g2', title: 'Cat Vibe 🐱', tags: ['кот', 'котик', 'кошка', 'cat', 'vibe', 'качает', 'музыка', 'music', 'dance'], url: 'https://media.giphy.com/media/jpbnoe3UIa8TU8LM13/giphy.gif', preview: 'https://media.giphy.com/media/jpbnoe3UIa8TU8LM13/200w.gif' },
-  { id: 'g3', title: 'Applause 👏', tags: ['аплодисменты', 'хлопает', 'clap', 'applause', 'браво', 'молодец', 'bravo'], url: 'https://media.giphy.com/media/7rj2ZgttvgomY/giphy.gif', preview: 'https://media.giphy.com/media/7rj2ZgttvgomY/200w.gif' },
-  { id: 'g4', title: 'Mind Blown 🤯', tags: ['шок', 'взрыв мозга', 'mind blown', 'shock', 'ого', 'вау', 'crazy'], url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif', preview: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/200w.gif' },
-  { id: 'g5', title: 'Dance Happy 💃', tags: ['танец', 'танцует', 'dance', 'happy', 'радость', 'праздник', 'веселье'], url: 'https://media.giphy.com/media/blSTtZehjAZ8I/giphy.gif', preview: 'https://media.giphy.com/media/blSTtZehjAZ8I/200w.gif' },
-  { id: 'g6', title: 'Love Heart ❤️', tags: ['любовь', 'сердце', 'love', 'heart', 'обнимаю', 'мило', 'cute'], url: 'https://media.giphy.com/media/R6gVNROjGPzUM/giphy.gif', preview: 'https://media.giphy.com/media/R6gVNROjGPzUM/200w.gif' },
-  { id: 'g7', title: 'Popcorn 🍿', tags: ['попкорн', 'popcorn', 'кино', 'наблюдаю', 'watching', 'драма', 'drama', 'жду'], url: 'https://media.giphy.com/media/t3dLl0TGHCxTG/giphy.gif', preview: 'https://media.giphy.com/media/t3dLl0TGHCxTG/200w.gif' },
-  { id: 'g8', title: 'Excited 🎉', tags: ['ура', 'радость', 'excited', 'party', 'праздник', 'восторг', 'yes'], url: 'https://media.giphy.com/media/5GoVLqeAOo6PK/giphy.gif', preview: 'https://media.giphy.com/media/5GoVLqeAOo6PK/200w.gif' },
-  { id: 'g9', title: 'Facepalm 🤦', tags: ['рукалицо', 'facepalm', 'кринж', 'стыд', 'fail', 'фейл', 'мда'], url: 'https://media.giphy.com/media/3oEjI67Egb8G9jqs3m/giphy.gif', preview: 'https://media.giphy.com/media/3oEjI67Egb8G9jqs3m/200w.gif' },
-  { id: 'g10', title: 'Laughing 😂', tags: ['смех', 'ржу', 'lol', 'laugh', 'haha', 'хаха', 'ору', 'смешно'], url: 'https://media.giphy.com/media/10JhviFuU2gWD6/giphy.gif', preview: 'https://media.giphy.com/media/10JhviFuU2gWD6/200w.gif' },
-  { id: 'g11', title: 'Shocked 😱', tags: ['шок', 'испуг', 'shocked', 'scared', 'страх', 'ужас', 'омг', 'omg'], url: 'https://media.giphy.com/media/tfUW8mhiFocFO/giphy.gif', preview: 'https://media.giphy.com/media/tfUW8mhiFocFO/200w.gif' },
-  { id: 'g12', title: 'Bye Wave 👋', tags: ['пока', 'привет', 'bye', 'hello', 'wave', 'до свидания', 'увидимся'], url: 'https://media.giphy.com/media/m9eG1qVjvNsfYHrypf/giphy.gif', preview: 'https://media.giphy.com/media/m9eG1qVjvNsfYHrypf/200w.gif' }
+  { id: 'g1', title: 'Thumbs Up 👍', tags: ['лайк', 'like', 'thumbs up', 'класс', 'супер', 'ok', 'ок', 'добро', 'yes', 'да'], url: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif', preview: 'https://media.giphy.com/media/111ebonMs90YLu/giphy.gif' },
+  { id: 'g2', title: 'Cat Vibe 🐱', tags: ['кот', 'котик', 'кошка', 'cat', 'vibe', 'качает', 'музыка', 'music', 'dance'], url: 'https://media.giphy.com/media/jpbnoe3UIa8TU8LM13/giphy.gif', preview: 'https://media.giphy.com/media/jpbnoe3UIa8TU8LM13/giphy.gif' },
+  { id: 'g3', title: 'Applause 👏', tags: ['аплодисменты', 'хлопает', 'clap', 'applause', 'браво', 'молодец', 'bravo'], url: 'https://media.giphy.com/media/7rj2ZgttvgomY/giphy.gif', preview: 'https://media.giphy.com/media/7rj2ZgttvgomY/giphy.gif' },
+  { id: 'g4', title: 'Mind Blown 🤯', tags: ['шок', 'взрыв мозга', 'mind blown', 'shock', 'ого', 'вау', 'crazy'], url: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif', preview: 'https://media.giphy.com/media/26ufdipQqU2lhNA4g/giphy.gif' },
+  { id: 'g5', title: 'Dance Happy 💃', tags: ['танец', 'танцует', 'dance', 'happy', 'радость', 'праздник', 'веселье'], url: 'https://media.giphy.com/media/blSTtZehjAZ8I/giphy.gif', preview: 'https://media.giphy.com/media/blSTtZehjAZ8I/giphy.gif' },
+  { id: 'g6', title: 'Love Heart ❤️', tags: ['любовь', 'сердце', 'love', 'heart', 'обнимаю', 'мило', 'cute'], url: 'https://media.giphy.com/media/R6gVNROjGPzUM/giphy.gif', preview: 'https://media.giphy.com/media/R6gVNROjGPzUM/giphy.gif' },
+  { id: 'g7', title: 'Popcorn 🍿', tags: ['попкорн', 'popcorn', 'кино', 'наблюдаю', 'watching', 'драма', 'drama', 'жду'], url: 'https://media.giphy.com/media/t3dLl0TGHCxTG/giphy.gif', preview: 'https://media.giphy.com/media/t3dLl0TGHCxTG/giphy.gif' },
+  { id: 'g8', title: 'Excited 🎉', tags: ['ура', 'радость', 'excited', 'party', 'праздник', 'восторг', 'yes'], url: 'https://media.giphy.com/media/5GoVLqeAOo6PK/giphy.gif', preview: 'https://media.giphy.com/media/5GoVLqeAOo6PK/giphy.gif' },
+  { id: 'g9', title: 'Facepalm 🤦', tags: ['рукалицо', 'facepalm', 'кринж', 'стыд', 'fail', 'фейл', 'мда'], url: 'https://media.giphy.com/media/3oEjI67Egb8G9jqs3m/giphy.gif', preview: 'https://media.giphy.com/media/3oEjI67Egb8G9jqs3m/giphy.gif' },
+  { id: 'g10', title: 'Laughing 😂', tags: ['смех', 'ржу', 'lol', 'laugh', 'haha', 'хаха', 'ору', 'смешно'], url: 'https://media.giphy.com/media/10JhviFuU2gWD6/giphy.gif', preview: 'https://media.giphy.com/media/10JhviFuU2gWD6/giphy.gif' },
+  { id: 'g11', title: 'Shocked 😱', tags: ['шок', 'испуг', 'shocked', 'scared', 'страх', 'ужас', 'омг', 'omg'], url: 'https://media.giphy.com/media/tfUW8mhiFocFO/giphy.gif', preview: 'https://media.giphy.com/media/tfUW8mhiFocFO/giphy.gif' },
+  { id: 'g12', title: 'Bye Wave 👋', tags: ['пока', 'привет', 'bye', 'hello', 'wave', 'до свидания', 'увидимся'], url: 'https://media.giphy.com/media/m9eG1qVjvNsfYHrypf/giphy.gif', preview: 'https://media.giphy.com/media/m9eG1qVjvNsfYHrypf/giphy.gif' }
 ];
 
 export function searchGifs(query) {
