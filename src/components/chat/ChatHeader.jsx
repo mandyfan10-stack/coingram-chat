@@ -3,7 +3,6 @@ import { ArrowLeft, Lock, MoreVertical } from 'lucide-react';
 import { isSavedMessagesChat, savedMessagesDisplayName } from '../../utils/savedMessages';
 import { chatAvatarFallback } from '../../context/chat/avatarFallback';
 
-
 export default function ChatHeader({
   activeChat,
   renderAvatar,

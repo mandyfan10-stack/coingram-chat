@@ -154,6 +154,14 @@ export default function ChatInfo() {
   const [openedPreview, setOpenedPreview] = useState(null);
 
   const fileInputRef = useRef(null);
+  const scrollableRef = useRef(null);
+
+  // Scroll to top when info sidebar opens or chat changes
+  useEffect(() => {
+    if (isInfoOpen && scrollableRef.current) {
+      scrollableRef.current.scrollTop = 0;
+    }
+  }, [isInfoOpen, activeChat?.id]);
 
   // When ChatInfo is open, progressively load older messages in the background to discover all media
   useEffect(() => {
@@ -378,7 +386,7 @@ export default function ChatInfo() {
           </div>
         </div>
 
-        <div className="chat-info-scrollable">
+        <div className="chat-info-scrollable" ref={scrollableRef}>
           {/* Main Profile Hero */}
           <div className={`info-hero-section ${bannerUrl ? 'has-banner' : ''}`}>
             {bannerUrl && (
