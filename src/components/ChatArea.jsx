@@ -289,8 +289,9 @@ function formatDateDivider(timestamp) {
       isInitialChatLoadRef.current = true;
       shouldAutoScrollRef.current = true;
     }
-    if (isInitialChatLoadRef.current && chatBodyRef.current) {
+    if (isInitialChatLoadRef.current && chatBodyRef.current && (activeChat?.messages?.length || 0) > 0) {
       chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+      isInitialChatLoadRef.current = false;
     }
   }, [activeChat?.id, activeChat?.messages]);
 
@@ -668,15 +669,24 @@ function formatDateDivider(timestamp) {
   const latestMessageId = latestMessage?.id;
   const latestMessageSenderId = latestMessage?.senderId;
   const messageCount = activeChat?.messages?.length || 0;
+  const prevMessageCountRef = useRef(messageCount);
+  const prevLatestMessageIdRef = useRef(latestMessageId);
+
   useEffect(() => {
-    const isOwnMessage = latestMessageSenderId === currentUser?.id || latestMessageSenderId === 'current';
-    if (!isLoadingOlderRef.current) {
-      if (isInitialChatLoadRef.current) {
-        scrollToBottom('auto');
-      } else if (shouldAutoScrollRef.current || isOwnMessage) {
+    const isNewMessage = (
+      messageCount > prevMessageCountRef.current &&
+      latestMessageId !== prevLatestMessageIdRef.current
+    );
+    const isOwnMessage = isNewMessage && (latestMessageSenderId === currentUser?.id || latestMessageSenderId === 'current');
+
+    if (!isLoadingOlderRef.current && isNewMessage) {
+      if (shouldAutoScrollRef.current || isOwnMessage) {
         scrollToBottom('smooth');
       }
     }
+
+    prevMessageCountRef.current = messageCount;
+    prevLatestMessageIdRef.current = latestMessageId;
   }, [activeChat?.id, latestMessageId, latestMessageSenderId, messageCount, currentUser?.id]);
 
   // Monitor scroll, virtualize off-screen rows, and page backwards near the top.
