@@ -4,6 +4,15 @@ export interface IceConfigProviderOptions {
   allowDirectConnection?: boolean;
 }
 
+interface IceCredentialClient {
+  functions: {
+    invoke(
+      name: string,
+      options: { method: 'POST' }
+    ): Promise<{ data?: unknown; error?: unknown }>;
+  };
+}
+
 const STUN_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
@@ -49,12 +58,15 @@ function configurationFor(
   };
 }
 
-export async function refreshIceConfiguration(options: IceConfigProviderOptions = {}): Promise<RTCConfiguration> {
+export async function refreshIceConfiguration(
+  options: IceConfigProviderOptions = {},
+  client: IceCredentialClient | null = supabase
+): Promise<RTCConfiguration> {
   let relayServers: RTCIceServer[] = [];
-  if (supabase) {
+  if (client) {
     try {
-      const { data, error } = await supabase.functions.invoke('turn-credentials', { method: 'POST' });
-      if (!error && data?.available) {
+      const { data, error } = await client.functions.invoke('turn-credentials', { method: 'POST' });
+      if (!error && data && typeof data === 'object' && 'available' in data && data.available) {
         relayServers = normalizeFetchedIceServers(data);
       }
     } catch {
