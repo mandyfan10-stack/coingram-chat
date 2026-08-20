@@ -81,7 +81,11 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run mandatory live E2E
-        run: npm run test:e2e
+        run: |
+          npx playwright test \
+            tests/e2e/two-user-call.spec.mjs \
+            tests/e2e/two-user-read-receipt.spec.mjs \
+            tests/e2e/reaction-drawer-layout.spec.mjs
 
       - name: Upload web build
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

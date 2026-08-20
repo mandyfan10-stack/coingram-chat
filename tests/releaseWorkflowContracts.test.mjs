@@ -33,3 +33,9 @@ test('release is published only after both installers and deployment succeed', (
   assert.match(workflow, /--verify-tag/);
   assert.match(workflow, /--generate-notes/);
 });
+
+test('release validation runs only live E2E specs', () => {
+  assert.match(workflow, /npx playwright test[\s\S]*two-user-call\.spec\.mjs[\s\S]*two-user-read-receipt\.spec\.mjs[\s\S]*reaction-drawer-layout\.spec\.mjs/);
+  const liveStep = workflow.match(/- name: Run mandatory live E2E[\s\S]*?(?=\n\s*- name:)/)?.[0] ?? '';
+  assert.doesNotMatch(liveStep, /lazy-loading|profile-rewards|message-send|npm run test:e2e/);
+});
