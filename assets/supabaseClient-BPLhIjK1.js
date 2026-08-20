@@ -1,0 +1,1 @@
+import{n as e}from"./rolldown-runtime-QTnfLwEv.js";import"./supabase-dgUcQfOc.js";var t=e({allowMockInProduction:()=>n,isMisconfigured:()=>a,isMockMode:()=>i,isSupabaseConfigured:()=>r,supabase:()=>o}),n=!1,r=!1,i=n,a=!0,o=null;export{t as a,o as i,i as n,r,a as t};
