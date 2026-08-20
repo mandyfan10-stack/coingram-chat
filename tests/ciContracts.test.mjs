@@ -34,6 +34,12 @@ test('live E2E requires the complete secret set and runs only live specs', () =>
   assert.match(workflow, /npx playwright test[\s\S]*two-user-call\.spec\.mjs[\s\S]*two-user-read-receipt\.spec\.mjs[\s\S]*reaction-drawer-layout\.spec\.mjs/);
 });
 
+test('live E2E serializes access to the shared test accounts', () => {
+  const liveJob = workflow.slice(workflow.indexOf('  live-e2e:'), workflow.indexOf('  mock-ui-e2e:'));
+  assert.match(liveJob, /concurrency:\s*\n\s*group: coingram-live-e2e-shared-accounts/);
+  assert.match(liveJob, /cancel-in-progress: false/);
+});
+
 test('mock UI E2E always builds mock mode and runs only mock-compatible specs', () => {
   const mockJob = workflow.slice(workflow.indexOf('  mock-ui-e2e:'), workflow.indexOf('  supabase:'));
   assert.match(mockJob, /VITE_ALLOW_MOCK: 'true'/);
