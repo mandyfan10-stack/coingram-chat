@@ -64,7 +64,10 @@ export const CallProvider = ({ children }) => {
   const activeCallChannelRef = useRef(null);
 
   const callChat = chats.find(c => c.id === callState.chatId);
-  const signalingChatIds = chats.map(chat => chat.id).sort().join(',');
+  const signalingChannelKey = chats
+    .map(chat => `${chat.id}:${chat.cryptoVersion ?? 1}`)
+    .sort()
+    .join(',');
   const currentUserRef = useRef(currentUser);
   const callChatRef = useRef(callChat);
   const callStateRef = useRef(callState);
@@ -160,9 +163,8 @@ export const CallProvider = ({ children }) => {
   const { sendSignalingMessage } = useCallSignaling({
     currentUser,
     chats,
-    signalingChatIds,
+    signalingChannelKey,
     setCallState,
-    currentUserRef,
     onRemoteEnd: () => endCallLocallyRef.current(),
     encryptEvent,
     decryptEvent

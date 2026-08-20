@@ -12,9 +12,8 @@ const BUSY_CALL_STATUSES = new Set(['calling', 'incoming', 'connected']);
 export function useCallSignaling({
   currentUser,
   chats,
-  signalingChatIds,
+  signalingChannelKey,
   setCallState,
-  currentUserRef,
   onRemoteEnd,
   encryptEvent,
   decryptEvent
@@ -22,7 +21,14 @@ export function useCallSignaling({
   const globalSignalingChannelRef = useRef(null);
   const pendingSignalingMessagesRef = useRef(new Map());
   const onRemoteEndRef = useRef(onRemoteEnd);
+  const chatsRef = useRef(chats);
+  const encryptEventRef = useRef(encryptEvent);
+  const decryptEventRef = useRef(decryptEvent);
   onRemoteEndRef.current = onRemoteEnd;
+  chatsRef.current = chats;
+  encryptEventRef.current = encryptEvent;
+  decryptEventRef.current = decryptEvent;
+  const currentUserId = currentUser?.id;
 
   useEffect(() => {
     const previousChannels = Array.isArray(globalSignalingChannelRef.current)
@@ -31,12 +37,17 @@ export function useCallSignaling({
     previousChannels.forEach((channel) => channel.unsubscribe());
     globalSignalingChannelRef.current = [];
 
-    if (!dataService.isLive() || !currentUser) return;
+    if (!dataService.isLive() || !currentUserId) return;
 
-    const channels = chats.map((chat) => {
+    const channels = chatsRef.current.map((chat) => {
       const signalingChannel = secureCallChannel(
         supabase.channel(`call:chat:${chat.id}`, { config: { private: true } }),
-        { chatId: chat.id, cryptoVersion: chat.cryptoVersion, encryptEvent, decryptEvent }
+        {
+          chatId: chat.id,
+          cryptoVersion: chat.cryptoVersion,
+          encryptEvent: (...args) => encryptEventRef.current(...args),
+          decryptEvent: (...args) => decryptEventRef.current(...args)
+        }
       );
       signalingChannel
         .on('broadcast', { event: 'incoming-call' }, (payload) => {
@@ -47,7 +58,7 @@ export function useCallSignaling({
             callerAvatarColor,
             chatId
           } = payload.payload;
-          if (callerId === currentUserRef.current?.id) return;
+          if (callerId === currentUserId) return;
           // Busy guard: never clobber an active call (C2).
           setCallState((prev) => {
             if (BUSY_CALL_STATUSES.has(prev.status)) return prev;
@@ -72,7 +83,7 @@ export function useCallSignaling({
         })
         .on('broadcast', { event: 'call-accepted' }, (payload) => {
           const { responderId } = payload.payload || {};
-          if (responderId === currentUserRef.current?.id) return;
+          if (responderId === currentUserId) return;
           setCallState((prev) => (prev.status === 'calling'
             ? { ...prev, status: 'connected', otherUserId: responderId || prev.otherUserId }
             : prev));
@@ -106,7 +117,7 @@ export function useCallSignaling({
       channels.forEach((channel) => channel.unsubscribe());
       if (globalSignalingChannelRef.current === channels) globalSignalingChannelRef.current = [];
     };
-  }, [currentUser?.id, signalingChatIds, currentUser, chats, setCallState, currentUserRef, encryptEvent, decryptEvent]);
+  }, [currentUserId, signalingChannelKey, setCallState]);
 
   const sendSignalingMessage = useCallback((chatId, event, payload) => {
     if (!dataService.isLive() || !chatId) return;

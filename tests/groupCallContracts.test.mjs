@@ -51,6 +51,15 @@ test('incoming-call is ignored while already busy (C2)', () => {
   assert.match(callSignaling, /onRemoteEnd/);
 });
 
+test('call signaling subscriptions stay stable across ordinary context rerenders', () => {
+  assert.match(callProvider, /signalingChannelKey[\s\S]*chat\.cryptoVersion/);
+  assert.match(callSignaling, /const chatsRef = useRef\(chats\)/);
+  assert.match(callSignaling, /encryptEventRef\.current\(\.\.\.args\)/);
+  assert.match(callSignaling, /decryptEventRef\.current\(\.\.\.args\)/);
+  assert.match(callSignaling, /\[currentUserId, signalingChannelKey, setCallState\]/);
+  assert.doesNotMatch(callSignaling, /\[currentUserId,[^\]]*\bchats\b/);
+});
+
 test('1:1 screen share triggers renegotiation after track replace (C3)', () => {
   assert.match(callMedia, /await replaceOrAddVideoTrack\(pcRef\.current, screenTrack, screenStream\);\s*\n\s*await triggerRenegotiation\(\);/);
 });
