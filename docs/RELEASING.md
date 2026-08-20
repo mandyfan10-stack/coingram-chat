@@ -5,8 +5,8 @@
 ## Подготовка версии
 
 ```powershell
-npm version 1.20.16 --no-git-tag-version
-npm run release:verify -- v1.20.16
+npm version 1.20.17 --no-git-tag-version
+npm run release:verify -- v1.20.17
 npm run lint
 npm test
 npm run build
@@ -18,10 +18,10 @@ Android `versionName` и монотонный `versionCode` вычисляютс
 
 ```powershell
 git add package.json package-lock.json
-git commit -m "release: prepare v1.20.16"
+git commit -m "release: prepare v1.20.17"
 git push origin main
-git tag v1.20.16
-git push origin v1.20.16
+git tag v1.20.17
+git push origin v1.20.17
 ```
 
 Тег запускает `.github/workflows/release.yml`. Workflow повторно проверяет версию, запускает линтер и тесты, публикует GitHub Pages, собирает подписанный APK и Windows-установщик, затем создаёт GitHub Release.
