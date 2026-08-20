@@ -90,7 +90,7 @@ export default function ProfilePreview({
         )}
       </div>
 
-      <div className={styles.body}>
+      <div className={styles.body} data-testid="profile-preview-body">
         <div className={styles.avatarAnchor} data-testid="profile-preview-avatar">
           {onAvatarClick ? (
             <button
@@ -106,7 +106,7 @@ export default function ProfilePreview({
           ) : avatarNode}
         </div>
 
-        <div className={styles.identity}>
+        <div className={styles.identity} data-testid="profile-preview-identity">
           <div className={styles.nameRow}>
             <strong title={resolvedName}>{resolvedName}</strong>
           </div>

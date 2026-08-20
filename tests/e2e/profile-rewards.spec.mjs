@@ -27,21 +27,29 @@ test('custom profile styling is gone from mock settings', async ({ page }) => {
   await expect(dialog.getByRole('button', { name: 'Загрузить обложку' })).toBeVisible();
 });
 
-test('profile banner keeps fixed geometry and the form scrolls at 806x590', async ({ page }) => {
+test('profile header uses a compact identity row at 806x590', async ({ page }) => {
   await page.setViewportSize({ width: 806, height: 590 });
   await enterMockApp(page);
   const { dialog } = await openProfileSettings(page);
   const preview = dialog.getByTestId('live-profile-preview');
   const banner = dialog.getByTestId('profile-preview-banner');
+  const body = dialog.getByTestId('profile-preview-body');
   const avatar = dialog.getByTestId('profile-preview-avatar');
+  const identity = dialog.getByTestId('profile-preview-identity');
   await expect(preview).toBeVisible();
 
-  const [previewBox, bannerBox, avatarBox] = await Promise.all([
-    preview.boundingBox(), banner.boundingBox(), avatar.boundingBox(),
+  const [previewBox, bannerBox, bodyBox, avatarBox, identityBox] = await Promise.all([
+    preview.boundingBox(), banner.boundingBox(), body.boundingBox(), avatar.boundingBox(), identity.boundingBox(),
   ]);
-  expect(previewBox.height).toBeGreaterThanOrEqual(230);
-  expect(bannerBox.height).toBeGreaterThanOrEqual(110);
+  expect(previewBox.height).toBeGreaterThanOrEqual(195);
+  expect(previewBox.height).toBeLessThanOrEqual(215);
+  expect(bannerBox.height).toBeGreaterThanOrEqual(120);
+  expect(bodyBox.height).toBeLessThanOrEqual(90);
   expect(avatarBox.height).toBeGreaterThanOrEqual(80);
+  expect(identityBox.x).toBeGreaterThan(avatarBox.x + avatarBox.width);
+  expect(identityBox.y + (identityBox.height / 2)).toBeLessThan(
+    avatarBox.y + avatarBox.height,
+  );
   await expect(avatar).toHaveCSS('overflow', 'visible');
 
   const bodyGeometry = await dialog.locator('.settings-body').evaluate((node) => ({
@@ -50,4 +58,23 @@ test('profile banner keeps fixed geometry and the form scrolls at 806x590', asyn
   }));
   expect(bodyGeometry.scrollHeight).toBeGreaterThan(bodyGeometry.clientHeight);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(806);
+});
+
+test('compact profile header stays dense on mobile', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await enterMockApp(page);
+  const { dialog } = await openProfileSettings(page);
+  const preview = dialog.getByTestId('live-profile-preview');
+  const body = dialog.getByTestId('profile-preview-body');
+  const avatar = dialog.getByTestId('profile-preview-avatar');
+  const identity = dialog.getByTestId('profile-preview-identity');
+
+  const [previewBox, bodyBox, avatarBox, identityBox] = await Promise.all([
+    preview.boundingBox(), body.boundingBox(), avatar.boundingBox(), identity.boundingBox(),
+  ]);
+  expect(previewBox.height).toBeLessThanOrEqual(200);
+  expect(bodyBox.height).toBeLessThanOrEqual(90);
+  expect(identityBox.x).toBeGreaterThan(avatarBox.x + avatarBox.width);
+  expect(previewBox.x + previewBox.width).toBeLessThanOrEqual(390);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
