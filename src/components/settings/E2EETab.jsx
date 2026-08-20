@@ -205,18 +205,18 @@ export default function E2EETab({
             gap: '8px'
           }}
         >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="session-info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: 'var(--text-secondary)' }}>Ваш UUID:</span>
             <span
-              className="select-all-text"
+              className="select-all-text session-info-value"
               style={{ fontFamily: 'monospace', color: 'var(--text-primary)', wordBreak: 'break-all' }}
             >
               {currentUser?.id}
             </span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="session-info-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ color: 'var(--text-secondary)' }}>Режим подключения:</span>
-            <span style={{ fontWeight: '600', color: isSupabaseConfigured ? '#0f9d58' : '#d97706' }}>
+            <span className="session-info-value" style={{ fontWeight: '600', color: isSupabaseConfigured ? '#0f9d58' : '#d97706' }}>
               {isSupabaseConfigured ? '🟢 Supabase (Live)' : '🟡 Локальный демо-режим'}
             </span>
           </div>

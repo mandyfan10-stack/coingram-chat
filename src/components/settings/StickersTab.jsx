@@ -25,7 +25,7 @@ export default function StickersTab({
                 <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '10px' }}>
                   Вставьте имя стикер-пака или ссылку на него из Telegram (например: <code>https://t.me/addstickers/set_name</code>)
                 </p>
-                <div style={{ display: 'flex', gap: '10px' }}>
+                <div className="sticker-import-row" style={{ display: 'flex', gap: '10px' }}>
                   <input
                     type="text"
                     placeholder="Имя или ссылка на пак..."

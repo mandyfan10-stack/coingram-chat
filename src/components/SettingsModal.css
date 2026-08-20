@@ -601,6 +601,7 @@ html.theme-rainbow-pearl .reaction-badge.active {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   background-color: var(--bg-secondary);
 }
 
@@ -632,11 +633,15 @@ html.theme-rainbow-pearl .reaction-badge.active {
 
 .settings-body {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
+  overscroll-behavior: contain;
 }
 
 .settings-body > * {
@@ -653,30 +658,206 @@ html.theme-rainbow-pearl .reaction-badge.active {
 }
 
 @media (max-width: 640px) {
-  .settings-container {
+  .settings-modal-overlay {
+    align-items: stretch;
+    padding:
+      env(safe-area-inset-top, 0px)
+      env(safe-area-inset-right, 0px)
+      env(safe-area-inset-bottom, 0px)
+      env(safe-area-inset-left, 0px) !important;
+  }
+
+  .settings-modal-overlay .settings-container {
+    flex: 1 1 auto;
     flex-direction: column;
+    width: 100% !important;
     max-width: 100%;
-    height: 100%;
-    max-height: 100%;
-    border-radius: 0;
+    height: auto;
+    max-height: none !important;
+    border-radius: 0 !important;
     border: none;
   }
 
   .settings-sidebar {
+    flex: 0 0 auto;
     width: 100%;
     min-width: 100%;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
-    padding: 12px;
+    padding: 8px 10px 7px;
+  }
+
+  .settings-sidebar-profile {
+    min-width: 0;
+    min-height: 44px;
+    margin-bottom: 7px;
+    padding: 6px 8px;
+    border-radius: 11px;
+  }
+
+  .settings-sidebar-avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  .settings-sidebar-name {
+    font-size: 12.5px;
+  }
+
+  .settings-sidebar-username {
+    font-size: 10.5px;
   }
 
   .settings-nav-list {
-    flex-direction: row;
-    overflow-x: auto;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+    overflow: visible;
+  }
+
+  .settings-nav-item {
+    position: relative;
+    min-width: 0;
+    min-height: 50px;
+    justify-content: center;
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 2px;
+    text-align: center;
+  }
+
+  .settings-nav-item .nav-item-icon {
+    display: flex;
+    line-height: 0;
+  }
+
+  .settings-nav-item .nav-item-label {
+    width: 100%;
+    overflow: hidden;
+    font-size: 10px;
+    line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .settings-nav-item .nav-item-badge {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    padding: 1px 5px;
+    font-size: 9px;
   }
 
   .settings-sidebar-footer {
     display: none;
+  }
+
+  .settings-header {
+    min-height: 54px;
+    flex: 0 0 auto;
+    padding: 7px 12px !important;
+  }
+
+  .settings-header h3 {
+    min-width: 0;
+    margin: 0;
+    overflow: hidden;
+    font-size: 18px !important;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .settings-close-btn {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 auto;
+  }
+
+  .settings-body {
+    padding: 14px 16px !important;
+    gap: 16px !important;
+    scrollbar-gutter: stable;
+  }
+
+  .settings-footer {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex: 0 0 auto;
+    gap: 8px;
+    padding: 9px 12px !important;
+  }
+
+  .settings-btn {
+    width: 100%;
+    min-height: 42px;
+  }
+
+  .settings-appearance-tab,
+  .settings-stickers-tab,
+  .settings-e2ee-tab,
+  .settings-section,
+  .input-group,
+  .invite-link-wrapper {
+    min-width: 0;
+  }
+
+  .invite-link-input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .invite-copy-btn {
+    flex: 0 0 auto;
+    padding-inline: 12px;
+  }
+
+  .wallpaper-upload-actions,
+  .sticker-import-row {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .sticker-import-row input {
+    min-width: 0;
+  }
+
+  .session-info-row {
+    min-width: 0;
+    align-items: flex-start !important;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .session-info-value {
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 360px) {
+  .settings-nav-item .nav-item-label {
+    font-size: 9px;
+  }
+
+  .settings-body {
+    padding-inline: 12px !important;
+  }
+
+  .invite-link-wrapper {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .invite-copy-btn,
+  .sticker-import-row .auth-submit-btn,
+  .wallpaper-upload-actions > button {
+    width: 100% !important;
+    min-height: 42px;
+    justify-content: center;
   }
 }
 

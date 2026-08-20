@@ -91,7 +91,7 @@ export default function AppearanceTab({
             style={{ display: 'none' }}
           />
 
-          <div style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
+          <div className="wallpaper-upload-actions" style={{ display: 'flex', gap: '10px', marginTop: '6px' }}>
             <button
               type="button"
               className="btn-primary auth-submit-btn"

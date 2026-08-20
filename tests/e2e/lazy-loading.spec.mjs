@@ -63,6 +63,9 @@ test('settings focus and presence remain stable during rapid mobile reopen', asy
   const closeButton = dialog.locator('.settings-close-btn');
   const firstFocusable = dialog.locator('.settings-sidebar-profile');
   const saveButton = dialog.locator('.settings-btn.save');
+  const settingsBody = dialog.locator('.settings-body');
+  const settingsFooter = dialog.locator('.settings-footer');
+  const settingsNav = dialog.locator('.settings-nav-list');
 
   await menuButton.click();
   await settingsItem.click();
@@ -77,6 +80,45 @@ test('settings focus and presence remain stable during rapid mobile reopen', asy
   expect(bounds.right).toBeLessThanOrEqual(360);
   expect(bounds.top).toBeGreaterThanOrEqual(0);
   expect(bounds.bottom).toBeLessThanOrEqual(800);
+
+  const assertMobileSettingsGeometry = async () => {
+    const geometry = await dialog.evaluate((element) => {
+      const body = element.querySelector('.settings-body');
+      const footer = element.querySelector('.settings-footer');
+      const nav = element.querySelector('.settings-nav-list');
+      const elementRect = element.getBoundingClientRect();
+      const bodyRect = body.getBoundingClientRect();
+      const footerRect = footer.getBoundingClientRect();
+      return {
+        dialogBottom: elementRect.bottom,
+        bodyBottom: bodyRect.bottom,
+        footerBottom: footerRect.bottom,
+        bodyClientWidth: body.clientWidth,
+        bodyScrollWidth: body.scrollWidth,
+        navClientWidth: nav.clientWidth,
+        navScrollWidth: nav.scrollWidth,
+      };
+    });
+    expect(geometry.bodyBottom).toBeLessThanOrEqual(geometry.footerBottom);
+    expect(geometry.footerBottom).toBeLessThanOrEqual(geometry.dialogBottom + 1);
+    expect(geometry.bodyScrollWidth).toBeLessThanOrEqual(geometry.bodyClientWidth);
+    expect(geometry.navScrollWidth).toBeLessThanOrEqual(geometry.navClientWidth);
+    await expect(settingsFooter).toBeVisible();
+  };
+
+  await assertMobileSettingsGeometry();
+  await expect(settingsNav.locator('.settings-nav-item')).toHaveCount(4);
+
+  for (const label of ['Оформление', 'Стикеры', 'Шифрование', 'Мой профиль']) {
+    await settingsNav.locator('.settings-nav-item').filter({ hasText: label }).click();
+    await assertMobileSettingsGeometry();
+  }
+
+  const inviteGeometry = await settingsBody.locator('.invite-link-wrapper').evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(inviteGeometry.scrollWidth).toBeLessThanOrEqual(inviteGeometry.clientWidth);
 
   await firstFocusable.focus();
   await page.keyboard.press('Shift+Tab');
