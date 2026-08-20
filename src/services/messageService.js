@@ -1,10 +1,15 @@
-import { supabase, isSupabaseConfigured } from '../supabaseClient';
-import { toISO } from './serviceUtils';
+import { supabase, isSupabaseConfigured } from '../supabaseClient.js';
+import { toISO } from './serviceUtils.ts';
 
-export const messageService = {
+export const createMessageService = ({
+  client = supabase,
+  configured = isSupabaseConfigured,
+  storage = globalThis.localStorage,
+  e2eeV2Enabled = Boolean(import.meta.env && import.meta.env.VITE_E2EE_V2_ENABLED === 'true')
+} = {}) => ({
   loadChatMessages: async (chatId, limit = 100, beforeTimestamp = null) => {
-    if (isSupabaseConfigured) {
-      let query = supabase
+    if (configured) {
+      let query = client
         .from('messages')
         .select('*')
         .eq('chat_id', chatId)
@@ -18,7 +23,7 @@ export const messageService = {
       const messageIds = (data || []).map((message) => message.id);
       let reads = [];
       if (messageIds.length > 0) {
-        const { data: readsData } = await supabase
+        const { data: readsData } = await client
           .from('message_reads')
           .select('message_id, profile_id')
           .in('message_id', messageIds);
@@ -36,7 +41,7 @@ export const messageService = {
           cryptoVersion: message.crypto_version || 1,
           senderDeviceId: message.sender_device_id,
           encryptedPayload: message.encrypted_payload,
-          requiresUpdate: message.crypto_version === 2 && import.meta.env.VITE_E2EE_V2_ENABLED !== 'true',
+          requiresUpdate: message.crypto_version === 2 && !e2eeV2Enabled,
           replyTo: message.reply_to,
           read: message.read || messageReads.length > 0,
           reads: messageReads.map((receipt) => receipt.profile_id),
@@ -46,7 +51,7 @@ export const messageService = {
       }).reverse();
     }
 
-    const saved = localStorage.getItem('tg-chats-mock');
+    const saved = storage?.getItem('tg-chats-mock');
     if (saved) {
       const chats = JSON.parse(saved);
       const chat = chats.find((candidate) => candidate.id === chatId);
@@ -59,8 +64,8 @@ export const messageService = {
   },
 
   clearChatMessages: async (chatId) => {
-    if (isSupabaseConfigured) {
-      const { error } = await supabase.from('messages').delete().eq('chat_id', chatId);
+    if (configured) {
+      const { error } = await client.from('messages').delete().eq('chat_id', chatId);
       if (error) throw error;
     }
     return true;
@@ -71,8 +76,8 @@ export const messageService = {
     if (!message || typeof message !== 'object' || message.cryptoVersion !== 2 || !message.chatId || !message.id || !message.senderDeviceId || !message.encryptedPayload) {
       throw new Error('Invalid CryptoEnvelopeV2 message payload.');
     }
-    if (!isSupabaseConfigured) throw new Error('E2EE v2 is unavailable in mock mode.');
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (!configured) throw new Error('E2EE v2 is unavailable in mock mode.');
+    const { data: { user }, error: userError } = await client.auth.getUser();
     if (userError || !user) throw userError || new Error('Authentication is required.');
 
     const encryptedPayload = String(message.encryptedPayload);
@@ -82,7 +87,7 @@ export const messageService = {
           Uint8Array.from(atob(encryptedPayload), (character) => character.charCodeAt(0)),
           (byte) => byte.toString(16).padStart(2, '0')
         ).join('')}`;
-    const { data, error } = await supabase.from('messages').insert({
+    const { data, error } = await client.from('messages').insert({
       id: message.id,
       chat_id: message.chatId,
       sender_id: user.id,
@@ -101,17 +106,17 @@ export const messageService = {
   },
 
   deleteMessage: async (messageId) => {
-    if (isSupabaseConfigured) {
-      const { error } = await supabase.from('messages').delete().eq('id', messageId);
+    if (configured) {
+      const { error } = await client.from('messages').delete().eq('id', messageId);
       if (error) throw error;
     }
   },
 
   toggleReaction: async (messageId, emojiOrReactions) => {
-    if (isSupabaseConfigured) {
+    if (configured) {
       const emoji = typeof emojiOrReactions === 'string' ? emojiOrReactions : null;
       if (!emoji) throw new Error('toggleReaction requires an emoji string in live mode');
-      const { data, error } = await supabase.rpc('toggle_message_reaction', {
+      const { data, error } = await client.rpc('toggle_message_reaction', {
         p_message_id: messageId,
         p_emoji: emoji
       });
@@ -122,9 +127,11 @@ export const messageService = {
   },
 
   markMessagesAsRead: async (chatId, _userId) => {
-    if (!isSupabaseConfigured) return;
-    const { data, error } = await supabase.rpc('mark_chat_as_read', { p_chat_id: chatId });
+    if (!configured) return;
+    const { data, error } = await client.rpc('mark_chat_as_read', { p_chat_id: chatId });
     if (error) throw error;
     return data;
   }
-};
+});
+
+export const messageService = createMessageService();

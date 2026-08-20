@@ -2,7 +2,7 @@ import {
   importPublicKey,
   deriveSymmetricKey,
   decryptMessage
-} from '../../utils/e2eeHelper';
+} from '../../utils/e2eeHelper.js';
 
 /**
  * Decrypt a single message's text/media fields when E2EE ciphertext is present.

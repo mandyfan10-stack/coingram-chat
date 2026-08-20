@@ -179,3 +179,158 @@ test('lost insert response accepts only the matching existing optimistic message
     findMessageById: async () => ({ id: 'stable-id', chat_id: 'other-chat', sender_id: 'user-1' })
   }), (error) => error === duplicate);
 });
+
+test('offline personal messages derive, cache, and use an E2EE shared key', async () => {
+  const item = createOfflineQueueItem({
+    chatId: 'personal-1',
+    senderId: 'user-1',
+    text: 'secret text',
+    media: 'storage://chat-attachments/personal-1/file.webp',
+    optimisticId: 'encrypted-offline-1'
+  });
+  const privateKey = { id: 'private-key' };
+  const importedPublicKey = { id: 'public-key' };
+  const derivedKey = { id: 'shared-key' };
+  const requiredKeys = [];
+  const sent = [];
+  let cachedKey = null;
+
+  const result = await processOfflineQueueItem(item, {
+    chat: {
+      type: 'personal',
+      members: [
+        { id: 'user-1' },
+        { id: 'user-2', publicKey: '{"kty":"EC"}' }
+      ]
+    },
+    currentUser: { id: 'user-1' },
+    e2eePrivateKey: privateKey,
+    sharedKey: null,
+    importPublicKey: async (serialized) => {
+      assert.equal(serialized, '{"kty":"EC"}');
+      return importedPublicKey;
+    },
+    deriveSymmetricKey: async (actualPrivate, actualPublic) => {
+      assert.equal(actualPrivate, privateKey);
+      assert.equal(actualPublic, importedPublicKey);
+      return derivedKey;
+    },
+    encryptMessage: async (plaintext, key) => {
+      assert.equal(key, derivedKey);
+      return { ciphertext: `cipher-${plaintext}`, iv: 'iv' };
+    },
+    encryptFileForE2EE: async () => assert.fail('there is no offline media blob'),
+    requireE2EEKey: (key) => requiredKeys.push(key),
+    onSharedKey: (key) => { cachedKey = key; },
+    sendMessage: async (...args) => {
+      sent.push(args);
+      return { id: item.optimisticId };
+    }
+  });
+
+  assert.equal(cachedKey, derivedKey);
+  assert.deepEqual(requiredKeys, [derivedKey]);
+  assert.equal(sent[0][2], 'e2ee:aes-gcm:cipher-secret text:iv');
+  assert.equal(sent[0][4], 'e2ee:aes-gcm:cipher-storage://chat-attachments/personal-1/file.webp:iv');
+  assert.equal(result.data.id, item.optimisticId);
+});
+
+test('offline personal messages fail closed when E2EE key material is missing', async () => {
+  const item = createOfflineQueueItem({
+    chatId: 'personal-1',
+    senderId: 'user-1',
+    text: 'secret',
+    optimisticId: 'missing-key-1'
+  });
+  const missingKeyError = new Error('E2EE key required');
+
+  await assert.rejects(() => processOfflineQueueItem(item, {
+    chat: { type: 'personal', members: [{ id: 'user-1' }, { id: 'user-2' }] },
+    currentUser: { id: 'user-1' },
+    e2eePrivateKey: null,
+    sharedKey: null,
+    importPublicKey: async () => assert.fail('missing public key must stop before import'),
+    deriveSymmetricKey: async () => assert.fail('missing keys must stop before derivation'),
+    encryptMessage: async () => assert.fail('missing keys must stop before encryption'),
+    encryptFileForE2EE: async () => assert.fail('missing keys must stop before encryption'),
+    requireE2EEKey: () => { throw missingKeyError; },
+    sendMessage: async () => assert.fail('missing keys must stop before send')
+  }), (error) => error === missingKeyError);
+});
+
+test('offline media surfaces upload errors other than deterministic 409 conflicts', async () => {
+  const item = createOfflineQueueItem({
+    chatId: 'group-1',
+    senderId: 'user-1',
+    text: 'image',
+    optimisticId: 'upload-error-1',
+    hasOfflineMedia: true,
+    mediaType: 'image'
+  });
+  const uploadError = { statusCode: 500, message: 'storage unavailable' };
+
+  await assert.rejects(() => processOfflineQueueItem(item, {
+    chat: { type: 'group', members: [] },
+    currentUser: { id: 'user-1' },
+    e2eePrivateKey: null,
+    sharedKey: null,
+    getAttachment: async () => new Blob(['image'], { type: 'image/webp' }),
+    extensionForMedia: () => 'webp',
+    storage: {
+      from: () => ({ upload: async () => ({ error: uploadError }) })
+    },
+    sendMessage: async () => assert.fail('failed upload must stop before send')
+  }), (error) => error === uploadError);
+});
+
+test('delivered messages remain successful when local attachment cleanup fails', async () => {
+  const item = createOfflineQueueItem({
+    chatId: 'group-1',
+    senderId: 'user-1',
+    text: 'image',
+    optimisticId: 'cleanup-error-1',
+    hasOfflineMedia: true,
+    mediaType: 'image'
+  });
+  const errors = [];
+  const originalError = console.error;
+  console.error = (...args) => errors.push(args);
+
+  try {
+    const result = await processOfflineQueueItem(item, {
+      chat: { type: 'group', members: [] },
+      currentUser: { id: 'user-1' },
+      e2eePrivateKey: null,
+      sharedKey: null,
+      getAttachment: async () => new Blob(['image'], { type: 'image/webp' }),
+      extensionForMedia: () => 'webp',
+      storage: {
+        from: () => ({ upload: async () => ({ error: null }) })
+      },
+      sendMessage: async () => ({ id: item.optimisticId }),
+      deleteAttachment: async () => { throw new Error('IndexedDB cleanup failed'); }
+    });
+
+    assert.equal(result.data.id, item.optimisticId);
+    assert.equal(errors.length, 1);
+    assert.equal(errors[0][0], 'Failed to delete delivered offline attachment:');
+  } finally {
+    console.error = originalError;
+  }
+});
+
+test('isNetworkError detects the browser offline state without an exception message', () => {
+  const originalNavigator = globalThis.navigator;
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { onLine: false }
+  });
+  try {
+    assert.equal(isNetworkError({}), true);
+  } finally {
+    Object.defineProperty(globalThis, 'navigator', {
+      configurable: true,
+      value: originalNavigator
+    });
+  }
+});

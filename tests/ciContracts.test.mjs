@@ -41,7 +41,7 @@ test('mock UI E2E always builds mock mode and runs only mock-compatible specs', 
   assert.match(mockJob, /VITE_SUPABASE_PUBLISHABLE_KEY: 'your-supabase-publishable-key'/);
   assert.match(mockJob, /VITE_SUPABASE_ANON_KEY: 'your-supabase-anon-key'/);
   assert.match(mockJob, /npm run build/);
-  assert.match(mockJob, /npx playwright test tests\/e2e\/lazy-loading\.spec\.mjs/);
+  assert.match(mockJob, /npx playwright test tests\/e2e\/lazy-loading\.spec\.mjs[\s\S]*message-send\.spec\.mjs/);
   assert.doesNotMatch(mockJob, /reaction-drawer-layout|two-user/);
 });
 

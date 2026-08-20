@@ -149,7 +149,7 @@ jobs:
         run: npm run build
 
       - name: Run mock UI E2E
-        run: npx playwright test tests/e2e/lazy-loading.spec.mjs tests/e2e/profile-rewards.spec.mjs
+        run: npx playwright test tests/e2e/lazy-loading.spec.mjs tests/e2e/profile-rewards.spec.mjs tests/e2e/message-send.spec.mjs
 
       - name: Upload failure artifacts
         if: failure()

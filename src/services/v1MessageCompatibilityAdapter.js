@@ -1,11 +1,16 @@
 import { isSupabaseConfigured, supabase } from '../supabaseClient.js';
 
 /** Legacy positional API. New E2EE v2 code must never import this adapter. */
-export const v1MessageCompatibilityAdapter = {
+export const createV1MessageCompatibilityAdapter = ({
+  client = supabase,
+  configured = isSupabaseConfigured,
+  randomUUID = () => crypto.randomUUID(),
+  now = () => new Date()
+} = {}) => ({
   async sendMessage(chatId, senderId, text, replyToId, media, customId = null) {
-    const finalId = customId || crypto.randomUUID();
-    if (isSupabaseConfigured) {
-      const { data, error } = await supabase.from('messages').insert({
+    const finalId = customId || randomUUID();
+    if (configured) {
+      const { data, error } = await client.from('messages').insert({
         id: finalId,
         chat_id: chatId,
         sender_id: senderId,
@@ -21,11 +26,13 @@ export const v1MessageCompatibilityAdapter = {
       senderId,
       senderName: 'Вы',
       text,
-      timestamp: new Date(),
+      timestamp: now(),
       replyTo: replyToId,
       media,
       read: false,
       reactions: []
     };
   }
-};
+});
+
+export const v1MessageCompatibilityAdapter = createV1MessageCompatibilityAdapter();
