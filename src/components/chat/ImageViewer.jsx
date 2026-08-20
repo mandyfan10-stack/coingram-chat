@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { VoiceMessagePlayer } from './mediaPlayers';
+import { prepareFiniteMediaDuration } from '../../utils/mediaDuration';
 
 function isAudioUrl(url) {
   if (!url || typeof url !== 'string') return false;
@@ -34,6 +35,8 @@ function isVideoUrl(url) {
 }
 
 export default function ImageViewer({ imageUrl, isVideo: isVideoProp, onClose }) {
+  const videoRef = useRef(null);
+  const [videoReady, setVideoReady] = useState(false);
   const [renderType, setRenderType] = useState(() => {
     if (isAudioUrl(imageUrl)) return 'audio';
     if (typeof isVideoProp === 'boolean') return isVideoProp ? 'video' : 'image';
@@ -49,6 +52,26 @@ export default function ImageViewer({ imageUrl, isVideo: isVideoProp, onClose })
       setRenderType(isVideoUrl(imageUrl) ? 'video' : 'image');
     }
   }, [imageUrl, isVideoProp]);
+
+  useEffect(() => {
+    setVideoReady(false);
+    if (renderType !== 'video') return undefined;
+
+    const video = videoRef.current;
+    if (!video) return undefined;
+
+    const handleError = () => setVideoReady(true);
+    const cleanupDuration = prepareFiniteMediaDuration(video, () => {
+      setVideoReady(true);
+      video.play().catch(() => {});
+    });
+
+    video.addEventListener('error', handleError);
+    return () => {
+      cleanupDuration();
+      video.removeEventListener('error', handleError);
+    };
+  }, [imageUrl, renderType]);
 
   // If it's a blob: URL and we aren't sure, inspect the blob type via fetch
   useEffect(() => {
@@ -120,16 +143,13 @@ export default function ImageViewer({ imageUrl, isVideo: isVideoProp, onClose })
         </div>
       ) : renderType === 'video' ? (
         <video
+          ref={videoRef}
           src={imageUrl}
-          controls
-          autoPlay
+          controls={videoReady}
+          preload="metadata"
           playsInline
+          aria-busy={!videoReady}
           className="chat-image-viewer-video"
-          onLoadedMetadata={(e) => {
-            if (e.target.currentTime > 0) {
-              e.target.currentTime = 0;
-            }
-          }}
           onClick={(event) => event.stopPropagation()}
         />
       ) : (
