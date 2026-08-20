@@ -216,7 +216,7 @@ export default function MessageBubble({
 
     // Prefer measured drawer size; fall back to ~8 emoji cells
     const drawerEl = drawerRef.current;
-    const realWidth = drawerEl?.offsetWidth || Math.min(248, window.innerWidth - viewportPad * 2);
+    const realWidth = drawerEl?.offsetWidth || Math.min(284, window.innerWidth - viewportPad * 2);
     const realHeight = drawerEl?.offsetHeight || 40;
 
     let top = rect.top - realHeight - gap;
@@ -224,6 +224,12 @@ export default function MessageBubble({
     if (top < viewportPad) {
       top = rect.bottom + gap;
       placement = 'below';
+    }
+
+    // Bottom boundary viewport clamping
+    const maxTop = window.innerHeight - realHeight - viewportPad;
+    if (top > maxTop) {
+      top = Math.max(viewportPad, maxTop);
     }
 
     // Keep whole bar inside the viewport horizontally

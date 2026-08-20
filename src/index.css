@@ -600,6 +600,9 @@ body {
   padding: 8px;
   font-family: monospace;
   font-size: 12.5px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   overflow-x: auto;
   border: 1px solid var(--border-color);
   color: #a78bfa;
@@ -609,13 +612,14 @@ body {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 10px;
-  padding: 1px 6px;
+  min-height: 22px;
+  padding: 2px 7px;
   font-size: 11px;
   color: var(--text-primary);
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   transition: var(--transition-fast);
 }
 
@@ -669,10 +673,16 @@ body {
   /* Never shrink under parent overflow / narrow hover bar */
   width: max-content;
   min-width: max-content;
-  max-width: none;
+  max-width: calc(100vw - 16px);
+  overflow-x: auto;
+  scrollbar-width: none;
   white-space: nowrap;
   flex-shrink: 0;
   box-sizing: border-box;
+}
+
+.reaction-drawer::-webkit-scrollbar {
+  display: none;
 }
 
 /* Viewport-fixed drawer: not clipped by chat-body / content-visibility */
@@ -4316,8 +4326,9 @@ body.light-mode .auth-input-wrapper input {
 /* Regular Rectangular Video Player */
 .regular-video-wrapper {
   position: relative;
-  max-width: 380px;
-  min-width: 220px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
   max-height: 320px;
   border-radius: 12px;
   overflow: hidden;
@@ -5518,10 +5529,53 @@ body,
   }
 
   .message-bubble {
-    max-width: 86%;
+    max-width: min(88%, 460px);
     min-width: 0;
     overflow-wrap: anywhere;
     word-break: break-word;
+  }
+
+  .message-row.row-other .message-bubble {
+    max-width: min(calc(100% - 44px), 460px);
+  }
+
+  .reaction-badge {
+    min-height: 24px;
+    padding: 3px 8px;
+    font-size: 11.5px;
+  }
+
+  .message-hover-actions {
+    position: absolute;
+    top: -34px;
+    left: auto;
+    right: 0;
+    margin: 0;
+    transform: none;
+    z-index: 30;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .message-row.row-me .message-hover-actions {
+    top: -34px;
+    transform: none;
+    left: auto;
+    right: 0;
+    margin: 0;
+    z-index: 30;
+  }
+
+  .message-row.row-other .message-hover-actions {
+    top: -34px;
+    transform: none;
+    left: 0;
+    right: auto;
+    margin: 0;
+    z-index: 30;
+  }
+
+  .message-row.group-first:first-child .message-hover-actions {
+    top: 4px;
   }
 
   .chat-footer-input {
@@ -5605,6 +5659,19 @@ body,
     width: min(210px, 72vw);
     height: auto;
     aspect-ratio: 9 / 16;
+  }
+}
+
+@media (max-width: 360px) {
+  .reaction-drawer {
+    gap: 3px;
+    padding: 3px 6px;
+  }
+
+  .reaction-drawer-item {
+    width: 24px;
+    height: 24px;
+    font-size: 16px;
   }
 }
 

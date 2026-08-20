@@ -155,6 +155,8 @@
   display: flex;
   flex-direction: column;
   position: relative;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .message-row {
@@ -229,8 +231,9 @@
 
 /* Bubble Design */
 .message-bubble {
-  max-width: clamp(280px, 75%, 480px);
+  max-width: min(75%, 480px);
   min-width: 72px;
+  box-sizing: border-box;
   padding: 6px 10px 7px 10px;
   font-size: 14.5px;
   line-height: 1.35;
@@ -240,6 +243,7 @@
   flex-direction: column;
   animation: messageSlideIn 0.18s cubic-bezier(0.2, 0.9, 0.2, 1.08);
   will-change: transform, opacity;
+  overflow-wrap: anywhere;
   word-break: break-word;
 }
 
@@ -374,6 +378,9 @@
 
 .message-bubble.bubble-media-with-caption .bubble-caption {
   padding: 6px 10px 7px 10px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Floating timestamp badge for photos, videos, stickers */
@@ -400,6 +407,15 @@
 /* Text and Inline Metadata */
 .bubble-content {
   position: relative;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.bubble-caption {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .bubble-content::after,
@@ -410,6 +426,8 @@
 }
 
 .message-text {
+  overflow-wrap: anywhere;
+  word-break: break-word;
   word-wrap: break-word;
   white-space: pre-wrap;
   display: inline;
@@ -482,6 +500,7 @@
 
 /* Media in bubble */
 .bubble-media-wrapper {
+  position: relative;
   border-radius: 8px;
   overflow: hidden;
   margin-bottom: 4px;
@@ -501,6 +520,11 @@
   gap: 4px;
   flex-wrap: wrap;
   margin-top: 6px;
+}
+
+.message-bubble.bubble-media-only .bubble-reactions,
+.message-bubble.bubble-media-with-caption .bubble-reactions {
+  padding: 0 8px 6px 8px;
 }
 
 /* Message actions popup */
@@ -819,3 +843,96 @@
     max-height: 88vh;
   }
 }
+
+/* Regular Rectangular Video Player Base */
+.regular-video-wrapper {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   Responsive Message Bubble & Layout Width Constraints
+   ========================================================================== */
+@media (max-width: 768px) {
+  .message-bubble {
+    max-width: min(88%, 460px);
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .message-row.row-other .message-bubble {
+    max-width: min(calc(100% - 44px), 460px);
+  }
+
+  .message-hover-actions {
+    position: absolute;
+    top: -34px;
+    left: auto;
+    right: 0;
+    margin: 0;
+    transform: none;
+    z-index: 30;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .message-row.row-me .message-hover-actions {
+    top: -34px;
+    transform: none;
+    left: auto;
+    right: 0;
+    margin: 0;
+    z-index: 30;
+  }
+
+  .message-row.row-other .message-hover-actions {
+    top: -34px;
+    transform: none;
+    left: 0;
+    right: auto;
+    margin: 0;
+    z-index: 30;
+  }
+
+  .message-row.group-first:first-child .message-hover-actions {
+    top: 4px;
+  }
+}
+
+@media (max-width: 640px) {
+  .chat-body {
+    padding: 12px 10px;
+  }
+
+  .message-bubble {
+    max-width: min(88%, 460px);
+  }
+
+  .message-row.row-other .message-bubble {
+    max-width: min(calc(100% - 44px), 460px);
+  }
+
+  .voice-player-bubble {
+    width: clamp(175px, 52vw, 220px);
+  }
+}
+
+@media (max-width: 380px) {
+  .chat-body {
+    padding: 10px 8px;
+  }
+
+  .message-bubble {
+    max-width: min(88%, 320px);
+  }
+
+  .message-row.row-other .message-bubble {
+    max-width: calc(100% - 40px);
+  }
+
+  .voice-player-bubble {
+    width: 180px;
+  }
+}
+
