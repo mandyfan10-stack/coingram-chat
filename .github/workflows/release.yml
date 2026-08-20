@@ -47,7 +47,7 @@ jobs:
       - name: Verify tag and package versions
         run: |
           npm run release:verify -- "$GITHUB_REF_NAME"
-          git verify-tag "$GITHUB_REF_NAME"
+          git rev-parse --verify "refs/tags/${GITHUB_REF_NAME}^{commit}" >/dev/null
 
       - name: Require live QA secrets
         run: |
@@ -138,6 +138,9 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEY_PASSWORD"
           chmod +x gradlew
           ./gradlew assembleRelease --no-daemon
 
@@ -149,13 +152,15 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           mkdir -p release
           cp android/app/build/outputs/apk/release/app-release.apk "release/CoinGram-${VERSION}-android.apk"
-          sha256sum "release/CoinGram-${VERSION}-android.apk"
+          sha256sum "release/CoinGram-${VERSION}-android.apk" > "release/CoinGram-${VERSION}-android.apk.sha256"
 
       - name: Upload APK
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: android-release
-          path: release/*.apk
+          path: |
+            release/*.apk
+            release/*.apk.sha256
           if-no-files-found: error
           retention-days: 30
 
@@ -345,6 +350,16 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ls -lh release-assets
+          APK="$(find release-assets -maxdepth 1 -type f -name '*-android.apk' -print -quit)"
+          EXE="$(find release-assets -maxdepth 1 -type f -name '*Setup*.exe' -print -quit)"
+          if [ -z "$APK" ] || [ ! -s "$APK" ]; then
+            echo "::error::Required Android APK is missing or empty"
+            exit 1
+          fi
+          if [ -z "$EXE" ] || [ ! -s "$EXE" ]; then
+            echo "::error::Required Electron EXE is missing or empty"
+            exit 1
+          fi
           if gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber --repo "$GITHUB_REPOSITORY"
           else
