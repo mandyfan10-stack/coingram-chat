@@ -39,3 +39,9 @@ test('release validation runs only live E2E specs', () => {
   const liveStep = workflow.match(/- name: Run mandatory live E2E[\s\S]*?(?=\n\s*- name:)/)?.[0] ?? '';
   assert.doesNotMatch(liveStep, /lazy-loading|profile-rewards|message-send|npm run test:e2e/);
 });
+
+test('release validation serializes access to shared live E2E accounts', () => {
+  const validateJob = workflow.match(/\n  validate:[\s\S]*?(?=\n  [a-z][\w-]*:)/)?.[0] ?? '';
+  assert.match(validateJob, /concurrency:\s*\n\s*group: coingram-live-e2e-shared-accounts/);
+  assert.match(validateJob, /cancel-in-progress: false/);
+});
