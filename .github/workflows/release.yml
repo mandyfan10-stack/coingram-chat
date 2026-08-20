@@ -24,6 +24,9 @@ jobs:
     name: Validate and test
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: coingram-live-e2e-shared-accounts
+      cancel-in-progress: false
     env:
       E2E_USER_A: ${{ secrets.E2E_USER_A }}
       E2E_PASSWORD_A: ${{ secrets.E2E_PASSWORD_A }}
