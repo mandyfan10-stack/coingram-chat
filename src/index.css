@@ -3803,6 +3803,7 @@ body.light-mode .auth-input-wrapper input {
   align-items: center;
   gap: 12px;
   flex: 1;
+  min-width: 0;
   padding: 8px 16px;
   background-color: var(--bg-input);
   border: 1px solid var(--border-color);
@@ -3835,6 +3836,7 @@ body.light-mode .auth-input-wrapper input {
   gap: 2px;
   height: 12px;
   flex: 1;
+  min-width: 18px;
 }
 
 .record-wave-bar {
@@ -3858,9 +3860,46 @@ body.light-mode .auth-input-wrapper input {
 }
 
 .record-cancel-hint {
+  min-width: 0;
+  overflow: hidden;
   font-size: 12px;
   color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   animation: slideText 2s infinite ease-in-out;
+}
+
+.record-message-btn {
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.record-message-btn.recording,
+.record-message-btn.recording-starting {
+  color: #ffffff;
+  background: #f64f59;
+  transform: scale(1.12);
+}
+
+.record-message-btn.recording-starting {
+  animation: recordingButtonPulse 900ms ease-in-out infinite alternate;
+}
+
+.record-message-btn:disabled {
+  cursor: default;
+}
+
+@keyframes recordingButtonPulse {
+  from { box-shadow: 0 0 0 0 rgb(246 79 89 / 30%); }
+  to { box-shadow: 0 0 0 8px rgb(246 79 89 / 0%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .record-message-btn.recording-starting {
+    animation: none;
+  }
 }
 
 @keyframes slideText {
@@ -3879,6 +3918,8 @@ body.light-mode .auth-input-wrapper input {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
+  padding: max(16px, env(safe-area-inset-top, 0px)) 16px calc(88px + env(safe-area-inset-bottom, 0px));
   color: white;
   gap: 16px;
   animation: fadeIn var(--transition-fast);
@@ -3886,6 +3927,7 @@ body.light-mode .auth-input-wrapper input {
 }
 
 .video-record-circle {
+  position: relative;
   width: 200px;
   height: 200px;
   border-radius: 50%;
@@ -3917,6 +3959,8 @@ body.light-mode .auth-input-wrapper input {
 }
 
 .video-record-hint {
+  max-width: min(420px, calc(100vw - 32px));
+  box-sizing: border-box;
   font-size: 13px;
   color: #ffffff;
   text-align: center;
@@ -4086,6 +4130,54 @@ body.light-mode .auth-input-wrapper input {
 .video-record-preview-overlay.paused .video-record-circle {
   border-color: var(--accent-color);
   box-shadow: 0 0 25px var(--accent-color-alpha);
+}
+
+@media (max-width: 520px) {
+  .recording-panel {
+    gap: 7px;
+    overflow: hidden;
+    padding: 7px 9px;
+  }
+
+  .recording-panel.locked {
+    gap: 4px;
+  }
+
+  .recording-panel.locked .record-dot {
+    display: none;
+  }
+
+  .record-locked-badge {
+    margin-right: 0;
+  }
+
+  .record-locked-controls {
+    gap: 4px;
+  }
+
+  .record-control-btn {
+    width: 34px;
+    height: 34px;
+  }
+
+  .video-record-preview-overlay {
+    gap: 11px;
+    padding-right: 12px;
+    padding-left: 12px;
+  }
+
+  .video-record-circle {
+    width: min(190px, 52vw);
+    height: auto;
+    aspect-ratio: 1;
+  }
+
+  .video-record-hint {
+    max-width: calc(100vw - 24px);
+    padding: 7px 12px;
+    font-size: 12px;
+    line-height: 1.35;
+  }
 }
 
 .voice-play-btn {

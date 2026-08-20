@@ -224,19 +224,15 @@ export default function ChatComposer({
                 </div>
               )}
               <button
-                className={`send-message-btn ${isRecording ? 'recording' : ''}`}
-                onMouseDown={handlePointerDown}
-                onMouseUp={handlePointerUp}
-                onTouchStart={handlePointerDown}
-                onTouchEnd={handlePointerUp}
+                type="button"
+                className={`send-message-btn record-message-btn ${isRecording ? 'recording' : ''}`}
+                onPointerDown={handlePointerDown}
+                onPointerUp={handlePointerUp}
+                onContextMenu={(event) => event.preventDefault()}
                 title={recordMode === 'voice' ? 'Голосовое сообщение' : 'Видеосообщение'}
-                style={{
-                  backgroundColor: isRecording ? '#f64f59' : undefined,
-                  color: isRecording ? 'white' : undefined,
-                  transform: isRecording ? 'scale(1.2)' : undefined,
-                  transition: 'all 0.2s ease-in-out',
-                  touchAction: 'none'
-                }}
+                aria-label={recordMode === 'voice' ? 'Голосовое сообщение' : 'Видеосообщение'}
+                aria-pressed={isRecording}
+                disabled={uploading || isRecordingLocked}
               >
                 {recordMode === 'voice' ? <Mic size={20} /> : (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

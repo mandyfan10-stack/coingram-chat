@@ -44,6 +44,7 @@ export function validateChatMedia(file: Pick<File, 'size' | 'type'> | null | und
 }
 
 export function extensionForMedia(mimeType: string | null | undefined, fallbackKind: MediaKind | string = 'image'): string {
-  return MEDIA_TYPES.get(String(mimeType || '').toLowerCase())?.extension
+  const normalizedType = String(mimeType || '').toLowerCase().split(';')[0].trim();
+  return MEDIA_TYPES.get(normalizedType)?.extension
     || (fallbackKind === 'video' ? 'webm' : fallbackKind === 'audio' ? 'webm' : 'png');
 }

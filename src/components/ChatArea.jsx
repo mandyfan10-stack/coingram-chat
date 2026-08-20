@@ -24,7 +24,11 @@ import {
   encryptFileForE2EE,
   requireE2EEKey
 } from '../utils/e2eeHelper';
-import { CHAT_MEDIA_ACCEPT, validateChatMedia } from '../utils/mediaValidation';
+import { CHAT_MEDIA_ACCEPT, extensionForMedia, validateChatMedia } from '../utils/mediaValidation';
+import {
+  getSupportedRecordingMimeTypes,
+  normalizeRecordingMimeType,
+} from '../utils/mediaRecording';
 import { requiresPersonalE2EE } from '../utils/savedMessages';
 import ChatHeader from './chat/ChatHeader';
 import MessageBubble from './chat/MessageBubble';
@@ -130,6 +134,7 @@ export default function ChatArea() {
   const [recordMode, setRecordMode] = useState('voice'); // 'voice' or 'video'
   const [isRecording, setIsRecording] = useState(false);
   isRecordingRef.current = isRecording;
+  const [isRecordingStarting, setIsRecordingStarting] = useState(false);
   const [isRecordingLocked, setIsRecordingLocked] = useState(false);
   const [isRecordingPaused, setIsRecordingPaused] = useState(false);
   const [recordDuration, setRecordDuration] = useState(0);
@@ -153,6 +158,12 @@ export default function ChatArea() {
   const isCancelledRef = useRef(false);
   const isLockedRef = useRef(false);
   const isPausedRef = useRef(false);
+  const isRecordingStartingRef = useRef(false);
+  const pointerReleasedRef = useRef(true);
+  const activeRecordPointerIdRef = useRef(null);
+  const recordPointerMoveHandlerRef = useRef(null);
+  const recordPointerUpHandlerRef = useRef(null);
+  const recordPointerCancelHandlerRef = useRef(null);
   const [isLockActive, setIsLockActive] = useState(false);
   const isLockActiveRef = useRef(false);
   const videoPreviewRef = useRef(null);
@@ -315,71 +326,35 @@ function formatDateDivider(timestamp) {
   }, [activeChat?.id]);
 
   useEffect(() => {
+    const handleGlobalPointerMove = (event) => recordPointerMoveHandlerRef.current?.(event);
+    const handleGlobalPointerUp = (event) => recordPointerUpHandlerRef.current?.(event);
+    const handleGlobalPointerCancel = (event) => recordPointerCancelHandlerRef.current?.(event);
+
+    window.addEventListener('pointermove', handleGlobalPointerMove, { passive: false });
+    window.addEventListener('pointerup', handleGlobalPointerUp);
+    window.addEventListener('pointercancel', handleGlobalPointerCancel);
+
     return () => {
+      window.removeEventListener('pointermove', handleGlobalPointerMove);
+      window.removeEventListener('pointerup', handleGlobalPointerUp);
+      window.removeEventListener('pointercancel', handleGlobalPointerCancel);
       if (recordingTimerRef.current) clearInterval(recordingTimerRef.current);
       if (holdTimeoutRef.current) clearTimeout(holdTimeoutRef.current);
+      const recorder = mediaRecorderRef.current;
+      if (recorder && recorder.state !== 'inactive') {
+        recorder.ondataavailable = null;
+        recorder.onstop = null;
+        try {
+          recorder.stop();
+        } catch (error) {
+          console.error('Failed to stop recorder during cleanup:', error);
+        }
+      }
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!isRecording) return;
-
-    const handlePointerMove = (e) => {
-      // If already committed to lock state, gestures no longer apply
-      if (isLockedRef.current) return;
-
-      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-      if (clientX === undefined || clientY === undefined) return;
-
-      const diffX = recordStartX.current - clientX;
-      const diffY = recordStartY.current - clientY;
-
-      // 1. Swipe left to cancel (only if not sliding up to lock)
-      if (diffX > 100 && diffY < 40 && !isCancelledRef.current) {
-        isCancelledRef.current = true;
-        stopRecordingAndSend(true);
-      }
-
-      // 2. Slide up to lock / back down to cancel lock
-      if (diffY > 80) {
-        if (!isLockActiveRef.current) {
-          isLockActiveRef.current = true;
-          setIsLockActive(true);
-        }
-      } else if (diffY < 30) {
-        if (isLockActiveRef.current) {
-          isLockActiveRef.current = false;
-          setIsLockActive(false);
-        }
-      }
-    };
-
-    const handleGlobalPointerUp = () => {
-      if (isLockActiveRef.current) {
-        isLockedRef.current = true;
-        setIsRecordingLocked(true);
-        return;
-      }
-      if (isLockedRef.current) return;
-      stopRecordingAndSend(false);
-    };
-
-    window.addEventListener('mousemove', handlePointerMove);
-    window.addEventListener('touchmove', handlePointerMove, { passive: true });
-    window.addEventListener('mouseup', handleGlobalPointerUp);
-    window.addEventListener('touchend', handleGlobalPointerUp);
-
-    return () => {
-      window.removeEventListener('mousemove', handlePointerMove);
-      window.removeEventListener('touchmove', handlePointerMove);
-      window.removeEventListener('mouseup', handleGlobalPointerUp);
-      window.removeEventListener('touchend', handleGlobalPointerUp);
-    };
-  }, [isRecording]);
 
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -387,20 +362,37 @@ function formatDateDivider(timestamp) {
     return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
   };
 
-  const startRecording = async () => {
+  const startRecording = async (mode) => {
+    if (isRecordingStartingRef.current || isRecordingRef.current) return;
+
+    isRecordingStartingRef.current = true;
+    setIsRecordingStarting(true);
+
     try {
-      const constraints = recordMode === 'voice'
+      const constraints = mode === 'voice'
         ? { audio: true, video: false }
         : { audio: true, video: { width: { ideal: 320 }, height: { ideal: 320 }, facingMode: 'user' } };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      // Permission prompts on mobile can outlive the original press. Never begin a
+      // recording after the user has already released or cancelled that gesture.
+      if (pointerReleasedRef.current || isCancelledRef.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
       streamRef.current = stream;
 
-      if (recordMode === 'video') {
+      if (mode === 'video') {
         setTimeout(() => {
           if (videoPreviewRef.current) {
-            videoPreviewRef.current.srcObject = stream;
-            videoPreviewRef.current.play().catch(e => console.error("Preview play failed", e));
+            try {
+              videoPreviewRef.current.srcObject = stream;
+              videoPreviewRef.current.play().catch(e => console.error('Preview play failed', e));
+            } catch (error) {
+              console.error('Preview setup failed', error);
+            }
           }
         }, 50);
       }
@@ -408,17 +400,20 @@ function formatDateDivider(timestamp) {
       const chunks = [];
       mediaChunksRef.current = chunks;
 
-      const options = { mimeType: recordMode === 'video' ? 'video/webm;codecs=vp9,opus' : 'audio/webm' };
-      let recorder;
-      try {
-        recorder = new MediaRecorder(stream, options);
-      } catch {
+      const supportedMimeTypes = getSupportedRecordingMimeTypes(mode, MediaRecorder);
+      let recorder = null;
+      let lastRecorderError = null;
+      for (const mimeType of [...supportedMimeTypes, null]) {
         try {
-          recorder = new MediaRecorder(stream, { mimeType: recordMode === 'video' ? 'video/webm' : 'audio/ogg' });
-        } catch {
-          recorder = new MediaRecorder(stream);
+          recorder = mimeType
+            ? new MediaRecorder(stream, { mimeType })
+            : new MediaRecorder(stream);
+          break;
+        } catch (error) {
+          lastRecorderError = error;
         }
       }
+      if (!recorder) throw lastRecorderError || new Error('MediaRecorder is unavailable');
 
       recorder.ondataavailable = (e) => {
         if (e.data && e.data.size > 0) {
@@ -428,26 +423,36 @@ function formatDateDivider(timestamp) {
 
       recorder.onstop = async () => {
         stream.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+        mediaRecorderRef.current = null;
+        isRecordingRef.current = false;
+        const recordedMimeType = normalizeRecordingMimeType(
+          recorder.mimeType || chunks[0]?.type,
+          mode,
+        );
         cleanupRecordingState();
 
         if (isCancelledRef.current) {
-          console.log("Recording cancelled, discarding chunks.");
+          console.log('Recording cancelled, discarding chunks.');
           return;
         }
 
-        const blob = new Blob(chunks, { type: recordMode === 'video' ? 'video/webm' : 'audio/webm' });
-        if (blob.size < 1000) {
-          console.log("Blob too small, discarding.");
+        const blob = new Blob(chunks, { type: recordedMimeType });
+        if (blob.size === 0) {
+          alert('Запись получилась пустой. Проверьте доступ к микрофону или камере и попробуйте ещё раз.');
           return;
         }
 
-        await uploadAndSendRecord(blob);
+        await uploadAndSendRecord(blob, mode);
       };
 
       mediaRecorderRef.current = recorder;
-      recorder.start(100);
+      recorder.start(250);
 
+      isRecordingRef.current = true;
       setIsRecording(true);
+      isRecordingStartingRef.current = false;
+      setIsRecordingStarting(false);
       setRecordDuration(0);
 
       recordingTimerRef.current = setInterval(() => {
@@ -455,9 +460,19 @@ function formatDateDivider(timestamp) {
       }, 1000);
 
     } catch (err) {
-      console.error("Failed to start recording:", err);
-      alert("Не удалось получить доступ к микрофону/камере: " + err.message);
+      console.error('Failed to start recording:', err);
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+      }
+      mediaRecorderRef.current = null;
+      alert('Не удалось получить доступ к микрофону/камере: ' + err.message);
       cleanupRecordingState();
+    } finally {
+      if (!isRecordingRef.current) {
+        isRecordingStartingRef.current = false;
+        setIsRecordingStarting(false);
+      }
     }
   };
 
@@ -473,6 +488,7 @@ function formatDateDivider(timestamp) {
 
     try {
       if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        isRecordingRef.current = false;
         mediaRecorderRef.current.stop();
       } else {
         if (streamRef.current) {
@@ -545,11 +561,16 @@ function formatDateDivider(timestamp) {
   };
 
   const cleanupRecordingState = () => {
+    isRecordingRef.current = false;
+    isRecordingStartingRef.current = false;
     setIsRecording(false);
+    setIsRecordingStarting(false);
     setIsRecordingLocked(false);
     setIsRecordingPaused(false);
     isLockedRef.current = false;
     isPausedRef.current = false;
+    pointerReleasedRef.current = true;
+    activeRecordPointerIdRef.current = null;
     setIsLockActive(false);
     isLockActiveRef.current = false;
     setRecordDuration(0);
@@ -562,7 +583,7 @@ function formatDateDivider(timestamp) {
     }
   };
 
-  const uploadAndSendRecord = async (blob) => {
+  const uploadAndSendRecord = async (blob, mode) => {
     setUploading(true);
     try {
       const MAX_SIZE = 15 * 1024 * 1024;
@@ -571,7 +592,7 @@ function formatDateDivider(timestamp) {
         return;
       }
 
-      const isVoice = recordMode === 'voice';
+      const isVoice = mode === 'voice';
       const mediaType = isVoice ? 'audio' : 'video';
       const msgText = isVoice ? 'Голосовое сообщение' : 'Видеосообщение';
 
@@ -582,7 +603,7 @@ function formatDateDivider(timestamp) {
           return;
         }
 
-        const fileExt = 'webm';
+        const fileExt = extensionForMedia(blob.type, mediaType);
         const fileName = `record_${crypto.randomUUID()}.${fileExt}`;
         const filePath = `${activeChat.id}/${currentUser.id}/${fileName}`;
 
@@ -594,7 +615,7 @@ function formatDateDivider(timestamp) {
         const { error } = await supabase.storage
           .from('chat-attachments')
           .upload(filePath, blobToUpload, {
-            contentType: blobToUpload.type || (isVoice ? 'audio/webm' : 'video/webm')
+            contentType: blobToUpload.type || blob.type
           });
 
         if (error) throw error;
@@ -616,7 +637,7 @@ function formatDateDivider(timestamp) {
       console.error("Upload recording error:", err);
       const isNetworkError = !navigator.onLine || err.message?.includes('FetchError') || err.message?.includes('failed to fetch');
       if (isNetworkError) {
-        const isVoice = recordMode === 'voice';
+        const isVoice = mode === 'voice';
         const mediaType = isVoice ? 'audio' : 'video';
         const msgText = isVoice ? 'Голосовое сообщение' : 'Видеосообщение';
         sendMessage(msgText, replyingTo?.id, null, blob, mediaType);
@@ -629,12 +650,30 @@ function formatDateDivider(timestamp) {
     }
   };
 
-  const handlePointerDown = (e) => {
-    if (e.button && e.button !== 0) return;
-    const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-    const clientY = e.clientY || (e.touches && e.touches[0].clientY);
-    recordStartX.current = clientX;
-    recordStartY.current = clientY;
+  const releaseRecordPointerCapture = (event) => {
+    try {
+      if (event.currentTarget?.hasPointerCapture?.(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch (error) {
+      console.error('Failed to release recording pointer capture:', error);
+    }
+  };
+
+  const handlePointerDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    if (
+      activeRecordPointerIdRef.current !== null ||
+      isRecordingRef.current ||
+      isRecordingStartingRef.current ||
+      uploading
+    ) return;
+
+    event.preventDefault();
+    activeRecordPointerIdRef.current = event.pointerId;
+    pointerReleasedRef.current = false;
+    recordStartX.current = event.clientX;
+    recordStartY.current = event.clientY;
     isCancelledRef.current = false;
     isLockedRef.current = false;
     isPausedRef.current = false;
@@ -643,18 +682,67 @@ function formatDateDivider(timestamp) {
     setIsLockActive(false);
     isLockActiveRef.current = false;
 
+    try {
+      event.currentTarget?.setPointerCapture?.(event.pointerId);
+    } catch (error) {
+      console.error('Failed to capture recording pointer:', error);
+    }
+
     holdTimeoutRef.current = setTimeout(() => {
       holdTimeoutRef.current = null;
-      startRecording();
+      void startRecording(recordMode);
     }, 250);
   };
 
-  const handlePointerUp = () => {
+  const handlePointerMove = (event) => {
+    if (event.pointerId !== activeRecordPointerIdRef.current) return;
+    if (isLockedRef.current || isCancelledRef.current) return;
+
+    event.preventDefault();
+    const diffX = recordStartX.current - event.clientX;
+    const diffY = recordStartY.current - event.clientY;
+
+    if (diffX > 100 && diffY < 40) {
+      isCancelledRef.current = true;
+      pointerReleasedRef.current = true;
+      setIsLockActive(false);
+      isLockActiveRef.current = false;
+      if (holdTimeoutRef.current) {
+        clearTimeout(holdTimeoutRef.current);
+        holdTimeoutRef.current = null;
+      }
+      if (isRecordingRef.current) stopRecordingAndSend(true);
+      return;
+    }
+
+    if (diffY > 80) {
+      if (!isLockActiveRef.current) {
+        isLockActiveRef.current = true;
+        setIsLockActive(true);
+      }
+    } else if (diffY < 30 && isLockActiveRef.current) {
+      isLockActiveRef.current = false;
+      setIsLockActive(false);
+    }
+  };
+
+  const handlePointerUp = (event) => {
+    if (event.pointerId !== activeRecordPointerIdRef.current) return;
+    event.preventDefault();
+    releaseRecordPointerCapture(event);
+    activeRecordPointerIdRef.current = null;
+    pointerReleasedRef.current = true;
+
+    if (isCancelledRef.current) return;
+
     if (holdTimeoutRef.current) {
       clearTimeout(holdTimeoutRef.current);
       holdTimeoutRef.current = null;
       setRecordMode(prev => prev === 'voice' ? 'video' : 'voice');
-    } else if (isRecording) {
+    } else if (isRecordingStartingRef.current && !isRecordingRef.current) {
+      // startRecording will stop the late stream as soon as permission resolves.
+      return;
+    } else if (isRecordingRef.current) {
       if (isLockActiveRef.current) {
         isLockedRef.current = true;
         setIsRecordingLocked(true);
@@ -664,6 +752,24 @@ function formatDateDivider(timestamp) {
       stopRecordingAndSend(false);
     }
   };
+
+  const handlePointerCancel = (event) => {
+    if (event.pointerId !== activeRecordPointerIdRef.current) return;
+    event.preventDefault();
+    releaseRecordPointerCapture(event);
+    activeRecordPointerIdRef.current = null;
+    pointerReleasedRef.current = true;
+    isCancelledRef.current = true;
+    if (holdTimeoutRef.current) {
+      clearTimeout(holdTimeoutRef.current);
+      holdTimeoutRef.current = null;
+    }
+    if (isRecordingRef.current) stopRecordingAndSend(true);
+  };
+
+  recordPointerMoveHandlerRef.current = handlePointerMove;
+  recordPointerUpHandlerRef.current = handlePointerUp;
+  recordPointerCancelHandlerRef.current = handlePointerCancel;
 
   const latestMessage = activeChat?.messages?.[activeChat.messages.length - 1];
   const latestMessageId = latestMessage?.id;
@@ -1174,19 +1280,21 @@ function formatDateDivider(timestamp) {
                 </div>
               )}
               <button
-                className={`send-message-btn ${isRecording ? 'recording' : ''}`}
-                onMouseDown={handlePointerDown}
-                onMouseUp={handlePointerUp}
-                onTouchStart={handlePointerDown}
-                onTouchEnd={handlePointerUp}
-                title={recordMode === 'voice' ? 'Голосовое сообщение' : 'Видеосообщение'}
-                style={{
-                  backgroundColor: isRecording ? '#f64f59' : undefined,
-                  color: isRecording ? 'white' : undefined,
-                  transform: isRecording ? 'scale(1.2)' : undefined,
-                  transition: 'all 0.2s ease-in-out',
-                  touchAction: 'none'
-                }}
+                type="button"
+                className={`send-message-btn record-message-btn ${isRecording ? 'recording' : ''} ${isRecordingStarting ? 'recording-starting' : ''}`}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerCancel}
+                onContextMenu={(event) => event.preventDefault()}
+                title={isRecordingStarting
+                  ? 'Подготовка записи…'
+                  : recordMode === 'voice' ? 'Голосовое сообщение' : 'Видеосообщение'}
+                aria-label={isRecordingStarting
+                  ? 'Подготовка записи'
+                  : recordMode === 'voice' ? 'Голосовое сообщение' : 'Видеосообщение'}
+                aria-pressed={isRecording || isRecordingStarting}
+                disabled={uploading || isRecordingLocked}
               >
                 {recordMode === 'voice' ? <Mic size={20} /> : (
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
