@@ -223,6 +223,8 @@ export default function MessageBubble({
     }
     // Drawer is mounted (possibly off-screen); measure then place
     repositionDrawer();
+    const raf = requestAnimationFrame(() => repositionDrawer());
+    return () => cancelAnimationFrame(raf);
   }, [isReactionOpen, repositionDrawer]);
 
   useEffect(() => {

@@ -41,6 +41,9 @@ test('read receipt survives reload for both users', async ({ browser }) => {
       reader.locator('.message-row, .message-bubble, p').filter({ hasText: marker }).first(),
     ).toBeVisible({ timeout: 30_000 });
 
+    await reader.bringToFront().catch(() => {});
+    await reader.locator('.chat-body').click({ timeout: 5_000 }).catch(() => {});
+
     const senderMessage = sender.locator('.message-row').filter({ hasText: marker }).last();
     await expect(senderMessage.locator('.seen-check.blue')).toBeVisible({ timeout: 30_000 });
 
