@@ -47,7 +47,7 @@ export function showIncomingNotification({
 
   try {
     // Only display notification when the tab is hidden or not actively focused
-    const isTabActive = typeof document !== 'undefined' && !document.hidden && document.hasFocus();
+    const isTabActive = typeof document !== 'undefined' && !document.hidden && (typeof document.hasFocus === 'function' ? document.hasFocus() : true);
     if (isTabActive) return null;
 
     const notification = new Notification(title || 'CoinGram', {

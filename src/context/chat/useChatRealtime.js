@@ -153,6 +153,23 @@ export function useChatRealtime({
                 ));
               }
 
+              if (!isMe && currentUser?.notificationsEnabled !== false && chat.notifications !== false) {
+                try {
+                  showIncomingNotification({
+                    title: chat.type === 'personal' ? senderName : `${senderName} (${chat.name})`,
+                    body: formattedMsg.text || (formattedMsg.media ? 'Вложение' : 'Новое сообщение'),
+                    tag: chat.id,
+                    onClick: () => {
+                      if (typeof setActiveChatId === 'function') {
+                        setActiveChatId(chat.id);
+                      }
+                    }
+                  });
+                } catch {
+                  /* ignore notification dispatch errors */
+                }
+              }
+
               return prevChats.map((c) => {
                 if (c.id === newMsg.chat_id) {
                   return {
@@ -163,26 +180,6 @@ export function useChatRealtime({
                 return c;
               });
             });
-
-            if (!isMe && currentUser?.notificationsEnabled !== false) {
-              setChats((currentChats) => {
-                const targetChat = currentChats.find((c) => c.id === newMsg.chat_id);
-                if (targetChat && targetChat.notifications !== false) {
-                  const senderName = targetChat.members?.find((m) => m.id === newMsg.sender_id)?.name || 'Пользователь';
-                  showIncomingNotification({
-                    title: targetChat.type === 'personal' ? senderName : `${senderName} (${targetChat.name})`,
-                    body: formattedMsg.text || (formattedMsg.media ? 'Вложение' : 'Новое сообщение'),
-                    tag: targetChat.id,
-                    onClick: () => {
-                      if (typeof setActiveChatId === 'function') {
-                        setActiveChatId(targetChat.id);
-                      }
-                    }
-                  });
-                }
-                return currentChats;
-              });
-            }
           })
           .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, (payload) => {
             const deletedMsgId = payload.old.id;

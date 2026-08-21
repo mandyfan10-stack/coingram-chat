@@ -333,15 +333,12 @@ function formatDateDivider(timestamp) {
 
   useEffect(() => {
     const savedTop = chatScrollPositionsRef.current.get(activeChat?.id);
-    const unreadCount = activeChat?.unread_count || 0;
-
-    if (unreadCount === 0) {
-      if (typeof savedTop === 'number') {
-        if (chatBodyRef.current) chatBodyRef.current.scrollTop = savedTop;
-      } else {
-        scrollToBottom('auto');
-      }
+    if (typeof savedTop === 'number') {
+      if (chatBodyRef.current) chatBodyRef.current.scrollTop = savedTop;
+    } else {
+      scrollToBottom('auto');
     }
+    shouldAutoScrollRef.current = true;
     setReplyingTo(null);
     setOpenedImageUrl(null);
     setInputVal('');
@@ -356,7 +353,7 @@ function formatDateDivider(timestamp) {
     if (isRecordingRef.current) {
       stopRecordingAndSendRef.current?.(true);
     }
-  }, [activeChat?.id, activeChat?.unread_count]);
+  }, [activeChat?.id]);
 
   useEffect(() => {
     const handleGlobalPointerMove = (event) => recordPointerMoveHandlerRef.current?.(event);
