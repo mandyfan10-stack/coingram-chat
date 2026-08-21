@@ -427,9 +427,9 @@ export default function useMessageTouch({
       }
     }
 
-    // Horizontal swipe-to-reply handling on touch devices
-    if (onSwipeReplyRef.current && isTouchActiveRef.current && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.1) {
-      const clampedOffset = Math.sign(dx) * Math.min(65, Math.pow(Math.abs(dx), 0.85) * 2.2);
+    // Horizontal swipe-to-reply handling on touch devices (Telegram style: swipe left)
+    if (onSwipeReplyRef.current && isTouchActiveRef.current && dx < -20 && Math.abs(dx) > Math.abs(dy) * 1.8) {
+      const clampedOffset = -Math.min(65, Math.pow(Math.abs(dx), 0.85) * 2.2);
       setSwipeOffset(clampedOffset);
 
       if (Math.abs(clampedOffset) >= 42 && !swipedHapticFiredRef.current) {

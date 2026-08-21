@@ -49,7 +49,7 @@ export function useEdgeSwipeBack({
       const deltaY = Math.abs(touch.clientY - startYRef.current);
 
       // Horizontal gesture must dominate vertical scroll and exceed min distance
-      if (deltaX >= minDistancePx && deltaX > deltaY * 1.3) {
+      if (deltaX >= minDistancePx && deltaX > deltaY * 1.6) {
         try {
           if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
             navigator.vibrate(10);
@@ -57,7 +57,9 @@ export function useEdgeSwipeBack({
         } catch {
           /* ignore */
         }
-        onSwipeBackRef.current?.();
+        if (typeof onSwipeBackRef.current === 'function') {
+          onSwipeBackRef.current();
+        }
       }
     };
 

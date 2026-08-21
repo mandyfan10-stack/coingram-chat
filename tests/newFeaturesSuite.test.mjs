@@ -64,7 +64,7 @@ test('notificationService safely handles non-browser / node environments without
   assert.equal(getNotificationPermission(), 'denied');
   const perm = await requestNotificationPermission();
   assert.equal(perm, 'denied');
-  const notif = showIncomingNotification({ title: 'Test', body: 'Body' });
+  const notif = await showIncomingNotification({ title: 'Test', body: 'Body' });
   assert.equal(notif, null);
 });
 
@@ -81,4 +81,23 @@ test('Video message metadata is placed at top right to prevent collision with bo
   assert.match(messageBubbleCode, /video-floating-badge/);
   assert.match(chatAreaCss, /\.bubble-metadata\.floating-badge\.video-floating-badge\s*\{[^}]*top:\s*8px/);
 });
+
+test('useChatUiState implements window.handleAndroidBackButton and popstate navigation', async () => {
+  const uiStateCode = await readFile(
+    new URL('../src/context/chat/useChatUiState.js', import.meta.url),
+    'utf8'
+  );
+  assert.match(uiStateCode, /handleAndroidBackButton/);
+  assert.match(uiStateCode, /popstate/);
+});
+
+test('MainActivity.java delegates onBackPressed to window.handleAndroidBackButton', async () => {
+  const mainActivityCode = await readFile(
+    new URL('../android/app/src/main/java/com/coingram/chat/MainActivity.java', import.meta.url),
+    'utf8'
+  );
+  assert.match(mainActivityCode, /onBackPressed/);
+  assert.match(mainActivityCode, /handleAndroidBackButton/);
+});
+
 

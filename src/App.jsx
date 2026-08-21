@@ -15,6 +15,7 @@ import MainMenuDrawer from './components/MainMenuDrawer';
 import E2EESetupModal from './components/E2EESetupModal';
 import { isMisconfigured } from './supabaseClient';
 import { normalizeExternalHttpsUrl } from './utils/urlSecurity';
+import { initNotificationService } from './services/notificationService';
 import { X } from 'lucide-react';
 // Shared by SettingsModal, NewChatModal, CreateStoryModal — must load with shell
 // so closed overlays never participate in app flex layout.
@@ -267,6 +268,7 @@ function MainLayout() {
     };
 
     checkUpdates();
+    initNotificationService();
   }, []);
 
   if (authLoading) {

@@ -54,6 +54,90 @@ export function useChatUiState(currentUser) {
     localStorage.setItem('coingram-wallpaper', wallpaper);
   }, [wallpaper]);
 
+  // Global Android / Browser back gesture handler
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    window.handleAndroidBackButton = () => {
+      // 1. Close open image preview / lightbox
+      const activeImageViewerClose = document.querySelector('.image-viewer-close, .lightbox-close');
+      if (activeImageViewerClose instanceof HTMLElement) {
+        activeImageViewerClose.click();
+        return true;
+      }
+
+      // 2. Close settings modal
+      if (isSettingsOpen) {
+        setIsSettingsOpen(false);
+        return true;
+      }
+
+      // 3. Close side drawer / new chat / story modals
+      if (isDrawerOpen) {
+        setIsDrawerOpen(false);
+        return true;
+      }
+      if (isNewChatOpen) {
+        setIsNewChatOpen(false);
+        return true;
+      }
+      if (isCreateStoryOpen) {
+        setIsCreateStoryOpen(false);
+        return true;
+      }
+
+      // 4. Close chat info pane
+      if (isInfoOpen) {
+        setIsInfoOpen(false);
+        return true;
+      }
+
+      // 5. Close mobile action sheet / reaction drawer if open
+      const actionSheetBackdrop = document.querySelector('.msg-actions-backdrop, .reaction-drawer-backdrop');
+      if (actionSheetBackdrop instanceof HTMLElement) {
+        actionSheetBackdrop.click();
+        return true;
+      }
+
+      // 6. Return from active chat to chat list
+      if (activeChatId) {
+        setActiveChatId(null);
+        return true;
+      }
+
+      // 7. Already at root chat list -> let Android handle normal exit / minimize
+      return false;
+    };
+
+    const handlePopState = () => {
+      if (typeof window.handleAndroidBackButton === 'function') {
+        window.handleAndroidBackButton();
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    return () => {
+      delete window.handleAndroidBackButton;
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [
+    isSettingsOpen,
+    isDrawerOpen,
+    isNewChatOpen,
+    isCreateStoryOpen,
+    isInfoOpen,
+    activeChatId
+  ]);
+
+  // Sync activeChatId with browser history on mobile so back button returns to chat list
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (activeChatId) {
+      window.history.pushState({ screen: 'chat', activeChatId }, '');
+    }
+  }, [activeChatId]);
+
   return {
     activeChatId,
     setActiveChatId,

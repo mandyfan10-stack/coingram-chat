@@ -36,4 +36,21 @@ public class MainActivity extends BridgeActivity {
             window.setNavigationBarColor(Color.TRANSPARENT);
         }
     }
+
+    @Override
+    public void onBackPressed() {
+        WebView webView = getBridge() != null ? getBridge().getWebView() : null;
+        if (webView != null) {
+            webView.evaluateJavascript(
+                "(function() { if (typeof window.handleAndroidBackButton === 'function') { return window.handleAndroidBackButton(); } return false; })()",
+                value -> {
+                    if ("false".equals(value) || "null".equals(value)) {
+                        MainActivity.super.onBackPressed();
+                    }
+                }
+            );
+            return;
+        }
+        super.onBackPressed();
+    }
 }
