@@ -50,6 +50,10 @@ test('MessageBubble integrates swipeOffset transform and reply indicator', () =>
 
 test('ChatArea preserves scroll positions per chat and handles unread divider', () => {
   assert.match(chatAreaCode, /chatScrollPositionsRef/);
+  assert.match(chatAreaCode, /coingram_chat_scroll_/);
+  assert.match(chatAreaCode, /getSavedChatScroll/);
+  assert.match(chatAreaCode, /saveChatScroll/);
+  assert.match(chatAreaCode, /saveCurrentScrollPosition/);
   assert.match(chatAreaCode, /unread-messages-divider/);
   assert.match(chatAreaCode, /Непрочитанные сообщения/);
   assert.match(chatAreaCode, /useEdgeSwipeBack/);

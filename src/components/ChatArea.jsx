@@ -301,9 +301,68 @@ function formatDateDivider(timestamp) {
     }
   };
 
+  const SCROLL_STORAGE_KEY_PREFIX = 'coingram_chat_scroll_';
+
+  const getSavedChatScroll = (chatId) => {
+    if (!chatId || typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem(`${SCROLL_STORAGE_KEY_PREFIX}${chatId}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const saveChatScroll = (chatId, data) => {
+    if (!chatId || typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(`${SCROLL_STORAGE_KEY_PREFIX}${chatId}`, JSON.stringify(data));
+    } catch {}
+  };
+
   const isInitialChatLoadRef = useRef(true);
   const currentChatIdRef = useRef(activeChat?.id);
   const chatScrollPositionsRef = useRef(new Map());
+
+  const saveCurrentScrollPosition = useCallback(() => {
+    const element = chatBodyRef.current;
+    if (!element || !activeChat?.id) return;
+    const { scrollTop, scrollHeight, clientHeight } = element;
+    const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+
+    const messageRows = element.querySelectorAll('.message-row[data-message-id]');
+    let topMessageId = null;
+    const containerTop = element.getBoundingClientRect().top;
+    for (const row of messageRows) {
+      const rect = row.getBoundingClientRect();
+      if (rect.bottom > containerTop + 15) {
+        topMessageId = row.getAttribute('data-message-id');
+        break;
+      }
+    }
+
+    const scrollData = {
+      scrollTop,
+      scrollHeight,
+      distanceFromBottom,
+      topMessageId,
+      timestamp: Date.now()
+    };
+
+    chatScrollPositionsRef.current.set(activeChat.id, scrollData);
+    saveChatScroll(activeChat.id, scrollData);
+  }, [activeChat?.id]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveCurrentScrollPosition();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      saveCurrentScrollPosition();
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [saveCurrentScrollPosition]);
 
   useLayoutEffect(() => {
     if (currentChatIdRef.current !== activeChat?.id) {
@@ -321,24 +380,53 @@ function formatDateDivider(timestamp) {
         }
       }
 
-      const savedTop = chatScrollPositionsRef.current.get(activeChat?.id);
-      if (typeof savedTop === 'number') {
-        chatBodyRef.current.scrollTop = savedTop;
-      } else {
-        chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+      const saved = chatScrollPositionsRef.current.get(activeChat?.id) || getSavedChatScroll(activeChat?.id);
+      if (saved) {
+        if (saved.topMessageId) {
+          const targetMsg = chatBodyRef.current.querySelector(`.message-row[data-message-id="${saved.topMessageId}"]`);
+          if (targetMsg) {
+            targetMsg.scrollIntoView({ block: 'start', behavior: 'auto' });
+            isInitialChatLoadRef.current = false;
+            return;
+          }
+        }
+        if (typeof saved.scrollTop === 'number') {
+          if (saved.distanceFromBottom < 40) {
+            chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+          } else {
+            chatBodyRef.current.scrollTop = saved.scrollTop;
+          }
+          isInitialChatLoadRef.current = false;
+          return;
+        }
       }
+
+      chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
       isInitialChatLoadRef.current = false;
     }
   }, [activeChat?.id, activeChat?.messages, activeChat?.unread_count]);
 
   useEffect(() => {
-    const savedTop = chatScrollPositionsRef.current.get(activeChat?.id);
-    if (typeof savedTop === 'number') {
-      if (chatBodyRef.current) chatBodyRef.current.scrollTop = savedTop;
+    const saved = chatScrollPositionsRef.current.get(activeChat?.id) || getSavedChatScroll(activeChat?.id);
+    if (saved) {
+      if (saved.topMessageId) {
+        const targetMsg = chatBodyRef.current?.querySelector(`.message-row[data-message-id="${saved.topMessageId}"]`);
+        if (targetMsg) {
+          targetMsg.scrollIntoView({ block: 'start', behavior: 'auto' });
+        } else if (typeof saved.scrollTop === 'number') {
+          if (chatBodyRef.current) chatBodyRef.current.scrollTop = saved.scrollTop;
+        }
+      } else if (typeof saved.scrollTop === 'number') {
+        if (saved.distanceFromBottom < 40) {
+          scrollToBottom('auto');
+        } else if (chatBodyRef.current) {
+          chatBodyRef.current.scrollTop = saved.scrollTop;
+        }
+      }
     } else {
       scrollToBottom('auto');
     }
-    shouldAutoScrollRef.current = true;
+    shouldAutoScrollRef.current = saved ? (saved.distanceFromBottom < 120) : true;
     setReplyingTo(null);
     setOpenedImageUrl(null);
     setInputVal('');
@@ -837,9 +925,7 @@ function formatDateDivider(timestamp) {
     }
     setShowScrollBottom(distanceFromBottom > 300);
 
-    if (activeChat?.id) {
-      chatScrollPositionsRef.current.set(activeChat.id, scrollTop);
-    }
+    saveCurrentScrollPosition();
 
     const page = messagePagination?.[activeChat?.id];
     if (scrollTop > 80 || page?.hasMore === false || isLoadingOlderRef.current) return;
