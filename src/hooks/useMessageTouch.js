@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
 /**
  * Default long-press duration in milliseconds (~380ms matches Telegram mobile timing).
@@ -302,6 +302,7 @@ export function isTouchOrMobileDevice() {
  */
 export default function useMessageTouch({
   onTrigger,
+  onSwipeReply = null,
   disabled = false,
   holdDurationMs = DEFAULT_HOLD_DURATION_MS,
   moveThresholdPx = DEFAULT_MOVE_THRESHOLD_PX,
@@ -312,6 +313,9 @@ export default function useMessageTouch({
   hapticHoldMs = DEFAULT_HAPTIC_HOLD_MS,
   hapticTapMs = DEFAULT_HAPTIC_TAP_MS
 }) {
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const swipedHapticFiredRef = useRef(false);
+
   /** @type {React.MutableRefObject<any>} */
   const timerRef = useRef(null);
   /** @type {React.MutableRefObject<{ x: number, y: number } | null>} */
@@ -324,6 +328,8 @@ export default function useMessageTouch({
 
   const onTriggerRef = useRef(onTrigger);
   onTriggerRef.current = onTrigger;
+  const onSwipeReplyRef = useRef(onSwipeReply);
+  onSwipeReplyRef.current = onSwipeReply;
 
   /**
    * 6-Point lifecycle cleanup function:
@@ -339,6 +345,8 @@ export default function useMessageTouch({
     isMovedRef.current = false;
     isTriggeredRef.current = false;
     isTouchActiveRef.current = false;
+    setSwipeOffset(0);
+    swipedHapticFiredRef.current = false;
   }, []);
 
   const checkInteractive = useCallback((target) => {
@@ -376,6 +384,7 @@ export default function useMessageTouch({
     startTimeRef.current = now;
     isMovedRef.current = false;
     isTriggeredRef.current = false;
+    swipedHapticFiredRef.current = false;
 
     const isTouch = event.pointerType === 'touch' || event.pointerType === 'pen' || Boolean(native.touches);
     isTouchActiveRef.current = isTouch;
@@ -401,7 +410,7 @@ export default function useMessageTouch({
    * Cancels timer if movement exceeds moveThresholdPx (>10px).
    */
   const handlePointerMove = useCallback((event) => {
-    if (!startCoordRef.current || isMovedRef.current) return;
+    if (!startCoordRef.current) return;
 
     const coords = extractCoordinates(event);
     if (!coords) return;
@@ -417,7 +426,22 @@ export default function useMessageTouch({
         timerRef.current = null;
       }
     }
-  }, [moveThresholdPx]);
+
+    // Horizontal swipe-to-reply handling on touch devices
+    if (onSwipeReplyRef.current && isTouchActiveRef.current && Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy) * 1.1) {
+      const clampedOffset = Math.sign(dx) * Math.min(65, Math.pow(Math.abs(dx), 0.85) * 2.2);
+      setSwipeOffset(clampedOffset);
+
+      if (Math.abs(clampedOffset) >= 42 && !swipedHapticFiredRef.current) {
+        swipedHapticFiredRef.current = true;
+        if (enableHaptics) {
+          triggerHaptic(12);
+        }
+      } else if (Math.abs(clampedOffset) < 42) {
+        swipedHapticFiredRef.current = false;
+      }
+    }
+  }, [moveThresholdPx, enableHaptics]);
 
   /**
    * Handles touchend / pointerup.
@@ -428,10 +452,15 @@ export default function useMessageTouch({
     const startTime = startTimeRef.current;
     const isMoved = isMovedRef.current;
     const wasTriggered = isTriggeredRef.current;
+    const wasSwiped = swipedHapticFiredRef.current;
+
+    if (wasSwiped && onSwipeReplyRef.current) {
+      onSwipeReplyRef.current(event);
+    }
 
     clearGesture();
 
-    if (!startCoord || isMoved || wasTriggered) return;
+    if (!startCoord || isMoved || wasTriggered || wasSwiped) return;
 
     const duration = Date.now() - startTime;
 
@@ -528,6 +557,8 @@ export default function useMessageTouch({
     onTouchCancel: clearGesture,
     onContextMenu: handleContextMenu,
     onClick: handleClick,
+    swipeOffset,
+    isSwiping: Boolean(swipeOffset !== 0),
     clearGesture,
     // Drop-in aliases for existing MessageBubble conventions
     clearLongPress: clearGesture,

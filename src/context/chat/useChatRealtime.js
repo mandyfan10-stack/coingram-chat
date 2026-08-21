@@ -7,6 +7,7 @@ import {
   decryptMessage
 } from '../../utils/e2eeHelper';
 import { playSound } from '../../utils/sounds';
+import { showIncomingNotification } from '../../services/notificationService';
 
 /**
  * Supabase realtime: messages, members, presence, typing, stories; mock bootstrap.
@@ -22,6 +23,7 @@ export function useChatRealtime({
   e2eePrivateKeyRef,
   sharedKeysCacheRef,
   activeChatIdRef,
+  setActiveChatId,
   setOnlineUsers,
   setTypingStatuses,
   typingChannelRef,
@@ -161,6 +163,26 @@ export function useChatRealtime({
                 return c;
               });
             });
+
+            if (!isMe && currentUser?.notificationsEnabled !== false) {
+              setChats((currentChats) => {
+                const targetChat = currentChats.find((c) => c.id === newMsg.chat_id);
+                if (targetChat && targetChat.notifications !== false) {
+                  const senderName = targetChat.members?.find((m) => m.id === newMsg.sender_id)?.name || 'Пользователь';
+                  showIncomingNotification({
+                    title: targetChat.type === 'personal' ? senderName : `${senderName} (${targetChat.name})`,
+                    body: formattedMsg.text || (formattedMsg.media ? 'Вложение' : 'Новое сообщение'),
+                    tag: targetChat.id,
+                    onClick: () => {
+                      if (typeof setActiveChatId === 'function') {
+                        setActiveChatId(targetChat.id);
+                      }
+                    }
+                  });
+                }
+                return currentChats;
+              });
+            }
           })
           .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, (payload) => {
             const deletedMsgId = payload.old.id;
@@ -335,6 +357,7 @@ export function useChatRealtime({
     e2eePrivateKeyRef,
     sharedKeysCacheRef,
     activeChatIdRef,
+    setActiveChatId,
     typingChannelRef,
     typingTimeoutsRef
   ]);

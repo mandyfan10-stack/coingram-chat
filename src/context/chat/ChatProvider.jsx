@@ -89,6 +89,7 @@ export const ChatProvider = ({ children }) => {
     e2eePrivateKeyRef,
     sharedKeysCacheRef,
     activeChatIdRef,
+    setActiveChatId,
     setOnlineUsers: presence.setOnlineUsers,
     setTypingStatuses: typing.setTypingStatuses,
     typingChannelRef: typing.typingChannelRef,

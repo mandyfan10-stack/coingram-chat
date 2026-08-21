@@ -15,6 +15,7 @@ import {
   Maximize2,
   RefreshCw,
   SlidersHorizontal,
+  Sparkles,
   X
 } from 'lucide-react';
 import {
@@ -804,9 +805,10 @@ export default function CallOverlay() {
                 className={`call-ctrl-btn ctrl-secondary ${voiceEnhancementEnabled ? 'active-enhancement active-video' : ''}`}
                 onClick={toggleVoiceEnhancement}
                 disabled={callState.status !== 'connected'}
-                title={voiceEnhancementEnabled ? 'Отключить улучшение голоса' : 'Включить улучшение голоса'}
+                title={voiceEnhancementEnabled ? 'Шумоподавление: Включено' : 'Шумоподавление: Выключено'}
+                aria-label={voiceEnhancementEnabled ? 'Шумоподавление: Включено' : 'Шумоподавление: Выключено'}
               >
-                <SlidersHorizontal size={20} />
+                <Sparkles size={20} />
               </button>
 
               {showVideoControls && isScreenShareSupported && (

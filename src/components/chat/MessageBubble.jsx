@@ -162,9 +162,14 @@ export default function MessageBubble({
   const [drawerStyle, setDrawerStyle] = useState(null);
   const isReactionOpen = showMsgActionsId === msg.id;
 
-  // useMessageTouch provides isInteractiveTarget filtering voice-play-btn, audio-progress-container, failed-message-menu, reaction-badge
+  // useMessageTouch provides isInteractiveTarget filtering voice-play-btn, audio-progress-container, failed-message-menu, reaction-badge and swipe-to-reply
   const touchHandlers = useMessageTouch({
     onTrigger: () => setShowMsgActionsId(msg.id),
+    onSwipeReply: () => {
+      if (setReplyingTo) {
+        setReplyingTo(msg);
+      }
+    },
     holdDurationMs: 380,
     moveThresholdPx: 10
   });
@@ -174,6 +179,8 @@ export default function MessageBubble({
   const handleBubblePointerUp = touchHandlers.handleBubblePointerUp;
   const clearLongPress = touchHandlers.clearLongPress;
   const handleContextMenu = touchHandlers.onContextMenu;
+  const swipeOffset = touchHandlers.swipeOffset;
+  const isSwiping = touchHandlers.isSwiping;
 
   const repositionDrawer = useCallback(() => {
     if (!isReactionOpen || !smileBtnRef.current) return;
@@ -301,12 +308,41 @@ export default function MessageBubble({
       {/* Bubble */}
       <div
         className={`message-bubble ${isMe ? 'bubble-me' : 'bubble-other'} ${isVideoNote ? 'bubble-video' : ''} ${isSticker ? 'bubble-sticker' : ''} ${isPureImage || isPureVideo ? 'bubble-media-only' : ''} ${showSenderName ? 'has-sender-name' : ''} ${isImageWithCaption || isVideoWithCaption ? 'bubble-media-with-caption' : ''}`}
+        style={{
+          transform: swipeOffset ? `translateX(${swipeOffset}px)` : undefined,
+          transition: isSwiping ? 'none' : 'transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+        }}
         onPointerDown={handleBubblePointerDown}
         onPointerMove={handleBubblePointerMove}
         onPointerUp={handleBubblePointerUp}
         onPointerCancel={clearLongPress}
         onContextMenu={handleContextMenu}
       >
+        {swipeOffset !== 0 && (
+          <div
+            className="message-swipe-reply-indicator"
+            style={{
+              position: 'absolute',
+              top: '50%',
+              [swipeOffset > 0 ? 'left' : 'right']: '-36px',
+              transform: `translateY(-50%) scale(${Math.min(1, Math.abs(swipeOffset) / 35)})`,
+              opacity: Math.min(1, Math.abs(swipeOffset) / 35),
+              pointerEvents: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '28px',
+              height: '28px',
+              borderRadius: '50%',
+              backgroundColor: 'var(--accent-color, #2481cc)',
+              color: '#ffffff',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+              zIndex: 5
+            }}
+          >
+            <CornerUpLeft size={16} />
+          </div>
+        )}
         {showSenderName && (
           <span
             className="sender-name interactive"

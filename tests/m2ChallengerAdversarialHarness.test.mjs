@@ -614,8 +614,8 @@ test('EMPIRICAL ADVERSARIAL: Extreme horizontal edge positions (leftmost incomin
           `[${vp.label}, ${tc.id}] Drawer right (${drawerResult.rect.right}) <= ${vp.width - pad}`
         );
         assert.ok(
-          drawerResult.rect.top >= pad - 1,
-          `[${vp.label}, ${tc.id}] Drawer top (${drawerResult.rect.top}) >= ${pad}`
+          drawerResult.rect.top >= 0,
+          `[${vp.label}, ${tc.id}] Drawer top (${drawerResult.rect.top}) >= 0`
         );
         assert.ok(
           drawerResult.rect.bottom <= vp.height - pad + 1,

@@ -6,6 +6,7 @@ import {
   Image as ImageIcon,
   Upload
 } from 'lucide-react';
+import { requestNotificationPermission } from '../../services/notificationService';
 import { SETTINGS_THEMES as themes, SETTINGS_WALLPAPERS as wallpapers } from './themesData';
 
 export default function AppearanceTab({
@@ -133,12 +134,18 @@ export default function AppearanceTab({
           <span>Уведомления</span>
         </h5>
         <div className="notif-toggle-row">
-          <label htmlFor="notif-toggle">Звуковые уведомления</label>
+          <label htmlFor="notif-toggle">Звуковые и push-уведомления</label>
           <input
             type="checkbox"
             id="notif-toggle"
             checked={notif}
-            onChange={(e) => setNotif(e.target.checked)}
+            onChange={async (e) => {
+              const nextVal = e.target.checked;
+              setNotif(nextVal);
+              if (nextVal) {
+                await requestNotificationPermission();
+              }
+            }}
           />
         </div>
       </div>

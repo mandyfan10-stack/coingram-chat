@@ -36,6 +36,7 @@ import ImageViewer from './chat/ImageViewer';
 import MediaPickerPanel from './chat/MediaPickerPanel';
 import { createStorageReference } from '../utils/urlSecurity';
 import useResolvedMedia from '../hooks/useResolvedMedia';
+import useEdgeSwipeBack from '../hooks/useSwipeGesture';
 
 export default function ChatArea() {
   const {
@@ -78,6 +79,15 @@ export default function ChatArea() {
     activeChat.type === 'personal' ||
     isOwner ||
     activeChat.settings?.allow_media !== false;
+
+  useEdgeSwipeBack({
+    onSwipeBack: () => {
+      if (activeChat) {
+        setActiveChatId(null);
+      }
+    },
+    enabled: Boolean(activeChat)
+  });
 
   const otherMember = activeChat?.type === 'personal'
     ? activeChat.members?.find(m => m.id !== currentUser?.id)
@@ -293,22 +303,45 @@ function formatDateDivider(timestamp) {
 
   const isInitialChatLoadRef = useRef(true);
   const currentChatIdRef = useRef(activeChat?.id);
+  const chatScrollPositionsRef = useRef(new Map());
 
   useLayoutEffect(() => {
     if (currentChatIdRef.current !== activeChat?.id) {
       currentChatIdRef.current = activeChat?.id;
       isInitialChatLoadRef.current = true;
-      shouldAutoScrollRef.current = true;
     }
     if (isInitialChatLoadRef.current && chatBodyRef.current && (activeChat?.messages?.length || 0) > 0) {
-      chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+      const unreadCount = activeChat?.unread_count || 0;
+      if (unreadCount > 0) {
+        const unreadEl = chatBodyRef.current.querySelector('.unread-messages-divider');
+        if (unreadEl) {
+          unreadEl.scrollIntoView({ block: 'center', behavior: 'auto' });
+          isInitialChatLoadRef.current = false;
+          return;
+        }
+      }
+
+      const savedTop = chatScrollPositionsRef.current.get(activeChat?.id);
+      if (typeof savedTop === 'number') {
+        chatBodyRef.current.scrollTop = savedTop;
+      } else {
+        chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+      }
       isInitialChatLoadRef.current = false;
     }
-  }, [activeChat?.id, activeChat?.messages]);
+  }, [activeChat?.id, activeChat?.messages, activeChat?.unread_count]);
 
   useEffect(() => {
-    scrollToBottom('auto');
-    shouldAutoScrollRef.current = true;
+    const savedTop = chatScrollPositionsRef.current.get(activeChat?.id);
+    const unreadCount = activeChat?.unread_count || 0;
+
+    if (unreadCount === 0) {
+      if (typeof savedTop === 'number') {
+        if (chatBodyRef.current) chatBodyRef.current.scrollTop = savedTop;
+      } else {
+        scrollToBottom('auto');
+      }
+    }
     setReplyingTo(null);
     setOpenedImageUrl(null);
     setInputVal('');
@@ -323,7 +356,7 @@ function formatDateDivider(timestamp) {
     if (isRecordingRef.current) {
       stopRecordingAndSendRef.current?.(true);
     }
-  }, [activeChat?.id]);
+  }, [activeChat?.id, activeChat?.unread_count]);
 
   useEffect(() => {
     const handleGlobalPointerMove = (event) => recordPointerMoveHandlerRef.current?.(event);
@@ -807,6 +840,10 @@ function formatDateDivider(timestamp) {
     }
     setShowScrollBottom(distanceFromBottom > 300);
 
+    if (activeChat?.id) {
+      chatScrollPositionsRef.current.set(activeChat.id, scrollTop);
+    }
+
     const page = messagePagination?.[activeChat?.id];
     if (scrollTop > 80 || page?.hasMore === false || isLoadingOlderRef.current) return;
 
@@ -1054,11 +1091,22 @@ function formatDateDivider(timestamp) {
               new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString()
             );
             const dateDividerText = showDateDivider ? formatDateDivider(msg.timestamp) : null;
+            const unreadCount = activeChat.unread_count || 0;
+            const firstUnreadIndex = unreadCount > 0 ? activeChat.messages.length - unreadCount : -1;
+            const showUnreadDivider = index === firstUnreadIndex && firstUnreadIndex > 0;
+
             return (
               <React.Fragment key={msg.id}>
                 {dateDividerText && (
                   <div className="chat-date-divider">
                     <span>{dateDividerText}</span>
+                  </div>
+                )}
+                {showUnreadDivider && (
+                  <div className="unread-messages-divider" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '14px 0', position: 'relative' }}>
+                    <span style={{ background: 'var(--accent-color, #2481cc)', color: '#fff', fontSize: '11px', padding: '3px 12px', borderRadius: '12px', fontWeight: '500', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}>
+                      Непрочитанные сообщения
+                    </span>
                   </div>
                 )}
                 <MessageBubble
