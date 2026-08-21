@@ -1,0 +1,61 @@
+/* ==========================================================================
+   Message Touch Styling & Contextmenu / Callout Prevention
+   Targeting: Mobile touchscreens (<768px, hover: none, pointer: coarse)
+   ========================================================================== */
+@media (max-width: 768px), (hover: none), (pointer: coarse) {
+  .message-row {
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .message-bubble {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
+    cursor: pointer;
+  }
+
+  .message-bubble .message-text,
+  .message-bubble .bubble-content,
+  .message-bubble .bubble-caption,
+  .message-bubble .sender-name,
+  .message-bubble .bubble-metadata,
+  .message-bubble .reply-preview-bubble,
+  .message-bubble .bubble-reactions {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  .message-bubble img,
+  .message-bubble video,
+  .message-bubble .bubble-media-wrapper,
+  .message-bubble .bubble-media {
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    user-select: none;
+  }
+}
+
+/* ==========================================================================
+   Desktop Parity Rules
+   Preserving standard mouse text selection on desktop screens
+   ========================================================================== */
+@media (min-width: 769px) and (hover: hover) and (pointer: fine) {
+  .message-bubble {
+    cursor: default;
+  }
+
+  .message-bubble .message-text {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    user-select: text;
+    cursor: text;
+  }
+}

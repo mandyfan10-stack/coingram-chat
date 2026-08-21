@@ -20,6 +20,8 @@ import {
   DecryptedSticker
 } from './mediaPlayers';
 import MobileActionSheet from './MobileActionSheet';
+import useMessageTouch from '../../hooks/useMessageTouch';
+import './Message.css';
 
 
 const TELEGRAM_SENDER_COLORS = [
@@ -157,103 +159,21 @@ export default function MessageBubble({
 
   const smileBtnRef = useRef(null);
   const drawerRef = useRef(null);
-  const pointerStartRef = useRef(null);
-  const isMovedRef = useRef(false);
   const [drawerStyle, setDrawerStyle] = useState(null);
   const isReactionOpen = showMsgActionsId === msg.id;
 
-  const LONG_PRESS_MS = 380;
-  const MOVE_CANCEL_PX = 10;
+  // useMessageTouch provides isInteractiveTarget filtering voice-play-btn, audio-progress-container, failed-message-menu, reaction-badge
+  const touchHandlers = useMessageTouch({
+    onTrigger: () => setShowMsgActionsId(msg.id),
+    holdDurationMs: 380,
+    moveThresholdPx: 10
+  });
 
-  const clearLongPress = useCallback(() => {
-    if (longPressTimerRef.current != null) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
-    pointerStartRef.current = null;
-    isMovedRef.current = false;
-  }, []);
-
-  const isInteractiveTarget = (target) => {
-    return Boolean(
-      target?.closest?.(
-        'button, a, input, textarea, video, audio, .reaction-badge, .failed-message-menu, .hover-action-btn, .mobile-action-sheet, .voice-play-btn, .audio-progress-container, .video-player-overlay'
-      )
-    );
-  };
-
-  // Touch/stylus tap and long-press opens message actions / reaction sheet
-  const handleBubblePointerDown = useCallback((event) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) return;
-    if (isInteractiveTarget(event.target)) {
-      return;
-    }
-
-    clearLongPress();
-    pointerStartRef.current = { x: event.clientX, y: event.clientY, time: Date.now() };
-    isMovedRef.current = false;
-
-    longPressTimerRef.current = setTimeout(() => {
-      longPressTimerRef.current = null;
-      if (!isMovedRef.current) {
-        setShowMsgActionsId(msg.id);
-        try {
-          navigator.vibrate?.(15);
-        } catch {
-          /* ignore */
-        }
-      }
-    }, LONG_PRESS_MS);
-  }, [clearLongPress, msg.id, setShowMsgActionsId]);
-
-  const handleBubblePointerMove = useCallback((event) => {
-    if (!pointerStartRef.current) return;
-    const dx = event.clientX - pointerStartRef.current.x;
-    const dy = event.clientY - pointerStartRef.current.y;
-    if ((dx * dx) + (dy * dy) > MOVE_CANCEL_PX * MOVE_CANCEL_PX) {
-      isMovedRef.current = true;
-      clearLongPress();
-    }
-  }, [clearLongPress]);
-
-  const handleBubblePointerUp = useCallback((event) => {
-    const start = pointerStartRef.current;
-    const isMoved = isMovedRef.current;
-    clearLongPress();
-
-    if (!start || isMoved) return;
-
-    const duration = Date.now() - start.time;
-    // On mobile / touch screens, a clean tap opens the action sheet
-    if (duration < 350) {
-      const isTouchOrMobile = typeof window !== 'undefined' && (
-        window.innerWidth < 768 ||
-        window.matchMedia?.('(pointer: coarse)').matches
-      );
-      if (isTouchOrMobile && !isInteractiveTarget(event.target)) {
-        setShowMsgActionsId(msg.id);
-        try {
-          navigator.vibrate?.(10);
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-  }, [clearLongPress, msg.id, setShowMsgActionsId]);
-
-  const handleContextMenu = useCallback((event) => {
-    if (isInteractiveTarget(event.target)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    setShowMsgActionsId(msg.id);
-    try {
-      navigator.vibrate?.(15);
-    } catch {
-      /* ignore */
-    }
-  }, [msg.id, setShowMsgActionsId]);
-
-  useEffect(() => () => clearLongPress(), [clearLongPress]);
+  const handleBubblePointerDown = touchHandlers.handleBubblePointerDown;
+  const handleBubblePointerMove = touchHandlers.handleBubblePointerMove;
+  const handleBubblePointerUp = touchHandlers.handleBubblePointerUp;
+  const clearLongPress = touchHandlers.clearLongPress;
+  const handleContextMenu = touchHandlers.onContextMenu;
 
   const repositionDrawer = useCallback(() => {
     if (!isReactionOpen || !smileBtnRef.current) return;
