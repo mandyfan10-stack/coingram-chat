@@ -842,11 +842,13 @@ function formatDateDivider(timestamp) {
       if (emojiRef.current && !emojiRef.current.contains(e.target)) {
         setShowEmojiPicker(false);
       }
-      // Reaction drawer is portaled to document.body — include it so emoji clicks
-      // and the open smile control are not treated as "outside".
+      // Reaction drawer & mobile action sheet are portaled to document.body — include them so emoji clicks
+      // and controls are not treated as "outside".
       if (
         !e.target.closest('.message-hover-actions') &&
-        !e.target.closest('.reaction-drawer')
+        !e.target.closest('.reaction-drawer') &&
+        !e.target.closest('.mobile-action-sheet') &&
+        !e.target.closest('.mobile-action-sheet-backdrop')
       ) {
         setShowMsgActionsId(null);
       }
@@ -855,7 +857,11 @@ function formatDateDivider(timestamp) {
       }
     };
     document.addEventListener('mousedown', handleOutsideClick);
-    return () => document.removeEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('pointerdown', handleOutsideClick);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('pointerdown', handleOutsideClick);
+    };
   }, []);
 
   // Touch Gestures for Swipe Back on Mobile

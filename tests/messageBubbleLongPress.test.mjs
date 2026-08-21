@@ -13,7 +13,7 @@ test('MessageBubble defines long-press handlers used on the bubble surface', () 
   assert.match(bubble, /const clearLongPress = /);
   assert.match(bubble, /onPointerDown=\{handleBubblePointerDown\}/);
   assert.match(bubble, /onPointerMove=\{handleBubblePointerMove\}/);
-  assert.match(bubble, /onPointerUp=\{clearLongPress\}/);
+  assert.match(bubble, /onPointerUp=\{handleBubblePointerUp\}/);
   assert.match(bubble, /onPointerCancel=\{clearLongPress\}/);
   assert.match(bubble, /setShowMsgActionsId\(msg\.id\)/);
 });
