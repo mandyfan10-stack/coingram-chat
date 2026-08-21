@@ -22,7 +22,7 @@ const chatAreaCode = await readFile(
 test('MobileActionSheet contains required actions: reactions, reply, copy, delete', () => {
   assert.match(mobileActionSheetCode, /toggleReaction\(activeChat\.id,\s*msg\.id,\s*emo\)/);
   assert.match(mobileActionSheetCode, /setReplyingTo\(msg\)/);
-  assert.match(mobileActionSheetCode, /navigator\.clipboard\.writeText\(msg\.text\)/);
+  assert.match(mobileActionSheetCode, /copyTextToClipboard\(copyableText\)/);
   assert.match(mobileActionSheetCode, /deleteMessage\(activeChat\.id,\s*msg\.id\)/);
   assert.match(mobileActionSheetCode, /createPortal/);
 });

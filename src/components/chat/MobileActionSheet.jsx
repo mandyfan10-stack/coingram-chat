@@ -1,85 +1,134 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { CornerUpLeft, Copy, Trash2, Check } from 'lucide-react';
 import { normalizeReaction } from '../../utils/reactionUtils';
+import {
+  DEFAULT_QUICK_EMOJIS,
+  extractMessageText,
+  copyTextToClipboard,
+  canUserDeleteMessage,
+  triggerHaptic
+} from '../../utils/mobileActionSheetUtils.js';
+import './MobileActionSheet.css';
 
+export {
+  DEFAULT_QUICK_EMOJIS,
+  extractMessageText,
+  copyTextToClipboard,
+  canUserDeleteMessage
+};
+
+/**
+ * MobileActionSheet component for Telegram-style bottom sheet context menu & reaction carousel.
+ */
 export default function MobileActionSheet({
   isOpen,
-  msg,
+  msg: msgProp,
+  message,
   activeChat,
   currentUser,
   emojis = [],
   onClose,
+  onReply,
   setReplyingTo,
+  onCopy,
+  onDelete,
   deleteMessage,
-  toggleReaction
+  onReactionSelect,
+  toggleReaction,
+  isOutgoing,
+  canDelete = undefined
 }) {
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef(null);
+
+  const msg = message || msgProp;
 
   useEffect(() => {
     if (!isOpen) {
       setCopied(false);
-      return;
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      return undefined;
     }
 
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        onClose();
+        onClose?.();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
   }, [isOpen, onClose]);
 
   const handleReactionClick = useCallback((emo) => {
-    if (!msg || !activeChat) return;
-    try {
-      navigator.vibrate?.(12);
-    } catch {
-      /* ignore */
+    if (!msg) return;
+    triggerHaptic(12);
+
+    if (typeof onReactionSelect === 'function') {
+      onReactionSelect(emo);
+    } else if (typeof toggleReaction === 'function' && activeChat?.id) {
+      toggleReaction(activeChat.id, msg.id, emo);
     }
-    toggleReaction(activeChat.id, msg.id, emo);
-    onClose();
-  }, [activeChat, msg, toggleReaction, onClose]);
+    onClose?.();
+  }, [activeChat?.id, msg, onReactionSelect, toggleReaction, onClose]);
 
   const handleReply = useCallback(() => {
     if (!msg) return;
-    setReplyingTo(msg);
-    onClose();
-  }, [msg, setReplyingTo, onClose]);
+    triggerHaptic(10);
+
+    if (typeof onReply === 'function') {
+      onReply(msg);
+    } else if (typeof setReplyingTo === 'function') {
+      setReplyingTo(msg);
+    }
+    onClose?.();
+  }, [msg, onReply, setReplyingTo, onClose]);
 
   const handleCopyText = useCallback(async () => {
-    if (!msg?.text) return;
-    try {
-      await navigator.clipboard.writeText(msg.text);
+    if (!msg) return;
+    const copyableText = extractMessageText(msg);
+    if (!copyableText) return;
+
+    const success = await copyTextToClipboard(copyableText);
+    if (success) {
       setCopied(true);
-      try {
-        navigator.vibrate?.(10);
-      } catch {
-        /* ignore */
+      triggerHaptic(10);
+      if (typeof onCopy === 'function') {
+        onCopy(msg);
       }
-      setTimeout(() => {
-        onClose();
+
+      copyTimerRef.current = setTimeout(() => {
+        onClose?.();
       }, 350);
-    } catch {
-      onClose();
     }
-  }, [msg?.text, onClose]);
+  }, [msg, onCopy, onClose]);
 
   const handleDelete = useCallback(() => {
-    if (!msg || !activeChat) return;
-    deleteMessage(activeChat.id, msg.id);
-    onClose();
-  }, [activeChat, msg, deleteMessage, onClose]);
+    if (!msg) return;
+    triggerHaptic(15);
+
+    if (typeof onDelete === 'function') {
+      onDelete(msg);
+    } else if (typeof deleteMessage === 'function' && activeChat?.id) {
+      deleteMessage(activeChat.id, msg.id);
+    }
+    onClose?.();
+  }, [activeChat?.id, msg, onDelete, deleteMessage, onClose]);
 
   if (!isOpen || !msg) return null;
 
-  const reactionList = emojis && emojis.length > 0
-    ? emojis.slice(0, 14)
-    : ['❤️', '👍', '👎', '🔥', '😂', '👏', '🎉', '😢', '😍', '⚡', '🤔', '🙏'];
+  const copyableText = extractMessageText(msg);
+  const showDelete = canUserDeleteMessage(msg, currentUser, activeChat, canDelete, isOutgoing);
 
-  return createPortal(
+  const reactionList = emojis && emojis.length > 0
+    ? emojis.slice(0, 8)
+    : DEFAULT_QUICK_EMOJIS;
+
+  const sheetContent = (
     <div
       className="mobile-action-sheet-backdrop"
       onClick={onClose}
@@ -101,6 +150,7 @@ export default function MobileActionSheet({
               return (
                 r.emoji === emo &&
                 (norm.users.includes('current') ||
+                  norm.users.includes('me') ||
                   (currentUser && norm.users.includes(currentUser.id)))
               );
             });
@@ -121,12 +171,13 @@ export default function MobileActionSheet({
         </div>
 
         {/* Action Menu Items */}
-        <div className="mobile-sheet-menu">
+        <div className="mobile-sheet-menu" role="menu">
           <button
             type="button"
             className="mobile-sheet-item"
             onClick={handleReply}
             data-test="mobile-action-reply"
+            role="menuitem"
           >
             <div className="mobile-sheet-item-icon">
               <CornerUpLeft size={19} />
@@ -134,12 +185,13 @@ export default function MobileActionSheet({
             <span className="mobile-sheet-item-label">Ответить</span>
           </button>
 
-          {msg.text && (
+          {Boolean(copyableText) && (
             <button
               type="button"
               className="mobile-sheet-item"
               onClick={handleCopyText}
               data-test="mobile-action-copy"
+              role="menuitem"
             >
               <div className="mobile-sheet-item-icon">
                 {copied ? <Check size={19} className="success-icon" /> : <Copy size={19} />}
@@ -150,20 +202,28 @@ export default function MobileActionSheet({
             </button>
           )}
 
-          <button
-            type="button"
-            className="mobile-sheet-item delete"
-            onClick={handleDelete}
-            data-test="mobile-action-delete"
-          >
-            <div className="mobile-sheet-item-icon">
-              <Trash2 size={19} />
-            </div>
-            <span className="mobile-sheet-item-label">Удалить</span>
-          </button>
+          {showDelete && (
+            <button
+              type="button"
+              className="mobile-sheet-item delete"
+              onClick={handleDelete}
+              data-test="mobile-action-delete"
+              role="menuitem"
+            >
+              <div className="mobile-sheet-item-icon">
+                <Trash2 size={19} />
+              </div>
+              <span className="mobile-sheet-item-label">Удалить</span>
+            </button>
+          )}
         </div>
       </div>
-    </div>,
-    document.body
+    </div>
   );
+
+  if (typeof document !== 'undefined' && document.body) {
+    return createPortal(sheetContent, document.body);
+  }
+
+  return sheetContent;
 }

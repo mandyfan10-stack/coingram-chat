@@ -535,13 +535,18 @@ export default function MessageBubble({
         <MobileActionSheet
           isOpen={isReactionOpen}
           msg={msg}
+          message={msg}
           activeChat={activeChat}
           currentUser={currentUser}
           emojis={emojis}
+          isOutgoing={isMe}
           onClose={() => setShowMsgActionsId(null)}
+          onReply={setReplyingTo}
           setReplyingTo={setReplyingTo}
-          deleteMessage={deleteMessage}
+          onReactionSelect={(emo) => toggleReaction?.(activeChat?.id, msg.id, emo)}
           toggleReaction={toggleReaction}
+          onDelete={(m) => deleteMessage?.(activeChat?.id, m?.id || msg.id)}
+          deleteMessage={deleteMessage}
         />
       </div>
     </div>

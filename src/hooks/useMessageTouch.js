@@ -36,7 +36,7 @@ export const DEFAULT_INTERACTIVE_SELECTORS = [
   'input',
   'textarea',
   'select',
-  'video',
+  'video:not(.sticker-video):not(.sticker-container)',
   'audio',
   'label',
   '[role="button"]',
@@ -154,6 +154,12 @@ export function isInteractiveTarget(
   }
 
   if (!element || typeof element.closest !== 'function') return false;
+
+  // Stickers (animated Lottie, WebM video stickers, WebP/static) are non-interactive media
+  // and must never be blocked by generic video player filters.
+  if (element.closest('.sticker-container, .sticker-video, .sticker-animated, .sticker-static')) {
+    return false;
+  }
 
   if (typeof customPredicate === 'function') {
     try {

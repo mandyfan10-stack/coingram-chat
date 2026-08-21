@@ -41,11 +41,16 @@
     -webkit-user-drag: none;
     user-select: none;
   }
+
+  /* Suppress desktop reaction drawer on mobile touch devices to prevent double rendering */
+  .reaction-drawer {
+    display: none !important;
+  }
 }
 
 /* ==========================================================================
    Desktop Parity Rules
-   Preserving standard mouse text selection on desktop screens
+   Preserving standard mouse text selection and hover actions on desktop screens
    ========================================================================== */
 @media (min-width: 769px) and (hover: hover) and (pointer: fine) {
   .message-bubble {
@@ -58,4 +63,12 @@
     user-select: text;
     cursor: text;
   }
+
+  /* Desktop hover actions remain 100% visible and interactive on hover or active state */
+  .message-bubble:hover .message-hover-actions,
+  .message-hover-actions.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
 }
+
