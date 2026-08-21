@@ -404,6 +404,13 @@
   pointer-events: none;
 }
 
+/* Floating timestamp badge for regular video messages — positioned at top right so it never overlaps bottom seek timeline */
+.bubble-metadata.floating-badge.video-floating-badge {
+  top: 8px;
+  right: 8px;
+  bottom: auto;
+}
+
 /* Text and Inline Metadata */
 .bubble-content {
   position: relative;

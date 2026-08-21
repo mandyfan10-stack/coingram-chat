@@ -396,7 +396,7 @@ export default function MessageBubble({
               chatId={activeChat.id}
               onOpen={setOpenedImageUrl}
             />
-            {renderMetadata('floating-badge')}
+            {renderMetadata('floating-badge video-floating-badge')}
           </div>
         ) : isVideoWithCaption ? (
           <>

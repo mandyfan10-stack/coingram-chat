@@ -72,3 +72,13 @@ test('AppearanceTab requests notification permissions on toggle', () => {
   assert.match(appearanceTabCode, /requestNotificationPermission/);
   assert.match(appearanceTabCode, /Звуковые и push-уведомления/);
 });
+
+test('Video message metadata is placed at top right to prevent collision with bottom seek timeline', async () => {
+  const chatAreaCss = await readFile(
+    new URL('../src/components/ChatArea.css', import.meta.url),
+    'utf8'
+  );
+  assert.match(messageBubbleCode, /video-floating-badge/);
+  assert.match(chatAreaCss, /\.bubble-metadata\.floating-badge\.video-floating-badge\s*\{[^}]*top:\s*8px/);
+});
+
