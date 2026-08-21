@@ -1,4 +1,4 @@
-import { TRENDING_GIFS } from '../components/chat/emojiData';
+import { TRENDING_GIFS } from '../components/chat/emojiData.js';
 
 const TENOR_API_KEY = String(import.meta.env?.VITE_TENOR_API_KEY || '').trim();
 const TENOR_CLIENT_KEY = 'tenor_web';
@@ -31,16 +31,51 @@ function normalizeTenorItem(item) {
   };
 }
 
-function fallbackGifs(query = '') {
+/**
+ * Filter curated GIFs with tokenized multilingual search and pagination
+ */
+function searchLocalGifs(query = '', category = '', pos = null, limit = 20) {
   const clean = String(query || '').trim().toLowerCase();
-  const results = clean
-    ? TRENDING_GIFS.filter(
-      (gif) =>
-        gif.title.toLowerCase().includes(clean) ||
-        (gif.tags && gif.tags.some((tag) => tag.toLowerCase().includes(clean) || clean.includes(tag.toLowerCase())))
-    )
-    : TRENDING_GIFS;
-  return { results, nextPos: null };
+  const cat = String(category || '').trim().toLowerCase();
+  const offset = pos ? parseInt(pos, 10) || 0 : 0;
+
+  let pool = TRENDING_GIFS;
+
+  if (cat && cat !== 'trending') {
+    const catFiltered = pool.filter((g) => g.category === cat || g.tags?.includes(cat));
+    if (catFiltered.length > 0) {
+      pool = catFiltered;
+    }
+  }
+
+  if (clean && clean !== cat) {
+    const tokens = clean.split(/\s+/).filter(Boolean);
+    pool = pool.filter((gif) => {
+      const title = (gif.title || '').toLowerCase();
+      const tags = (gif.tags || []).map((t) => t.toLowerCase());
+      const gCat = (gif.category || '').toLowerCase();
+
+      return tokens.every((token) => {
+        if (title.includes(token) || gCat.includes(token)) return true;
+        return tags.some((tag) => tag.includes(token) || token.includes(tag));
+      });
+    });
+  }
+
+  const paged = pool.slice(offset, offset + limit);
+  const nextPos = offset + limit < pool.length ? String(offset + limit) : null;
+
+  return {
+    results: paged.map((g) => ({
+      id: g.id,
+      title: g.title,
+      url: g.url,
+      preview: g.preview || g.url,
+      width: g.width || 180,
+      height: g.height || 120
+    })),
+    nextPos
+  };
 }
 
 async function fetchTenor(path, params) {
@@ -63,40 +98,49 @@ async function fetchTenor(path, params) {
 }
 
 /**
- * Fetch featured/trending GIFs from Tenor
+ * Fetch featured/trending GIFs from Tenor or local curated database
  */
 export async function fetchTrendingTenorGifs(pos = null, limit = 20) {
-  try {
-    const data = await fetchTenor('featured', { limit, pos });
-    if (!data) return fallbackGifs();
-    const results = (data.results || []).map(normalizeTenorItem);
-    return {
-      results: results.length > 0 ? results : TRENDING_GIFS,
-      nextPos: data.next || null
-    };
-  } catch (err) {
-    console.warn('Tenor API offline/failed, using fallback curated GIFs:', err);
-    return fallbackGifs();
+  if (TENOR_API_KEY) {
+    try {
+      const data = await fetchTenor('featured', { limit, pos });
+      if (data && data.results && data.results.length > 0) {
+        return {
+          results: data.results.map(normalizeTenorItem),
+          nextPos: data.next || null
+        };
+      }
+    } catch (err) {
+      console.warn('Tenor API offline/failed, using fallback curated GIFs:', err);
+    }
   }
+  return searchLocalGifs('', 'trending', pos, limit);
 }
 
 /**
- * Search GIFs using Tenor API
+ * Search GIFs using Tenor API or local curated database
  */
-export async function searchTenorGifs(query, pos = null, limit = 20) {
-  if (!query || !query.trim()) {
+export async function searchTenorGifs(query, pos = null, limit = 20, category = '') {
+  const cleanQuery = String(query || '').trim();
+  if (!cleanQuery && !category) {
     return fetchTrendingTenorGifs(pos, limit);
   }
 
-  try {
-    const data = await fetchTenor('search', { q: query.trim(), limit, pos });
-    if (!data) return fallbackGifs(query);
-    return {
-      results: (data.results || []).map(normalizeTenorItem),
-      nextPos: data.next || null
-    };
-  } catch (err) {
-    console.warn('Tenor Search API error, searching local fallback GIFs:', err);
-    return fallbackGifs(query);
+  if (TENOR_API_KEY) {
+    try {
+      const searchTarget = cleanQuery || category || '';
+      const data = await fetchTenor('search', { q: searchTarget, limit, pos });
+      if (data && data.results && data.results.length > 0) {
+        return {
+          results: (data.results || []).map(normalizeTenorItem),
+          nextPos: data.next || null
+        };
+      }
+    } catch (err) {
+      console.warn('Tenor Search API error, searching local fallback GIFs:', err);
+    }
   }
+
+  return searchLocalGifs(cleanQuery, category || cleanQuery, pos, limit);
 }
+

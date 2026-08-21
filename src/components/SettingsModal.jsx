@@ -273,9 +273,10 @@ export default function SettingsModal() {
       setNotif(currentUser.notificationsEnabled !== false);
       setCopied(false);
 
-      const presets = ['classic', 'sunset', 'space', 'mint'];
-      if (currentUser.wallpaper && !presets.includes(currentUser.wallpaper)) {
-        setCustomWallpaperUrl(currentUser.wallpaper);
+      const presets = ['classic', 'sunset', 'space', 'mint', 'cyber'];
+      const activeWp = wallpaper || currentUser.wallpaper;
+      if (activeWp && !presets.includes(activeWp)) {
+        setCustomWallpaperUrl(activeWp);
       } else {
         setCustomWallpaperUrl('');
       }
@@ -283,7 +284,7 @@ export default function SettingsModal() {
       setConfirmPassword('');
       setPasswordStatus({ text: '', type: null });
     }
-  }, [currentUser, isSettingsOpen]);
+  }, [currentUser, isSettingsOpen, wallpaper]);
 
   if (!currentUser) return null;
 

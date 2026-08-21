@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 /**
  * UI chrome state: folders, modals, theme, wallpaper, dark mode.
  */
-export function useChatUiState() {
+export function useChatUiState(currentUser) {
   const [activeChatId, setActiveChatId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFolder, setActiveFolder] = useState('all');
@@ -13,10 +13,26 @@ export function useChatUiState() {
   const [isCreateStoryOpen, setIsCreateStoryOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('coingram-dark-mode') !== 'false');
-  const [theme, setTheme] = useState('telegram-blue');
-  const [wallpaper, setWallpaper] = useState('classic');
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('coingram-theme') || 'telegram-blue';
+  });
+  const [wallpaper, setWallpaper] = useState(() => {
+    return localStorage.getItem('coingram-wallpaper') || 'classic';
+  });
   const [settingsTab, setSettingsTab] = useState('profile');
   const [newChatModalTab, setNewChatModalTab] = useState('personal');
+
+  // Synchronize wallpaper and theme when currentUser profile updates/loads
+  useEffect(() => {
+    if (currentUser?.wallpaper) {
+      setWallpaper(currentUser.wallpaper);
+      localStorage.setItem('coingram-wallpaper', currentUser.wallpaper);
+    }
+    if (currentUser?.theme) {
+      setTheme(currentUser.theme);
+      localStorage.setItem('coingram-theme', currentUser.theme);
+    }
+  }, [currentUser?.wallpaper, currentUser?.theme]);
 
   useEffect(() => {
     if (isDarkMode || theme === 'rainbow-pearl') {
@@ -25,6 +41,7 @@ export function useChatUiState() {
       document.documentElement.classList.add('theme-light');
     }
     localStorage.setItem('coingram-dark-mode', isDarkMode ? 'true' : 'false');
+    localStorage.setItem('coingram-theme', theme);
 
     let classes = document.documentElement.className.split(' ').filter((c) => c === 'theme-light');
     if (theme === 'rainbow-pearl') classes = [];
@@ -34,6 +51,7 @@ export function useChatUiState() {
 
   useEffect(() => {
     document.documentElement.setAttribute('data-wallpaper', wallpaper);
+    localStorage.setItem('coingram-wallpaper', wallpaper);
   }, [wallpaper]);
 
   return {

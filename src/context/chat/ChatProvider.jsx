@@ -24,7 +24,7 @@ export const ChatProvider = ({ children }) => {
   const { e2eePrivateKey, sharedKeysCache, setSharedKeysCache } = useE2EE();
 
   const [chats, setChats] = useState([]);
-  const ui = useChatUiState();
+  const ui = useChatUiState(currentUser);
   const { activeChatId, setActiveChatId } = ui;
   const activeChat = chats.find((c) => c.id === activeChatId);
 

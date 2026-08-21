@@ -2,27 +2,28 @@
 
 Релизы собираются автоматически после отправки тега вида `vMAJOR.MINOR.PATCH`.
 
-## Подготовка версии
+## 1. Поднимите версию в `package.json` и верифицируйте:
+   ```bash
+   npm version 1.20.23 --no-git-tag-version
+   npm run release:verify -- v1.20.23
+   ```
 
-```powershell
-npm version 1.20.22 --no-git-tag-version
-npm run release:verify -- v1.20.22
-npm run lint
-npm test
-npm run build
-```
+2. Запустите полный локальный цикл проверок:
+   ```bash
+   npm run lint
+   npm test
+   npm run build
+   npm run deploy
+   ```
 
-Android `versionName` и монотонный `versionCode` вычисляются из `package.json`, поэтому вручную менять `android/app/build.gradle` больше не нужно.
-
-После проверки версии:
-
-```powershell
-git add package.json package-lock.json
-git commit -m "release: prepare v1.20.22"
-git push origin main
-git tag v1.20.22
-git push origin v1.20.22
-```
+3. Зафиксируйте коммит и запушьте в `main`:
+   ```bash
+   git add package.json docs/ scripts/
+   git commit -m "release: prepare v1.20.23"
+   git push origin main
+   git tag v1.20.23
+   git push origin v1.20.23
+   ```
 
 Тег запускает `.github/workflows/release.yml`. Workflow повторно проверяет версию, запускает линтер и тесты, публикует GitHub Pages, собирает подписанный APK и Windows-установщик, затем создаёт GitHub Release.
 

@@ -79,10 +79,10 @@ export default function MediaPickerPanel({
     }
 
     try {
-      const targetQuery = query?.trim() || categoryQuery || '';
-      const data = targetQuery
-        ? await searchTenorGifs(targetQuery, append ? currentPos : null)
-        : await fetchTrendingTenorGifs(append ? currentPos : null);
+      const targetQuery = query?.trim() || '';
+      const data = targetQuery || categoryQuery
+        ? await searchTenorGifs(targetQuery, append ? currentPos : null, 20, categoryQuery)
+        : await fetchTrendingTenorGifs(append ? currentPos : null, 20);
 
       if (append) {
         setGifs((prev) => [...prev, ...(data.results || [])]);
