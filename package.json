@@ -1,7 +1,7 @@
 {
   "name": "coingram-chat",
   "private": true,
-  "version": "1.20.23",
+  "version": "1.20.24",
   "type": "module",
   "main": "electron-main.cjs",
   "scripts": {

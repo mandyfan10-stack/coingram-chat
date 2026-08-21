@@ -197,6 +197,7 @@ function buildAdversarialHarnessHtml() {
         top = rect.bottom + gap;
         placement = 'below';
       }
+      top = Math.max(viewportPad, top);
 
       const maxTop = window.innerHeight - realHeight - viewportPad;
       if (top > maxTop) {

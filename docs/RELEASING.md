@@ -4,8 +4,8 @@
 
 ## 1. Поднимите версию в `package.json` и верифицируйте:
    ```bash
-   npm version 1.20.23 --no-git-tag-version
-   npm run release:verify -- v1.20.23
+   npm version 1.20.24 --no-git-tag-version
+   npm run release:verify -- v1.20.24
    ```
 
 2. Запустите полный локальный цикл проверок:
@@ -19,10 +19,10 @@
 3. Зафиксируйте коммит и запушьте в `main`:
    ```bash
    git add package.json docs/ scripts/
-   git commit -m "release: prepare v1.20.23"
+   git commit -m "release: prepare v1.20.24"
    git push origin main
-   git tag v1.20.23
-   git push origin v1.20.23
+   git tag v1.20.24
+   git push origin v1.20.24
    ```
 
 Тег запускает `.github/workflows/release.yml`. Workflow повторно проверяет версию, запускает линтер и тесты, публикует GitHub Pages, собирает подписанный APK и Windows-установщик, затем создаёт GitHub Release.
