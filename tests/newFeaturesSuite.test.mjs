@@ -86,13 +86,12 @@ test('Video message metadata is placed at top right to prevent collision with bo
   assert.match(chatAreaCss, /\.bubble-metadata\.floating-badge\.video-floating-badge\s*\{[^}]*top:\s*8px/);
 });
 
-test('useChatUiState implements window.handleAndroidBackButton and popstate navigation', async () => {
+test('useChatUiState implements window.handleAndroidBackButton for Android hardware back', async () => {
   const uiStateCode = await readFile(
     new URL('../src/context/chat/useChatUiState.js', import.meta.url),
     'utf8'
   );
   assert.match(uiStateCode, /handleAndroidBackButton/);
-  assert.match(uiStateCode, /popstate/);
 });
 
 test('MainActivity.java delegates onBackPressed to window.handleAndroidBackButton', async () => {

@@ -109,17 +109,8 @@ export function useChatUiState(currentUser) {
       return false;
     };
 
-    const handlePopState = () => {
-      if (typeof window.handleAndroidBackButton === 'function') {
-        window.handleAndroidBackButton();
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-
     return () => {
       delete window.handleAndroidBackButton;
-      window.removeEventListener('popstate', handlePopState);
     };
   }, [
     isSettingsOpen,
@@ -129,14 +120,6 @@ export function useChatUiState(currentUser) {
     isInfoOpen,
     activeChatId
   ]);
-
-  // Sync activeChatId with browser history on mobile so back button returns to chat list
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (activeChatId) {
-      window.history.pushState({ screen: 'chat', activeChatId }, '');
-    }
-  }, [activeChatId]);
 
   return {
     activeChatId,

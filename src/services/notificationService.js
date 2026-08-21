@@ -26,9 +26,12 @@ export async function initNotificationService() {
 
   if ('serviceWorker' in navigator) {
     try {
-      await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-    } catch (err) {
-      console.warn('Service worker registration failed:', err);
+      const swPath = typeof import.meta !== 'undefined' && import.meta.env?.BASE_URL
+        ? `${import.meta.env.BASE_URL.replace(/\/+$/, '')}/sw.js`
+        : './sw.js';
+      await navigator.serviceWorker.register(swPath).catch(() => {});
+    } catch {
+      /* ignore service worker errors in restricted environments */
     }
   }
 }
