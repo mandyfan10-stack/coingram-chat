@@ -103,4 +103,21 @@ test('MainActivity.java delegates onBackPressed to window.handleAndroidBackButto
   assert.match(mainActivityCode, /handleAndroidBackButton/);
 });
 
+test('getReplyPreviewText formats media and text reply previews intuitively', async () => {
+  const { getReplyPreviewText } = await import('../src/utils/mobileActionSheetUtils.js');
+  assert.equal(getReplyPreviewText({ text: 'Привет, как дела?' }), 'Привет, как дела?');
+  assert.equal(getReplyPreviewText({ media: 'https://example.com/photo.jpg' }), '📷 Фото');
+  assert.equal(getReplyPreviewText({ media: 'https://example.com/video.mp4', mediaType: 'video' }), '🎥 Видео');
+  assert.equal(getReplyPreviewText({ media: 'https://example.com/round.webm', mediaType: 'video_note' }), '📹 Видеосообщение');
+  assert.equal(getReplyPreviewText({ media: 'https://example.com/voice.ogg', mediaType: 'voice' }), '🎤 Голосовое сообщение');
+  assert.equal(getReplyPreviewText({ media: 'https://example.com/sticker.tgs', mediaType: 'sticker' }), '🎨 Стикер');
+  assert.equal(getReplyPreviewText({ text: 'Подпись к фото', media: 'https://example.com/photo.jpg' }), 'Подпись к фото');
+});
+
+test('ChatArea and MessageBubble use getReplyPreviewText for reply previews', () => {
+  assert.match(chatAreaCode, /getReplyPreviewText\(replyingTo\)/);
+  assert.match(messageBubbleCode, /getReplyPreviewText\(replyMsg\)/);
+});
+
+
 

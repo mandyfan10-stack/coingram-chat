@@ -21,6 +21,7 @@ import {
 } from './mediaPlayers';
 import MobileActionSheet from './MobileActionSheet';
 import useMessageTouch from '../../hooks/useMessageTouch';
+import { getReplyPreviewText } from '../../utils/mobileActionSheetUtils';
 import './Message.css';
 
 
@@ -358,7 +359,7 @@ export default function MessageBubble({
         {replyMsg && (
           <div className="reply-preview-bubble">
             <span className="reply-preview-sender">{replyMsg.senderName}</span>
-            <p className="reply-preview-text">{replyMsg.text}</p>
+            <p className="reply-preview-text">{getReplyPreviewText(replyMsg)}</p>
           </div>
         )}
 

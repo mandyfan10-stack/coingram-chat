@@ -45,6 +45,71 @@ export function extractMessageText(msg) {
 }
 
 /**
+ * Generates an intuitive human-readable description for reply previews and quotes.
+ * Returns human text for text messages, or media descriptor (📷 Фото, 🎥 Видео, 🎤 Голосовое сообщение, 🎨 Стикер).
+ *
+ * @param {any} msg - Message object being replied to
+ * @returns {string}
+ */
+export function getReplyPreviewText(msg) {
+  if (!msg || typeof msg !== 'object') return '';
+  const text = (typeof msg.text === 'string' && msg.text.trim()) ||
+    (typeof msg.caption === 'string' && msg.caption.trim()) ||
+    '';
+
+  const MEDIA_PLACEHOLDERS = [
+    '🖼️ [Изображение]',
+    '[Изображение]',
+    'Изображение',
+    '🎬 [Видео]',
+    '[Видео]',
+    'Видео'
+  ];
+
+  if (text && !MEDIA_PLACEHOLDERS.includes(text) && !text.startsWith('sticker:')) {
+    return text;
+  }
+
+  if (msg.mediaType === 'voice') return '🎤 Голосовое сообщение';
+  if (msg.mediaType === 'video_note' || msg.isRoundVideo) return '📹 Видеосообщение';
+  if (msg.mediaType === 'video') return '🎥 Видео';
+  if (msg.mediaType === 'sticker') return '🎨 Стикер';
+  if (msg.mediaType === 'image' || msg.mediaType === 'photo') return '📷 Фото';
+
+  const isVideoNote = Boolean(
+    msg.isRoundVideo ||
+    (msg.media && (String(msg.media).includes('video_note') || String(msg.media).includes('round_video'))) ||
+    text.includes('Видеосообщение')
+  );
+  if (isVideoNote) return '📹 Видеосообщение';
+
+  const isRegularVideo = Boolean(
+    (msg.media && (String(msg.media).includes('.mp4') || String(msg.media).includes('.mov') || String(msg.media).includes('video/mp4'))) ||
+    text.includes('Видео')
+  );
+  if (isRegularVideo) return '🎥 Видео';
+
+  const isVoice = Boolean(
+    (msg.media && (String(msg.media).includes('audio') || String(msg.media).includes('.ogg') || String(msg.media).includes('.mp3') || String(msg.media).includes('voice_'))) ||
+    text.includes('Голосовое сообщение')
+  );
+  if (isVoice) return '🎤 Голосовое сообщение';
+
+  const isSticker = Boolean(
+    (msg.media && (String(msg.media).includes('sticker') || String(msg.media).includes('.tgs') || String(msg.media).includes('stickers/'))) ||
+    text.startsWith('sticker:')
+  );
+  if (isSticker) return '🎨 Стикер';
+
+  if (msg.media) {
+    if (String(msg.media).includes('.webm')) return '📹 Видеосообщение';
+    return '📷 Фото';
+  }
+
+  return text || 'Сообщение';
+}
+
+/**
  * Multi-tier resilient clipboard copy engine with fallback for WebViews, Safari, and restricted iframes.
  *
  * @param {string} text - Text to copy

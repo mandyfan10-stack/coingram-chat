@@ -35,6 +35,7 @@ import MessageBubble from './chat/MessageBubble';
 import ImageViewer from './chat/ImageViewer';
 import MediaPickerPanel from './chat/MediaPickerPanel';
 import { createStorageReference } from '../utils/urlSecurity';
+import { getReplyPreviewText } from '../utils/mobileActionSheetUtils';
 import useResolvedMedia from '../hooks/useResolvedMedia';
 import useEdgeSwipeBack from '../hooks/useSwipeGesture';
 
@@ -1260,7 +1261,7 @@ function formatDateDivider(timestamp) {
             <CornerUpLeft size={16} className="reply-bar-icon" />
             <div className="reply-bar-meta">
               <span className="reply-bar-title">Ответ пользователю {replyingTo.senderName}</span>
-              <p className="reply-bar-desc">{replyingTo.text}</p>
+              <p className="reply-bar-desc">{getReplyPreviewText(replyingTo)}</p>
             </div>
             <button className="reply-bar-close" onClick={() => setReplyingTo(null)}>
               <X size={16} />
