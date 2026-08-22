@@ -23,6 +23,7 @@ export async function requestNotificationPermission() {
  */
 export async function initNotificationService() {
   if (typeof window === 'undefined') return;
+  if (typeof navigator !== 'undefined' && navigator.webdriver) return;
 
   if ('serviceWorker' in navigator) {
     try {

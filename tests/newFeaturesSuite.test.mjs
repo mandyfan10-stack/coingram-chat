@@ -103,20 +103,25 @@ test('MainActivity.java delegates onBackPressed to window.handleAndroidBackButto
   assert.match(mainActivityCode, /handleAndroidBackButton/);
 });
 
-test('getReplyPreviewText formats media and text reply previews intuitively', async () => {
-  const { getReplyPreviewText } = await import('../src/utils/mobileActionSheetUtils.js');
+test('getReplyPreviewText formats media and text reply previews intuitively without emojis', async () => {
+  const { getReplyPreviewText, getReplyType } = await import('../src/utils/mobileActionSheetUtils.js');
   assert.equal(getReplyPreviewText({ text: 'Привет, как дела?' }), 'Привет, как дела?');
-  assert.equal(getReplyPreviewText({ media: 'https://example.com/photo.jpg' }), '📷 Фото');
-  assert.equal(getReplyPreviewText({ media: 'https://example.com/video.mp4', mediaType: 'video' }), '🎥 Видео');
-  assert.equal(getReplyPreviewText({ media: 'https://example.com/round.webm', mediaType: 'video_note' }), '📹 Видеосообщение');
-  assert.equal(getReplyPreviewText({ media: 'https://example.com/voice.ogg', mediaType: 'voice' }), '🎤 Голосовое сообщение');
-  assert.equal(getReplyPreviewText({ media: 'https://example.com/sticker.tgs', mediaType: 'sticker' }), '🎨 Стикер');
+  assert.equal(getReplyPreviewText({ media: 'https://example.com/photo.jpg' }), 'Фото');
+  assert.equal(getReplyPreviewText({ media: 'https://example.com/video.mp4', mediaType: 'video' }), 'Видео');
+  assert.equal(getReplyPreviewText({ media: 'https://example.com/round.webm', mediaType: 'video_note' }), 'Видеосообщение');
+  assert.equal(getReplyPreviewText({ media: 'https://example.com/voice.ogg', mediaType: 'voice' }), 'Голосовое сообщение');
+  assert.equal(getReplyPreviewText({ media: 'https://example.com/sticker.tgs', mediaType: 'sticker' }), 'Стикер');
   assert.equal(getReplyPreviewText({ text: 'Подпись к фото', media: 'https://example.com/photo.jpg' }), 'Подпись к фото');
+
+  assert.deepEqual(getReplyType({ media: 'https://example.com/photo.jpg' }), { type: 'image', label: 'Фото' });
+  assert.deepEqual(getReplyType({ media: 'https://example.com/voice.ogg', mediaType: 'voice' }), { type: 'voice', label: 'Голосовое сообщение' });
 });
 
-test('ChatArea and MessageBubble use getReplyPreviewText for reply previews', () => {
-  assert.match(chatAreaCode, /getReplyPreviewText\(replyingTo\)/);
-  assert.match(messageBubbleCode, /getReplyPreviewText\(replyMsg\)/);
+test('ChatArea and MessageBubble use getReplyType and SVG icons for reply previews', () => {
+  assert.match(chatAreaCode, /getReplyType\(replyingTo\)/);
+  assert.match(messageBubbleCode, /getReplyType\(replyMsg\)/);
+  assert.match(chatAreaCode, /reply-media-svg/);
+  assert.match(messageBubbleCode, /reply-media-svg/);
 });
 
 

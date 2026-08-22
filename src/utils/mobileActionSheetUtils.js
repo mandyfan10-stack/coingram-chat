@@ -45,14 +45,14 @@ export function extractMessageText(msg) {
 }
 
 /**
- * Generates an intuitive human-readable description for reply previews and quotes.
- * Returns human text for text messages, or media descriptor (📷 Фото, 🎥 Видео, 🎤 Голосовое сообщение, 🎨 Стикер).
+ * Resolves media type and clean label for reply preview rendering.
  *
  * @param {any} msg - Message object being replied to
- * @returns {string}
+ * @returns {{ type: 'text' | 'image' | 'video' | 'video_note' | 'voice' | 'sticker', label?: string, text?: string }}
  */
-export function getReplyPreviewText(msg) {
-  if (!msg || typeof msg !== 'object') return '';
+export function getReplyType(msg) {
+  if (!msg || typeof msg !== 'object') return { type: 'text', text: '' };
+
   const text = (typeof msg.text === 'string' && msg.text.trim()) ||
     (typeof msg.caption === 'string' && msg.caption.trim()) ||
     '';
@@ -67,46 +67,57 @@ export function getReplyPreviewText(msg) {
   ];
 
   if (text && !MEDIA_PLACEHOLDERS.includes(text) && !text.startsWith('sticker:')) {
-    return text;
+    return { type: 'text', text };
   }
 
-  if (msg.mediaType === 'voice') return '🎤 Голосовое сообщение';
-  if (msg.mediaType === 'video_note' || msg.isRoundVideo) return '📹 Видеосообщение';
-  if (msg.mediaType === 'video') return '🎥 Видео';
-  if (msg.mediaType === 'sticker') return '🎨 Стикер';
-  if (msg.mediaType === 'image' || msg.mediaType === 'photo') return '📷 Фото';
+  if (msg.mediaType === 'voice') return { type: 'voice', label: 'Голосовое сообщение' };
+  if (msg.mediaType === 'video_note' || msg.isRoundVideo) return { type: 'video_note', label: 'Видеосообщение' };
+  if (msg.mediaType === 'video') return { type: 'video', label: 'Видео' };
+  if (msg.mediaType === 'sticker') return { type: 'sticker', label: 'Стикер' };
+  if (msg.mediaType === 'image' || msg.mediaType === 'photo') return { type: 'image', label: 'Фото' };
 
   const isVideoNote = Boolean(
     msg.isRoundVideo ||
     (msg.media && (String(msg.media).includes('video_note') || String(msg.media).includes('round_video'))) ||
     text.includes('Видеосообщение')
   );
-  if (isVideoNote) return '📹 Видеосообщение';
+  if (isVideoNote) return { type: 'video_note', label: 'Видеосообщение' };
 
   const isRegularVideo = Boolean(
     (msg.media && (String(msg.media).includes('.mp4') || String(msg.media).includes('.mov') || String(msg.media).includes('video/mp4'))) ||
     text.includes('Видео')
   );
-  if (isRegularVideo) return '🎥 Видео';
+  if (isRegularVideo) return { type: 'video', label: 'Видео' };
 
   const isVoice = Boolean(
     (msg.media && (String(msg.media).includes('audio') || String(msg.media).includes('.ogg') || String(msg.media).includes('.mp3') || String(msg.media).includes('voice_'))) ||
     text.includes('Голосовое сообщение')
   );
-  if (isVoice) return '🎤 Голосовое сообщение';
+  if (isVoice) return { type: 'voice', label: 'Голосовое сообщение' };
 
   const isSticker = Boolean(
     (msg.media && (String(msg.media).includes('sticker') || String(msg.media).includes('.tgs') || String(msg.media).includes('stickers/'))) ||
     text.startsWith('sticker:')
   );
-  if (isSticker) return '🎨 Стикер';
+  if (isSticker) return { type: 'sticker', label: 'Стикер' };
 
   if (msg.media) {
-    if (String(msg.media).includes('.webm')) return '📹 Видеосообщение';
-    return '📷 Фото';
+    if (String(msg.media).includes('.webm')) return { type: 'video_note', label: 'Видеосообщение' };
+    return { type: 'image', label: 'Фото' };
   }
 
-  return text || 'Сообщение';
+  return { type: 'text', text: text || 'Сообщение' };
+}
+
+/**
+ * Generates clean text description for reply previews and quotes (no emoji).
+ *
+ * @param {any} msg - Message object being replied to
+ * @returns {string}
+ */
+export function getReplyPreviewText(msg) {
+  const info = getReplyType(msg);
+  return info.type === 'text' ? (info.text || '') : (info.label || '');
 }
 
 /**

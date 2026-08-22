@@ -575,9 +575,18 @@
 }
 
 .message-bubble:hover .message-hover-actions,
+.message-row:hover .message-hover-actions,
 .message-hover-actions.active {
   opacity: 1;
   pointer-events: auto;
+}
+
+.reply-media-svg {
+  display: inline-block;
+  vertical-align: -1.5px;
+  margin-right: 3px;
+  flex-shrink: 0;
+  opacity: 0.9;
 }
 
 /* Send message main circular action */

@@ -5,7 +5,10 @@ import {
   Trash2,
   Smile,
   Lock,
-  AlertCircle
+  AlertCircle,
+  Camera,
+  Video,
+  Mic
 } from 'lucide-react';
 import { normalizeReaction } from '../../utils/reactionUtils';
 import { SingleCheck, DoubleCheck, PendingClock } from './messageStatusIcons';
@@ -21,7 +24,7 @@ import {
 } from './mediaPlayers';
 import MobileActionSheet from './MobileActionSheet';
 import useMessageTouch from '../../hooks/useMessageTouch';
-import { getReplyPreviewText } from '../../utils/mobileActionSheetUtils';
+import { getReplyType } from '../../utils/mobileActionSheetUtils';
 import './Message.css';
 
 
@@ -359,7 +362,17 @@ export default function MessageBubble({
         {replyMsg && (
           <div className="reply-preview-bubble">
             <span className="reply-preview-sender">{replyMsg.senderName}</span>
-            <p className="reply-preview-text">{getReplyPreviewText(replyMsg)}</p>
+            <p className="reply-preview-text">
+              {(() => {
+                const info = getReplyType(replyMsg);
+                if (info.type === 'image') return <><Camera size={12} className="reply-media-svg" /> Фото</>;
+                if (info.type === 'video') return <><Video size={12} className="reply-media-svg" /> Видео</>;
+                if (info.type === 'video_note') return <><Video size={12} className="reply-media-svg" /> Видеосообщение</>;
+                if (info.type === 'voice') return <><Mic size={12} className="reply-media-svg" /> Голосовое сообщение</>;
+                if (info.type === 'sticker') return <><Smile size={12} className="reply-media-svg" /> Стикер</>;
+                return info.text;
+              })()}
+            </p>
           </div>
         )}
 

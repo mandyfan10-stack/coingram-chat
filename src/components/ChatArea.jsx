@@ -14,7 +14,9 @@ import {
   Lock,
   Trash2,
   WifiOff,
-  CornerUpLeft
+  CornerUpLeft,
+  Camera,
+  Video
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useE2EE } from '../context/E2EEContext';
@@ -35,7 +37,7 @@ import MessageBubble from './chat/MessageBubble';
 import ImageViewer from './chat/ImageViewer';
 import MediaPickerPanel from './chat/MediaPickerPanel';
 import { createStorageReference } from '../utils/urlSecurity';
-import { getReplyPreviewText } from '../utils/mobileActionSheetUtils';
+import { getReplyType } from '../utils/mobileActionSheetUtils';
 import useResolvedMedia from '../hooks/useResolvedMedia';
 import useEdgeSwipeBack from '../hooks/useSwipeGesture';
 
@@ -1261,7 +1263,17 @@ function formatDateDivider(timestamp) {
             <CornerUpLeft size={16} className="reply-bar-icon" />
             <div className="reply-bar-meta">
               <span className="reply-bar-title">Ответ пользователю {replyingTo.senderName}</span>
-              <p className="reply-bar-desc">{getReplyPreviewText(replyingTo)}</p>
+              <p className="reply-bar-desc">
+                {(() => {
+                  const info = getReplyType(replyingTo);
+                  if (info.type === 'image') return <><Camera size={13} className="reply-media-svg" /> Фото</>;
+                  if (info.type === 'video') return <><Video size={13} className="reply-media-svg" /> Видео</>;
+                  if (info.type === 'video_note') return <><Video size={13} className="reply-media-svg" /> Видеосообщение</>;
+                  if (info.type === 'voice') return <><Mic size={13} className="reply-media-svg" /> Голосовое сообщение</>;
+                  if (info.type === 'sticker') return <><Smile size={13} className="reply-media-svg" /> Стикер</>;
+                  return info.text;
+                })()}
+              </p>
             </div>
             <button className="reply-bar-close" onClick={() => setReplyingTo(null)}>
               <X size={16} />
