@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { enterMockApp } from './helpers.mjs';
 
 const loadedScripts = (page) => page.evaluate(() => (
   performance
@@ -11,9 +12,7 @@ test('secondary UI chunks load only when their surfaces open', async ({ page }) 
   const pageErrors = [];
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
-  await page.goto('/');
-  await page.locator('.auth-warning-alert button').click();
-  await expect(page.locator('.sidebar')).toBeVisible();
+  await enterMockApp(page);
 
   const initialScripts = await loadedScripts(page);
   expect(initialScripts.some((name) => name.includes('SettingsModal-'))).toBe(false);
@@ -52,9 +51,7 @@ test('secondary UI chunks load only when their surfaces open', async ({ page }) 
 
 test('settings focus and presence remain stable during rapid mobile reopen', async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 });
-  await page.goto('/');
-  await page.locator('.auth-warning-alert button').click();
-  await expect(page.locator('.sidebar')).toBeVisible();
+  await enterMockApp(page);
 
   const menuButton = page.locator('.menu-btn[title="Настройки"]');
   const settingsItem = page.locator('.drawer-menu-item').filter({ hasText: 'Настройки' });
@@ -140,8 +137,7 @@ test('settings focus and presence remain stable during rapid mobile reopen', asy
 
 test('settings honors reduced motion without delayed focus restoration', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('/');
-  await page.locator('.auth-warning-alert button').click();
+  await enterMockApp(page);
 
   const menuButton = page.locator('.menu-btn[title="Настройки"]');
   await menuButton.click();

@@ -1,3 +1,5 @@
+import { expect } from '@playwright/test';
+
 /**
  * Shared helpers for live two-user Playwright e2e.
  * Handles first-time E2EE setup as well as unlock on returning devices.
@@ -86,10 +88,26 @@ export async function loginAndUnlock(page, account) {
   await page.goto('/');
   const loginIdentifier = page.locator('#loginIdentifier');
   await loginIdentifier.waitFor({ state: 'visible', timeout: 30_000 });
-  await loginIdentifier.fill(account.username);
+  await page.locator('#loginIdentifier').fill(account.username);
   await page.locator('#password').fill(account.password);
   await page.locator('button[type="submit"]').click();
   await completeE2eeIfNeeded(page, account.encryptionPassword);
+}
+
+export async function enterMockApp(page) {
+  await page.goto('/');
+  const demoBtn = page.locator('.auth-demo-quick-btn, .auth-warning-alert button');
+  if (await demoBtn.isVisible({ timeout: 4_000 }).catch(() => false)) {
+    await demoBtn.click();
+  } else {
+    const loginIdentifier = page.locator('#loginIdentifier');
+    if (await loginIdentifier.isVisible({ timeout: 4_000 }).catch(() => false)) {
+      await loginIdentifier.fill('alex_dev');
+      await page.locator('#password').fill('123456');
+      await page.locator('button[type="submit"]').click();
+    }
+  }
+  await expect(page.locator('.sidebar')).toBeVisible({ timeout: 30_000 });
 }
 
 export async function openPersonalChat(page, username) {

@@ -1,13 +1,12 @@
 import { expect, test } from '@playwright/test';
+import { enterMockApp } from './helpers.mjs';
 
 test('mock group chat sends a message and clears its pending state', async ({ page }) => {
   const pageErrors = [];
   const marker = `E2E-MESSAGE-${Date.now()}`;
   page.on('pageerror', (error) => pageErrors.push(error.message));
 
-  await page.goto('/');
-  await page.locator('.auth-warning-alert button').click();
-  await expect(page.locator('.sidebar')).toBeVisible();
+  await enterMockApp(page);
   await page.getByText('Coiny Community 👥', { exact: true }).click();
 
   const composer = page.locator('.chat-footer-input textarea').first();

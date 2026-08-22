@@ -1,10 +1,5 @@
 import { expect, test } from '@playwright/test';
-
-async function enterMockApp(page) {
-  await page.goto('/');
-  await page.locator('.auth-warning-alert button').click();
-  await expect(page.locator('.sidebar')).toBeVisible();
-}
+import { enterMockApp } from './helpers.mjs';
 
 async function openProfileSettings(page) {
   const menuButton = page.locator('.menu-btn[title="Настройки"]');

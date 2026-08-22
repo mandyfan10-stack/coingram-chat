@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { enterMockApp } from './helpers.mjs';
 
 async function installMobileRecorderMocks(page, permissionDelay = 0) {
   await page.addInitScript(({ delay }) => {
@@ -68,8 +69,7 @@ async function installMobileRecorderMocks(page, permissionDelay = 0) {
 
 async function openMobileMockChat(page) {
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/');
-  await page.locator('.auth-warning-alert button').click();
+  await enterMockApp(page);
   await page.getByText('Coiny Community 👥', { exact: true }).click();
   await expect(page.locator('.chat-footer-input')).toBeVisible();
 }

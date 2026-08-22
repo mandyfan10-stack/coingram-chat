@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { useChat } from '../context/ChatContext';
 import './ChatArea.css';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
@@ -385,6 +385,11 @@ function formatDateDivider(timestamp) {
 
       const saved = chatScrollPositionsRef.current.get(activeChat?.id) || getSavedChatScroll(activeChat?.id);
       if (saved) {
+        if (saved.distanceFromBottom < 60) {
+          chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
+          isInitialChatLoadRef.current = false;
+          return;
+        }
         if (saved.topMessageId) {
           const targetMsg = chatBodyRef.current.querySelector(`.message-row[data-message-id="${saved.topMessageId}"]`);
           if (targetMsg) {
@@ -394,11 +399,7 @@ function formatDateDivider(timestamp) {
           }
         }
         if (typeof saved.scrollTop === 'number') {
-          if (saved.distanceFromBottom < 40) {
-            chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
-          } else {
-            chatBodyRef.current.scrollTop = saved.scrollTop;
-          }
+          chatBodyRef.current.scrollTop = saved.scrollTop;
           isInitialChatLoadRef.current = false;
           return;
         }
@@ -412,19 +413,17 @@ function formatDateDivider(timestamp) {
   useEffect(() => {
     const saved = chatScrollPositionsRef.current.get(activeChat?.id) || getSavedChatScroll(activeChat?.id);
     if (saved) {
-      if (saved.topMessageId) {
+      if (saved.distanceFromBottom < 60) {
+        scrollToBottom('auto');
+      } else if (saved.topMessageId) {
         const targetMsg = chatBodyRef.current?.querySelector(`.message-row[data-message-id="${saved.topMessageId}"]`);
         if (targetMsg) {
           targetMsg.scrollIntoView({ block: 'start', behavior: 'auto' });
-        } else if (typeof saved.scrollTop === 'number') {
-          if (chatBodyRef.current) chatBodyRef.current.scrollTop = saved.scrollTop;
-        }
-      } else if (typeof saved.scrollTop === 'number') {
-        if (saved.distanceFromBottom < 40) {
-          scrollToBottom('auto');
-        } else if (chatBodyRef.current) {
+        } else if (typeof saved.scrollTop === 'number' && chatBodyRef.current) {
           chatBodyRef.current.scrollTop = saved.scrollTop;
         }
+      } else if (typeof saved.scrollTop === 'number' && chatBodyRef.current) {
+        chatBodyRef.current.scrollTop = saved.scrollTop;
       }
     } else {
       scrollToBottom('auto');
