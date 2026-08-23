@@ -124,5 +124,16 @@ test('ChatArea and MessageBubble use getReplyType and SVG icons for reply previe
   assert.match(messageBubbleCode, /reply-media-svg/);
 });
 
+test('ChatArea.css guarantees media bubble overflow: visible and precise desktop hover hitbox', async () => {
+  const chatAreaCss = await readFile(
+    new URL('../src/components/ChatArea.css', import.meta.url),
+    'utf8'
+  );
+  assert.match(chatAreaCss, /\.message-bubble\.bubble-media-only\s*\{[^}]*overflow:\s*visible/s);
+  assert.match(chatAreaCss, /\.message-bubble\.bubble-media-with-caption\s*\{[^}]*overflow:\s*visible/s);
+  assert.match(chatAreaCss, /\.message-bubble\.bubble-media-only\s+\.bubble-media-wrapper\s*\{[^}]*overflow:\s*hidden/s);
+  assert.ok(!chatAreaCss.includes('.message-row:hover .message-hover-actions'), 'Must not use full-width row hover for message action triggers');
+});
+
 
 
