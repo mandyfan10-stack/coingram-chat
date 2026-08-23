@@ -135,5 +135,18 @@ test('ChatArea.css guarantees media bubble overflow: visible and precise desktop
   assert.ok(!chatAreaCss.includes('.message-row:hover .message-hover-actions'), 'Must not use full-width row hover for message action triggers');
 });
 
+test('StoryViewer implements robust separate manual pause and hold-to-pause gestures', async () => {
+  const storyViewerCode = await readFile(
+    new URL('../src/components/StoryViewer.jsx', import.meta.url),
+    'utf8'
+  );
+  assert.match(storyViewerCode, /isManualPaused/);
+  assert.match(storyViewerCode, /isHolding/);
+  assert.match(storyViewerCode, /startTimeRef\.current\s*=\s*null;/);
+  assert.match(storyViewerCode, /e\.code\s*===\s*'Space'/);
+  assert.match(storyViewerCode, /handlePointerDown/);
+  assert.match(storyViewerCode, /handlePointerUp/);
+});
+
 
 
