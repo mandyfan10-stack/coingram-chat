@@ -9,6 +9,9 @@ import {
   validateAuthEmail,
   hashMockPassword,
   mockPasswordMatches,
+  isRetryableSignInSchemeError,
+  shouldTryNextAuthEmail,
+  mapSupabaseAuthError,
   LEGACY_AUTH_EMAIL_DOMAIN,
   MODERN_AUTH_EMAIL_DOMAIN
 } from '../src/services/authEmail.ts';
@@ -51,6 +54,34 @@ test('username validation rejects mock-only reserved bot names', () => {
   assert.equal(validateAuthUsername('quiz_bot').ok, false);
   assert.equal(validateAuthUsername('weather_bot').ok, false);
   assert.equal(validateAuthUsername('saved_messages').ok, false);
+});
+
+test('dual-path retries only invalid credentials and modern-domain address rejection', () => {
+  assert.equal(isRetryableSignInSchemeError({ status: 400, message: 'Invalid login credentials' }), true);
+  assert.equal(isRetryableSignInSchemeError({ code: 'invalid_credentials' }), true);
+  assert.equal(isRetryableSignInSchemeError({ status: 400, message: 'Email not confirmed' }), false);
+  assert.equal(isRetryableSignInSchemeError({ code: 'email_not_confirmed', status: 400 }), false);
+
+  const modern = buildModernAuthEmail('alice');
+  const legacy = buildLegacyAuthEmail('alice');
+  assert.equal(
+    shouldTryNextAuthEmail({ code: 'email_address_invalid', message: 'Example and test domains are currently not supported.' }, modern),
+    true
+  );
+  assert.equal(
+    shouldTryNextAuthEmail({ code: 'email_address_invalid' }, legacy),
+    false
+  );
+  assert.equal(
+    shouldTryNextAuthEmail({ code: 'email_not_confirmed', message: 'Email not confirmed' }, modern),
+    false
+  );
+});
+
+test('auth errors map to actionable Russian copy', () => {
+  assert.match(mapSupabaseAuthError({ message: 'Invalid login credentials' }).message, /Неверный логин или пароль/);
+  assert.match(mapSupabaseAuthError({ code: 'email_not_confirmed' }).message, /не подтверждён/i);
+  assert.match(mapSupabaseAuthError({ code: 'user_already_exists' }, 'signup').message, /уже занято/);
 });
 
 test('mock passwords are compared via hash without requiring plaintext field', async () => {
