@@ -37,9 +37,15 @@ test('auth uses dual-path internal emails without hardcoding only tg-clone on si
   assert.match(authService, /email: validated\.email/);
   assert.match(authService, /buildSignupAuthEmail/);
   assert.match(authService, /buildSignInEmailCandidates/);
+  assert.match(authService, /shouldTryNextAuthEmail/);
+  assert.match(authService, /mapSupabaseAuthError/);
+  assert.match(authService, /resolve_username_auth_email/);
+  assert.match(authService, /authService\.signIn\(cleanUsername, password\)/);
   assert.match(authEmail, /coiny\.users\.local/);
   assert.match(authEmail, /tg-clone\.com/);
+  assert.match(authEmail, /email_not_confirmed/);
   assert.doesNotMatch(authService, /\$\{username\}@tg-clone\.com/);
+  assert.doesNotMatch(authService, /status === 400/);
   assert.match(authService, /passwordHash/);
   assert.match(authService, /hashMockPassword/);
 });
