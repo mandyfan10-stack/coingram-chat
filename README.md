@@ -83,9 +83,11 @@ UI принимает только **username + password**. Supabase Auth по-�
 | **Modern** (новые аккаунты) | `{username}@coiny.users.local` | Регистрация |
 | **Legacy** (существующие) | `{username}@tg-clone.com` | Вход dual-path |
 
-**Вход:** клиент пробует modern email, при ошибке credentials — legacy.  
+**Вход:** клиент пробует modern email, при `invalid_credentials` — legacy.  
 **Регистрация:** только modern.  
 Username: `a-z`, `0-9`, `_`, длина 3–32.
+
+Синтетические адреса не принимают почту. На hosted-проекте выключите **Confirm email** (или примените миграцию `20260827120000_auto_confirm_synthetic_auth_emails.sql`). Иначе логин даёт 400 на `/auth/v1/token?grant_type=password`.
 
 В Mock Mode пароли в `localStorage` хранятся как **SHA-256 hash** (`passwordHash`), не в открытом виде.
 
@@ -168,5 +170,5 @@ npm run clean:all
 Версия приложения всегда берётся из `package.json` через Vite (`import.meta.env.APP_VERSION`). Перед тегом:
 
 ```bash
-npm run release:verify -- v1.20.35
+npm run release:verify -- v1.20.36
 ```

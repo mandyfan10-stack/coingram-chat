@@ -25,6 +25,12 @@ Reference: [qa-security-report-2026-07-23.md](./qa-security-report-2026-07-23.md
 - New users: `{username}@coiny.users.local`  
 - Legacy: `{username}@tg-clone.com` (dual-path login)  
 
+These addresses are **not real mailboxes**. Hosted Supabase has **Confirm email** on by default; unconfirmed users then get HTTP 400 from `/auth/v1/token?grant_type=password`.
+
+- Keep **Authentication → Providers → Email → Confirm email** **off** for this project.
+- Migration `20260827120000_auto_confirm_synthetic_auth_emails.sql` auto-confirms only the two synthetic domains and backfills existing rows. Apply it to the hosted project (`supabase db push` or SQL editor).
+- Username login first calls `resolve_username_auth_email` and then makes **one** password grant. Dual-path (modern → legacy) remains only as a fallback if the RPC is missing. A remaining 400 is a real credential failure, not the unused scheme.
+
 **Ops note:** When deprecating legacy, plan a one-time user migration (Auth admin API) before removing the fallback in `authEmail.ts`.
 
 ---
