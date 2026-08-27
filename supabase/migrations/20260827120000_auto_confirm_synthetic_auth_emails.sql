@@ -4,7 +4,8 @@
 -- ("Email not confirmed") and blocks login. Auto-confirm only those addresses.
 
 create schema if not exists private;
-revoke all on schema private from public, anon, authenticated;
+revoke all on schema private from public, anon;
+grant usage on schema private to authenticated, service_role;
 
 create or replace function private.auto_confirm_synthetic_auth_email()
 returns trigger
