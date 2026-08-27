@@ -5,17 +5,10 @@ import {
   buildSignupAuthEmail,
   buildSignInEmailCandidates,
   hashMockPassword,
-  mockPasswordMatches
+  mockPasswordMatches,
+  shouldTryNextAuthEmail,
+  mapSupabaseAuthError
 } from './authEmail';
-function isInvalidCredentialsError(error) {
-  if (!error) return false;
-  const message = String(error.message || '').toLowerCase();
-  const status = error.status || error.statusCode;
-  return status === 400
-    || message.includes('invalid login credentials')
-    || message.includes('invalid_credentials')
-    || message.includes('email not confirmed');
-}
 
 export const authService = {
   signUp: async (username, password, displayName) => {
@@ -36,8 +29,15 @@ export const authService = {
           }
         }
       });
-      if (error) return { error };
-      return { data: { id: data.user.id, name: displayName, username: cleanUsername } };
+      if (error) return { error: mapSupabaseAuthError(error, 'signup') };
+      if (data?.session && data.user?.id) {
+        return { data: { id: data.user.id, name: displayName, username: cleanUsername } };
+      }
+      // Hosted Confirm-email leaves signUp without a session even after the
+      // synthetic-address auto-confirm trigger. Complete login immediately.
+      const followUp = await authService.signIn(cleanUsername, password);
+      if (followUp.error) return followUp;
+      return { data: { id: followUp.data.id, name: displayName, username: cleanUsername } };
     }
 
     // Mock / offline demo
@@ -77,12 +77,23 @@ export const authService = {
           email: validated.email,
           password
         });
-        if (error) return { error };
+        if (error) return { error: mapSupabaseAuthError(error, 'signin') };
         return { data: { id: data.user.id } };
       }
 
       const cleanUsername = validated.username;
-      const candidates = buildSignInEmailCandidates(cleanUsername);
+      let candidates = buildSignInEmailCandidates(cleanUsername);
+      try {
+        const { data: resolvedEmail, error: resolveError } = await supabase.rpc(
+          'resolve_username_auth_email',
+          { p_username: cleanUsername }
+        );
+        if (!resolveError && typeof resolvedEmail === 'string' && resolvedEmail.includes('@')) {
+          candidates = [resolvedEmail];
+        }
+      } catch {
+        // RPC missing on an older project — keep dual-path fallback.
+      }
       let lastError = null;
 
       for (const email of candidates) {
@@ -94,13 +105,20 @@ export const authService = {
           return { data: { id: data.user.id } };
         }
         lastError = error;
-        // Only fall through to the next email scheme on credential failures.
-        if (!isInvalidCredentialsError(error)) {
-          return { error };
+        // Only fall through when this synthetic address is not the account.
+        // email_not_confirmed / rate-limit / banned must not hide behind a
+        // second 400 on the legacy domain.
+        if (!shouldTryNextAuthEmail(error, email)) {
+          return { error: mapSupabaseAuthError(error, 'signin') };
         }
       }
 
-      return { error: lastError || new Error('Ошибка при входе. Проверьте логин и пароль.') };
+      return {
+        error: mapSupabaseAuthError(
+          lastError || new Error('Ошибка при входе. Проверьте логин и пароль.'),
+          'signin'
+        )
+      };
     }
 
     if (isEmailIdentifier) {
