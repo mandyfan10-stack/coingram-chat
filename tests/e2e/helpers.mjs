@@ -110,6 +110,21 @@ export async function enterMockApp(page) {
   await expect(page.locator('.sidebar')).toBeVisible({ timeout: 30_000 });
 }
 
+/**
+ * QA chats accumulate months of E2E history. Restored scroll / content-visibility
+ * can leave the latest rows off-screen, so Playwright's toBeVisible() fails.
+ */
+export async function jumpToLatestMessages(page) {
+  const jump = page.locator('.scroll-bottom-btn');
+  if (await jump.isVisible().catch(() => false)) {
+    await jump.click();
+  }
+  await page.evaluate(() => {
+    const body = document.querySelector('.chat-body');
+    if (body) body.scrollTop = body.scrollHeight;
+  });
+}
+
 export async function openPersonalChat(page, username) {
   // Ensure no modal is blocking interactions.
   const overlay = page.locator('.e2ee-modal-overlay');
@@ -121,6 +136,7 @@ export async function openPersonalChat(page, username) {
   if (await byData.isVisible({ timeout: 3_000 }).catch(() => false)) {
     await byData.click();
     await page.locator('.chat-header').waitFor({ state: 'visible' });
+    await jumpToLatestMessages(page);
     return;
   }
 
@@ -128,6 +144,7 @@ export async function openPersonalChat(page, username) {
   if (await existing.isVisible({ timeout: 2_000 }).catch(() => false)) {
     await existing.click();
     await page.locator('.chat-header').waitFor({ state: 'visible' });
+    await jumpToLatestMessages(page);
     return;
   }
 
@@ -138,4 +155,5 @@ export async function openPersonalChat(page, username) {
   await profileResult.waitFor({ state: 'visible', timeout: 20_000 });
   await profileResult.click();
   await page.locator('.chat-header').waitFor({ state: 'visible', timeout: 20_000 });
+  await jumpToLatestMessages(page);
 }

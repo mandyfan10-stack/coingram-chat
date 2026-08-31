@@ -907,7 +907,9 @@ function formatDateDivider(timestamp) {
 
     if (!isLoadingOlderRef.current && isNewMessage) {
       if (shouldAutoScrollRef.current || isOwnMessage) {
-        scrollToBottom('smooth');
+        // Own sends jump instantly so smooth-scroll cannot be interrupted by
+        // pagination/layout while the row is still off-screen.
+        scrollToBottom(isOwnMessage ? 'auto' : 'smooth');
       }
     }
 
@@ -930,6 +932,10 @@ function formatDateDivider(timestamp) {
     saveCurrentScrollPosition();
 
     const page = messagePagination?.[activeChat?.id];
+    // Opening a long chat starts at scrollTop 0 until layout restores the
+    // bottom/anchor. Paging here would prepend history and leave the view
+    // stuck in old messages (breaks live E2E read receipts).
+    if (isInitialChatLoadRef.current) return;
     if (scrollTop > 80 || page?.hasMore === false || isLoadingOlderRef.current) return;
 
     isLoadingOlderRef.current = true;

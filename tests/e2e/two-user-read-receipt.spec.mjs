@@ -4,6 +4,7 @@ import {
   loginAndUnlock,
   openPersonalChat,
   completeE2eeIfNeeded,
+  jumpToLatestMessages,
 } from './helpers.mjs';
 
 const accounts = loadE2eAccounts();
@@ -42,9 +43,13 @@ test('read receipt survives reload for both users', async ({ browser }) => {
     ).toBeVisible({ timeout: 30_000 });
 
     await reader.bringToFront().catch(() => {});
+    await jumpToLatestMessages(reader);
     await reader.locator('.chat-body').click({ timeout: 5_000 }).catch(() => {});
 
     const senderMessage = sender.locator('.message-row').filter({ hasText: marker }).last();
+    await expect(senderMessage).toBeAttached({ timeout: 15_000 });
+    await jumpToLatestMessages(sender);
+    await senderMessage.scrollIntoViewIfNeeded();
     await expect(senderMessage.locator('.seen-check.blue')).toBeVisible({ timeout: 30_000 });
 
     await Promise.all([sender.reload(), reader.reload()]);
@@ -57,6 +62,9 @@ test('read receipt survives reload for both users', async ({ browser }) => {
     await openPersonalChat(reader, accounts.first.username);
 
     const restored = sender.locator('.message-row').filter({ hasText: marker }).last();
+    await expect(restored).toBeAttached({ timeout: 20_000 });
+    await jumpToLatestMessages(sender);
+    await restored.scrollIntoViewIfNeeded();
     await expect(restored).toBeVisible({ timeout: 20_000 });
     await expect(restored.locator('.seen-check.blue')).toBeVisible({ timeout: 20_000 });
     await expect(
