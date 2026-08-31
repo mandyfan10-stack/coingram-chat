@@ -4,6 +4,8 @@ import test from 'node:test';
 
 const indexCss = fs.readFileSync(new URL('../src/index.css', import.meta.url), 'utf8');
 const chatAreaCss = fs.readFileSync(new URL('../src/components/ChatArea.css', import.meta.url), 'utf8');
+const chatInfoCss = fs.readFileSync(new URL('../src/components/ChatInfo.css', import.meta.url), 'utf8');
+const settingsCss = fs.readFileSync(new URL('../src/components/SettingsModal.css', import.meta.url), 'utf8');
 
 test('desktop chat layout keeps the info panel at its full width beside media', () => {
   assert.match(
@@ -310,4 +312,17 @@ test('repositionDrawer geometry algorithm handles top, bottom, and side collisio
     viewportHeight: 667
   });
   assert.equal(posLeftEdge.left, 8);
+});
+
+test('light theme swaps overlay surfaces so info/settings tabs are not dark stains', () => {
+  assert.match(indexCss, /--surface-glass:/);
+  assert.match(indexCss, /--surface-muted:/);
+  assert.match(settingsCss, /html\.theme-light\s*\{[^}]*--surface-glass:\s*#ffffff/s);
+  assert.match(settingsCss, /html\.theme-light\s*\{[^}]*--surface-muted:\s*#f1f5f9/s);
+
+  assert.match(chatInfoCss, /\.info-header\s*\{[^}]*background:\s*var\(--surface-glass\)/s);
+  assert.match(chatInfoCss, /\.info-segmented-tabs\s*\{[^}]*background:\s*var\(--surface-muted\)/s);
+  assert.doesNotMatch(chatInfoCss, /rgba\(14,\s*22,\s*33/);
+
+  assert.match(chatAreaCss, /html\.theme-light\[data-wallpaper="classic"\]\s+\.chat-body/);
 });

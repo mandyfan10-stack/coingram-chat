@@ -26,6 +26,14 @@
   --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
   --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Overlay surfaces — dark-theme defaults, swapped in html.theme-light */
+  --surface-glass: rgba(14, 22, 33, 0.45);
+  --surface-muted: rgba(14, 22, 33, 0.5);
+  --surface-inset: rgba(0, 0, 0, 0.2);
+  --surface-row: rgba(255, 255, 255, 0.04);
+  --surface-hover: rgba(255, 255, 255, 0.08);
+  --surface-chip: rgba(255, 255, 255, 0.06);
 }
 
 /* ===== RAINBOW KEYFRAMES ===== */
@@ -1403,7 +1411,7 @@ body {
 /* Wallpapers boxes selection */
 .wallpapers-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
   gap: 8px;
 }
 
@@ -2501,6 +2509,59 @@ body.light-mode .auth-showcase-panel {
   }
 }
 
+/* Phone portrait: login first, compact showcase so password + submit stay on screen. */
+@media (max-width: 768px) {
+  .auth-split-layout {
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 16px 14px 28px;
+  }
+  .auth-card-wrapper {
+    order: 1;
+    width: 100%;
+  }
+  .auth-showcase-panel {
+    order: 2;
+    width: 100%;
+    padding: 14px 16px;
+    min-height: 0;
+  }
+  .auth-showcase-stage {
+    min-height: 72px;
+    margin: 4px 0;
+  }
+  .auth-showcase-text {
+    margin: 4px 0 8px 0;
+  }
+  .auth-showcase-text h3 {
+    font-size: 15px;
+  }
+  .auth-showcase-text p {
+    font-size: 12px;
+  }
+  .auth-card {
+    padding: 22px 18px;
+    gap: 12px;
+  }
+  .auth-logo-svg-wrapper {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 8px;
+  }
+  .auth-logo-svg {
+    width: 56px;
+    height: 56px;
+  }
+  .auth-logo-section h2 {
+    font-size: 22px;
+    margin-bottom: 4px;
+  }
+  .auth-subtitle {
+    font-size: 12.5px;
+  }
+}
+
 body.light-mode .auth-card {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -2978,10 +3039,10 @@ body.light-mode .auth-input-wrapper input {
 .new-chat-container {
   position: relative;
   z-index: 2;
-  background: rgba(23, 33, 43, 0.9);
+  background: var(--bg-secondary);
   backdrop-filter: blur(25px);
   -webkit-backdrop-filter: blur(25px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-color);
   border-radius: 20px;
   width: 100%;
   max-width: 440px;
@@ -4525,7 +4586,7 @@ body.light-mode .auth-input-wrapper input {
   width: 280px;
   padding: 0;
   overflow: hidden;
-  background: rgba(23, 33, 43, 0.95);
+  background: var(--bg-secondary);
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-lg);
   backdrop-filter: blur(12px);
@@ -4534,7 +4595,7 @@ body.light-mode .auth-input-wrapper input {
 
 .picker-header-tabs {
   display: flex;
-  background: rgba(14, 22, 33, 0.5);
+  background: var(--surface-muted);
   border-bottom: 1px solid var(--border-color);
   padding: 4px;
   gap: 4px;
@@ -4555,7 +4616,7 @@ body.light-mode .auth-input-wrapper input {
 
 .picker-tab-btn:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-hover);
 }
 
 .picker-tab-btn.active {
@@ -4598,7 +4659,7 @@ body.light-mode .auth-input-wrapper input {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: rgba(14, 22, 33, 0.2);
+  background: var(--surface-muted);
 }
 
 .add-member-form {
@@ -4995,7 +5056,7 @@ body.light-mode .auth-input-wrapper input {
     gap: 6px !important;
   }
   .wallpapers-grid {
-    grid-template-columns: repeat(6, 1fr) !important;
+    grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)) !important;
     gap: 6px !important;
   }
   .installed-packs-list {
@@ -5301,7 +5362,7 @@ body.light-mode .auth-input-wrapper input {
 
 .status-label {
   font-size: 13px;
-  color: #7f91a4;
+  color: var(--text-secondary);
 }
 
 .status-badge {
@@ -5330,7 +5391,7 @@ body.light-mode .auth-input-wrapper input {
 
 .fingerprint-label {
   font-size: 12px;
-  color: #7f91a4;
+  color: var(--text-secondary);
 }
 
 .fingerprint-wrapper {
@@ -5342,13 +5403,13 @@ body.light-mode .auth-input-wrapper input {
 .fingerprint-code {
   font-family: monospace;
   font-size: 11px;
-  color: #ffffff;
-  background: rgba(0, 0, 0, 0.3);
+  color: var(--text-primary);
+  background: var(--surface-inset);
   padding: 6px 10px;
   border-radius: 6px;
   flex: 1;
   word-break: break-all;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-color);
 }
 
 .fingerprint-copy-btn {

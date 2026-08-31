@@ -1016,6 +1016,13 @@ html.theme-light {
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.12);
+
+  --surface-glass: #ffffff;
+  --surface-muted: #f1f5f9;
+  --surface-inset: #e2e8f0;
+  --surface-row: rgba(15, 23, 42, 0.04);
+  --surface-hover: rgba(15, 23, 42, 0.07);
+  --surface-chip: #e2e8f0;
 }
 
 /* Sidebar */
@@ -1224,13 +1231,17 @@ html.theme-light .reaction-badge {
 }
 
 /* Info panel */
-html.theme-light .info-panel {
+html.theme-light .info-panel,
+html.theme-light .chat-info,
+html.theme-light .chat-info-inner {
   background-color: #ffffff;
-  border-left: 1px solid #e2e8f0;
+  border-left-color: #e2e8f0;
 }
 
 html.theme-light .info-panel h3,
-html.theme-light .info-panel h4 {
+html.theme-light .info-panel h4,
+html.theme-light .info-header-title,
+html.theme-light .info-name-hero {
   color: #0f172a;
 }
 
@@ -1299,7 +1310,8 @@ html.theme-light .theme-selection-btn:hover {
 }
 
 /* New chat modal */
-html.theme-light .new-chat-modal-content {
+html.theme-light .new-chat-modal-content,
+html.theme-light .new-chat-container {
   background-color: #ffffff;
   border: 1px solid #e2e8f0;
 }
@@ -1403,7 +1415,7 @@ html.theme-light .empty-state p {
   padding: 8px 10px;
   overflow-x: auto;
   border-bottom: 1px solid var(--border-color);
-  background: rgba(14, 22, 33, 0.3);
+  background: var(--surface-muted);
   scrollbar-width: none;
 }
 
@@ -1417,8 +1429,8 @@ html.theme-light .empty-state p {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface-chip);
+  border: 1px solid var(--border-color);
   border-radius: 6px;
   cursor: pointer;
   flex-shrink: 0;
@@ -1427,8 +1439,8 @@ html.theme-light .empty-state p {
 }
 
 .sticker-pack-tab-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.15);
+  background: var(--surface-hover);
+  border-color: var(--border-color);
 }
 
 .sticker-pack-tab-btn.active {
@@ -1809,7 +1821,7 @@ html.theme-light .empty-state p {
   font-size: 15px;
   font-weight: 600;
   margin: 0;
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 .settings-e2ee-tab .section-title svg {
@@ -1822,14 +1834,14 @@ html.theme-light .empty-state p {
 
 .settings-e2ee-tab .section-desc {
   font-size: 13px;
-  color: #7f91a4;
+  color: var(--text-secondary);
   margin: 0;
   line-height: 1.45;
 }
 
 .e2ee-status-card {
-  background: rgba(14, 22, 33, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--surface-muted);
+  border: 1px solid var(--border-color);
   border-radius: 12px;
   padding: 16px;
   display: flex;

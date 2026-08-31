@@ -41,7 +41,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 14px;
-  background: rgba(14, 22, 33, 0.45);
+  background: var(--surface-glass);
   backdrop-filter: blur(12px);
   z-index: 10;
 }
@@ -74,7 +74,7 @@
 }
 
 .info-icon-btn:hover {
-  background-color: rgba(255, 255, 255, 0.08);
+  background-color: var(--surface-hover);
   color: var(--text-primary);
 }
 
@@ -95,7 +95,7 @@
   align-items: center;
   text-align: center;
   padding: 24px 16px 16px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, transparent 100%);
+  background: linear-gradient(180deg, var(--surface-row) 0%, transparent 100%);
   border-bottom: 1px solid var(--border-color);
   position: relative;
   overflow: hidden;
@@ -124,7 +124,7 @@
 .info-hero-banner-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1) 0%, rgba(14, 22, 33, 0.3) 50%, var(--bg-secondary) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.08) 0%, color-mix(in srgb, var(--bg-secondary) 40%, transparent) 55%, var(--bg-secondary) 100%);
 }
 
 .info-hero-section > *:not(.info-hero-banner) {
@@ -220,7 +220,7 @@
   width: 100%;
   margin-top: 18px;
   padding-top: 14px;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--border-color);
 }
 
 .quick-action-item {
@@ -245,7 +245,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-chip);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -321,7 +321,7 @@
 }
 
 .info-copy-pill-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
@@ -345,7 +345,7 @@
   font-size: 12.5px;
   letter-spacing: 0.5px;
   color: var(--text-primary);
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--surface-inset);
   padding: 6px 8px;
   border-radius: 6px;
   word-break: break-all;
@@ -469,7 +469,7 @@
 }
 
 .info-member-row:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-row);
 }
 
 .info-member-avatar-wrap {
@@ -540,7 +540,7 @@
   font-size: 10.5px;
   padding: 1px 6px;
   border-radius: 10px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-chip);
   color: var(--text-secondary);
   font-weight: 500;
 }
@@ -572,7 +572,7 @@
 }
 
 .info-member-menu-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--surface-hover);
   color: var(--text-primary);
 }
 
@@ -613,7 +613,7 @@
 /* Segmented Media Tabs */
 .info-segmented-tabs {
   display: flex;
-  background: rgba(14, 22, 33, 0.5);
+  background: var(--surface-muted);
   border-bottom: 1px solid var(--border-color);
   position: sticky;
   top: 0;
@@ -641,7 +641,7 @@
 
 .info-segment-tab:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-hover);
 }
 
 .info-segment-tab.active {
@@ -652,10 +652,15 @@
 
 .info-segment-count {
   font-size: 10.5px;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--surface-inset);
   padding: 1px 5px;
   border-radius: 8px;
   opacity: 0.9;
+}
+
+.info-segment-tab.active .info-segment-count {
+  background: rgba(0, 0, 0, 0.2);
+  color: #ffffff;
 }
 
 /* Tab Contents */
@@ -674,7 +679,7 @@
 .info-media-thumb-btn {
   width: 100%;
   aspect-ratio: 1 / 1;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--surface-inset);
   border: none;
   border-radius: 6px;
   overflow: hidden;
@@ -710,7 +715,7 @@
   align-items: center;
   padding: 8px 10px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-row);
   text-decoration: none;
   color: inherit;
   gap: 10px;
@@ -719,7 +724,7 @@
 
 .info-doc-item.is-voice-item {
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-row);
 }
 
 .info-doc-voice-box .voice-player-bubble {
@@ -729,7 +734,7 @@
 
 .info-doc-item:hover,
 .info-link-item:hover {
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--surface-hover);
 }
 
 .info-doc-icon-box {
@@ -778,7 +783,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-row);
   border-radius: 8px;
   font-size: 13px;
   color: var(--text-primary);
