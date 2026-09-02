@@ -190,7 +190,8 @@ export const ChatProvider = ({ children }) => {
       deleteFailedMessage: offline.deleteFailedMessage,
       loadActiveChatMessages: loader.loadActiveChatMessages,
       loadOlderMessages: loader.loadOlderMessages,
-      messagePagination: loader.messagePagination
+      messagePagination: loader.messagePagination,
+      isChatLoading: loader.isChatLoading
     }}>
       {children}
     </ChatContext.Provider>

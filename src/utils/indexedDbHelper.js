@@ -7,7 +7,7 @@ import {
 } from './offlineQueueCrypto.js';
 
 const DB_NAME = 'CoinyOfflineDB';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 const ATTACHMENT_STORE_NAME = 'offline-attachments';
 const E2EE_KEY_STORE_NAME = 'e2ee-keys';
 const OFFLINE_QUEUE_STORE_NAME = 'offline-queue';
@@ -15,6 +15,7 @@ const LOCAL_KEY_STORE_NAME = 'local-crypto-keys';
 const MLS_STATE_STORE_NAME = 'mls-state';
 const CRYPTO_OUTBOX_STORE_NAME = 'crypto-outbox';
 const CRYPTO_INBOX_STORE_NAME = 'crypto-inbox';
+const MESSAGES_CACHE_STORE_NAME = 'messages-cache';
 const OFFLINE_QUEUE_KEY_ID = 'offline-queue-aes-gcm-v1';
 const LEGACY_QUEUE_STORAGE_KEY = 'tg-offline-queue';
 
@@ -29,13 +30,17 @@ function ensureStores(db) {
     LOCAL_KEY_STORE_NAME,
     MLS_STATE_STORE_NAME,
     CRYPTO_OUTBOX_STORE_NAME,
-    CRYPTO_INBOX_STORE_NAME
+    CRYPTO_INBOX_STORE_NAME,
+    MESSAGES_CACHE_STORE_NAME
   ]) {
     if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName);
   }
 }
 
 function openDatabase(version) {
+  if (typeof indexedDB === 'undefined') {
+    return Promise.reject(new Error('IndexedDB is not supported in this environment'));
+  }
   return new Promise((resolve, reject) => {
     const request = typeof version === 'number'
       ? indexedDB.open(DB_NAME, version)
@@ -285,4 +290,62 @@ export async function clearOfflineDatabase() {
     request.onerror = (event) => reject(event.target.error || new Error('IndexedDB delete failed'));
     request.onblocked = () => reject(new Error('IndexedDB delete is blocked by another Coiny tab.'));
   });
+}
+
+/**
+ * Persists up to 100 recent messages for a chat to IndexedDB for instantaneous reopening.
+ * @param {string} chatId
+ * @param {Array<object>} messages
+ * @param {string} [userId]
+ */
+export async function saveCachedMessages(chatId, messages, userId) {
+  if (!chatId || !Array.isArray(messages) || messages.length === 0) return;
+  if (typeof indexedDB === 'undefined') return;
+  const context = `chat-messages:${userContext(userId)}:${chatId}`;
+  try {
+    const trimmed = messages.slice(-100).map((m) => ({
+      ...m,
+      timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp
+    }));
+    await putStoreValue(MESSAGES_CACHE_STORE_NAME, context, trimmed);
+  } catch (err) {
+    console.warn('Failed to cache messages in IndexedDB:', err);
+  }
+}
+
+/**
+ * Retrieves cached messages for a chat from IndexedDB.
+ * @param {string} chatId
+ * @param {string} [userId]
+ * @returns {Promise<Array<object>|null>}
+ */
+export async function getCachedMessages(chatId, userId) {
+  if (!chatId || typeof indexedDB === 'undefined') return null;
+  const context = `chat-messages:${userContext(userId)}:${chatId}`;
+  try {
+    const raw = await getStoreValue(MESSAGES_CACHE_STORE_NAME, context);
+    if (!Array.isArray(raw)) return null;
+    return raw.map((m) => ({
+      ...m,
+      timestamp: new Date(m.timestamp)
+    }));
+  } catch (err) {
+    console.warn('Failed to read cached messages from IndexedDB:', err);
+    return null;
+  }
+}
+
+/**
+ * Removes cached messages for a chat from IndexedDB.
+ * @param {string} chatId
+ * @param {string} [userId]
+ */
+export async function clearCachedMessages(chatId, userId) {
+  if (!chatId || typeof indexedDB === 'undefined') return;
+  const context = `chat-messages:${userContext(userId)}:${chatId}`;
+  try {
+    await deleteStoreValue(MESSAGES_CACHE_STORE_NAME, context);
+  } catch (err) {
+    console.warn('Failed to clear cached messages from IndexedDB:', err);
+  }
 }

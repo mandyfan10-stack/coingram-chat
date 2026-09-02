@@ -1,0 +1,137 @@
+/* --- Telegram-style Chat Shimmer Skeleton --- */
+.chat-skeleton-container {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 100%;
+  width: 100%;
+  padding: 16px 20px;
+  box-sizing: border-box;
+  animation: skeletonFadeIn 0.25s ease-out;
+  pointer-events: none;
+  user-select: none;
+}
+
+@keyframes skeletonFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.chat-skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+}
+
+.chat-skeleton-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.chat-skeleton-row.incoming {
+  justify-content: flex-start;
+}
+
+.chat-skeleton-row.outgoing {
+  justify-content: flex-end;
+}
+
+.skeleton-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface-row, rgba(255, 255, 255, 0.08));
+  flex-shrink: 0;
+}
+
+.skeleton-bubble {
+  position: relative;
+  overflow: hidden;
+  padding: 12px 14px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 82%;
+  min-height: 42px;
+  box-sizing: border-box;
+}
+
+.skeleton-bubble.incoming {
+  background: var(--bubble-other, #212d3b);
+  border-radius: 16px 16px 16px 4px;
+  opacity: 0.85;
+}
+
+.skeleton-bubble.outgoing {
+  background: var(--bubble-me, #2b5278);
+  border-radius: 16px 16px 4px 16px;
+  opacity: 0.85;
+}
+
+.skeleton-content {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.skeleton-line {
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.skeleton-meta {
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+}
+
+.skeleton-time {
+  width: 28px;
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Shimmer pulse effect */
+.shimmer {
+  background-size: 200% 100%;
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.08) 50%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  animation: telegramShimmer 1.5s infinite ease-in-out;
+}
+
+@keyframes telegramShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .chat-skeleton-container {
+    padding: 12px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+  
+  .skeleton-bubble {
+    max-width: 88%;
+    padding: 10px 12px;
+  }
+}

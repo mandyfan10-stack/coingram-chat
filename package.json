@@ -1,7 +1,7 @@
 {
   "name": "coingram-chat",
   "private": true,
-  "version": "1.20.42",
+  "version": "1.20.43",
   "type": "module",
   "main": "electron-main.cjs",
   "scripts": {
@@ -9,7 +9,7 @@
     "dev:mock": "vite --mode mock",
     "build": "vite build",
     "test": "node testE2EE.js && npm run test:unit",
-    "test:unit": "node --experimental-strip-types --test tests/*.test.mjs",
+    "test:unit": "node --experimental-strip-types --test --test-concurrency=4 tests/*.test.mjs",
     "test:e2e": "npm run build && playwright test",
     "test:desktop": "npm run build && playwright test --config playwright.electron.config.mjs",
     "typecheck": "tsc --noEmit",

@@ -40,6 +40,7 @@ import { createStorageReference } from '../utils/urlSecurity';
 import { getReplyType } from '../utils/mobileActionSheetUtils';
 import useResolvedMedia from '../hooks/useResolvedMedia';
 import useEdgeSwipeBack from '../hooks/useSwipeGesture';
+import ChatSkeleton from './chat/ChatSkeleton';
 
 export default function ChatArea() {
   const {
@@ -61,6 +62,7 @@ export default function ChatArea() {
     deleteFailedMessage,
     loadOlderMessages,
     messagePagination,
+    isChatLoading,
     setIsSettingsOpen,
     setSettingsTab
   } = useChat();
@@ -97,6 +99,9 @@ export default function ChatArea() {
     : null;
   const requiresE2EE = requiresPersonalE2EE(activeChat);
   const recipientMissingE2EE = requiresE2EE && (!otherMember || !otherMember.hasE2ee);
+
+  const chatMessagesCount = activeChat?.messages?.length || 0;
+  const isInitialLoading = Boolean(isChatLoading?.[activeChat?.id] && chatMessagesCount <= 1);
 
   const resolveSharedKeyForUpload = async () => {
     if (!requiresE2EE) return null;
@@ -372,6 +377,7 @@ function formatDateDivider(timestamp) {
       currentChatIdRef.current = activeChat?.id;
       isInitialChatLoadRef.current = true;
     }
+    if (isInitialLoading) return;
     if (isInitialChatLoadRef.current && chatBodyRef.current && (activeChat?.messages?.length || 0) > 0) {
       const unreadCount = activeChat?.unread_count || 0;
       if (unreadCount > 0) {
@@ -408,7 +414,7 @@ function formatDateDivider(timestamp) {
       chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight;
       isInitialChatLoadRef.current = false;
     }
-  }, [activeChat?.id, activeChat?.messages, activeChat?.unread_count]);
+  }, [activeChat?.id, activeChat?.messages, activeChat?.unread_count, isInitialLoading]);
 
   useEffect(() => {
     const saved = chatScrollPositionsRef.current.get(activeChat?.id) || getSavedChatScroll(activeChat?.id);
@@ -1175,54 +1181,58 @@ function formatDateDivider(timestamp) {
         onScroll={handleScroll}
         style={chatBodyStyle}
       >
-        <div className="messages-list">
-          {activeChat.messages.map((msg, index) => {
-            const prevMsg = activeChat.messages[index - 1];
-            const showDateDivider = !prevMsg || (
-              new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString()
-            );
-            const dateDividerText = showDateDivider ? formatDateDivider(msg.timestamp) : null;
-            const unreadCount = activeChat.unread_count || 0;
-            const firstUnreadIndex = unreadCount > 0 ? activeChat.messages.length - unreadCount : -1;
-            const showUnreadDivider = index === firstUnreadIndex && firstUnreadIndex > 0;
+        {isInitialLoading ? (
+          <ChatSkeleton />
+        ) : (
+          <div className="messages-list">
+            {activeChat.messages.map((msg, index) => {
+              const prevMsg = activeChat.messages[index - 1];
+              const showDateDivider = !prevMsg || (
+                new Date(msg.timestamp).toDateString() !== new Date(prevMsg.timestamp).toDateString()
+              );
+              const dateDividerText = showDateDivider ? formatDateDivider(msg.timestamp) : null;
+              const unreadCount = activeChat.unread_count || 0;
+              const firstUnreadIndex = unreadCount > 0 ? activeChat.messages.length - unreadCount : -1;
+              const showUnreadDivider = index === firstUnreadIndex && firstUnreadIndex > 0;
 
-            return (
-              <React.Fragment key={msg.id}>
-                {dateDividerText && (
-                  <div className="chat-date-divider">
-                    <span>{dateDividerText}</span>
-                  </div>
-                )}
-                {showUnreadDivider && (
-                  <div className="unread-messages-divider" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '14px 0', position: 'relative' }}>
-                    <span style={{ background: 'var(--accent-color, #2481cc)', color: '#fff', fontSize: '11px', padding: '3px 12px', borderRadius: '12px', fontWeight: '500', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}>
-                      Непрочитанные сообщения
-                    </span>
-                  </div>
-                )}
-                <MessageBubble
-                  msg={msg}
-                  index={index}
-                  activeChat={activeChat}
-                  currentUser={currentUser}
-                  renderAvatar={renderAvatar}
-                  showMsgActionsId={showMsgActionsId}
-                  setShowMsgActionsId={setShowMsgActionsId}
-                  retryMenuMsgId={retryMenuMsgId}
-                  setRetryMenuMsgId={setRetryMenuMsgId}
-                  setReplyingTo={setReplyingTo}
-                  setOpenedImageUrl={setOpenedImageUrl}
-                  deleteMessage={deleteMessage}
-                  toggleReaction={toggleReaction}
-                  retrySendMessage={retrySendMessage}
-                  deleteFailedMessage={deleteFailedMessage}
-                  emojis={emojis}
-                />
-              </React.Fragment>
-            );
-          })}
-          <div ref={messagesEndRef} />
-        </div>
+              return (
+                <React.Fragment key={msg.id}>
+                  {dateDividerText && (
+                    <div className="chat-date-divider">
+                      <span>{dateDividerText}</span>
+                    </div>
+                  )}
+                  {showUnreadDivider && (
+                    <div className="unread-messages-divider" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '14px 0', position: 'relative' }}>
+                      <span style={{ background: 'var(--accent-color, #2481cc)', color: '#fff', fontSize: '11px', padding: '3px 12px', borderRadius: '12px', fontWeight: '500', boxShadow: '0 2px 6px rgba(0,0,0,0.15)' }}>
+                        Непрочитанные сообщения
+                      </span>
+                    </div>
+                  )}
+                  <MessageBubble
+                    msg={msg}
+                    index={index}
+                    activeChat={activeChat}
+                    currentUser={currentUser}
+                    renderAvatar={renderAvatar}
+                    showMsgActionsId={showMsgActionsId}
+                    setShowMsgActionsId={setShowMsgActionsId}
+                    retryMenuMsgId={retryMenuMsgId}
+                    setRetryMenuMsgId={setRetryMenuMsgId}
+                    setReplyingTo={setReplyingTo}
+                    setOpenedImageUrl={setOpenedImageUrl}
+                    deleteMessage={deleteMessage}
+                    toggleReaction={toggleReaction}
+                    retrySendMessage={retrySendMessage}
+                    deleteFailedMessage={deleteFailedMessage}
+                    emojis={emojis}
+                  />
+                </React.Fragment>
+              );
+            })}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
       </div>
 
       {/* Floating scroll to bottom button */}

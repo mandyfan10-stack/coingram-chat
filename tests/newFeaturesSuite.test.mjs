@@ -227,3 +227,46 @@ test('Mobile Tactility: multi-tier haptics engine, user settings toggle, and act
   assert.match(indexCss, /\.chat-item:active/, 'CSS defines active press scaling for chat items');
 });
 
+test('Chat Instant Opening: IndexedDB caching, Stale-While-Revalidate seamless merge, smart prewarming, and Telegram shimmer skeleton', async () => {
+  const {
+    saveCachedMessages,
+    getCachedMessages,
+    clearCachedMessages
+  } = await import('../src/utils/indexedDbHelper.js');
+
+  // 1. Safe execution in Node/headless environment
+  assert.strictEqual(typeof saveCachedMessages, 'function');
+  assert.strictEqual(typeof getCachedMessages, 'function');
+  assert.strictEqual(typeof clearCachedMessages, 'function');
+
+  // In Node environment without indexedDB global, helpers gracefully return without throwing
+  await saveCachedMessages('chat-1', [{ id: 'm1', text: 'Hello', timestamp: new Date() }]);
+  const result = await getCachedMessages('chat-1');
+  assert.strictEqual(result, null);
+  await clearCachedMessages('chat-1');
+
+  // 2. Component contracts verification
+  const useChatLoaderCode = await readFile(new URL('../src/context/chat/useChatLoader.js', import.meta.url), 'utf8');
+  const chatAreaCode = await readFile(new URL('../src/components/ChatArea.jsx', import.meta.url), 'utf8');
+  const chatSkeletonCode = await readFile(new URL('../src/components/chat/ChatSkeleton.jsx', import.meta.url), 'utf8');
+  const chatSkeletonCss = await readFile(new URL('../src/components/chat/ChatSkeleton.css', import.meta.url), 'utf8');
+
+  // Verify Stale-While-Revalidate & Smart Pre-warming in useChatLoader
+  assert.match(useChatLoaderCode, /getCachedMessages/, 'useChatLoader loads from IndexedDB cache immediately');
+  assert.match(useChatLoaderCode, /saveCachedMessages/, 'useChatLoader persists messages to IndexedDB');
+  assert.match(useChatLoaderCode, /prewarmTopChats/, 'useChatLoader implements smart pre-warming of top chats');
+  assert.match(useChatLoaderCode, /isChatLoading/, 'useChatLoader exposes isChatLoading state map');
+
+  // Verify ChatArea integrates ChatSkeleton
+  assert.match(chatAreaCode, /import ChatSkeleton/, 'ChatArea imports ChatSkeleton');
+  assert.match(chatAreaCode, /isInitialLoading\s*\?\s*\(\s*<ChatSkeleton/, 'ChatArea renders ChatSkeleton during initial cold load');
+  assert.match(chatAreaCode, /if\s*\(isInitialLoading\)\s*return/, 'useLayoutEffect defers scroll measurement until skeleton finishes');
+
+  // Verify Telegram-style Shimmer Skeleton layout & animations
+  assert.match(chatSkeletonCode, /skeleton-bubble/, 'ChatSkeleton defines bubble placeholders');
+  assert.match(chatSkeletonCode, /shimmer/, 'ChatSkeleton includes shimmer class');
+  assert.match(chatSkeletonCss, /@keyframes telegramShimmer/, 'ChatSkeleton.css implements telegramShimmer animation');
+  assert.match(chatSkeletonCss, /border-radius:\s*16px 16px 16px 4px/, 'ChatSkeleton implements Telegram incoming bubble curvature');
+});
+
+

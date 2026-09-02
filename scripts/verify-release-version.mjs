@@ -7,7 +7,7 @@ const srcDir = path.join(rootDir, 'src');
 
 const rawTag = process.argv[2] || process.env.GITHUB_REF_NAME;
 if (!rawTag) {
-  throw new Error('Pass a release tag, for example: npm run release:verify -- v1.20.42');
+  throw new Error('Pass a release tag, for example: npm run release:verify -- v1.20.43');
 }
 
 const tagVersion = rawTag.replace(/^v/, '');

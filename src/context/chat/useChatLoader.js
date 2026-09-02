@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { dataService } from '../../services/dataLayer';
-import { getOfflineAttachment } from '../../utils/indexedDbHelper';
+import { getOfflineAttachment, getCachedMessages, saveCachedMessages } from '../../utils/indexedDbHelper';
 import { loadOfflineQueue } from '../../services/offlineQueue';
 import { createManagedObjectUrl } from '../../utils/objectUrlRegistry';
 import { decryptMessageFields, resolveSharedKey } from './decryptHelpers';
@@ -19,6 +19,12 @@ export function useChatLoader({
   e2eePrivateKey
 }) {
   const [messagePagination, setMessagePagination] = useState({});
+  const [isChatLoading, setIsChatLoading] = useState({});
+
+  const activeChatIdRef = useRef(activeChatId);
+  useEffect(() => {
+    activeChatIdRef.current = activeChatId;
+  }, [activeChatId]);
 
   const currentUserId = currentUser?.id;
 
@@ -137,10 +143,69 @@ export function useChatLoader({
           };
         });
       });
+
+      // Smart Pre-warming: quietly cache top chats in idle moments
+      prewarmTopChats(updatedChats);
     } catch (e) {
       console.error('Failed to load chats', e);
     }
-  }, [currentUserId, currentUser?.name, setSharedKeysCache, setChats, e2eePrivateKeyRef, sharedKeysCacheRef]);
+  }, [currentUserId, currentUser?.name, setSharedKeysCache, setChats, e2eePrivateKeyRef, sharedKeysCacheRef, prewarmTopChats]);
+
+  const prewarmTopChats = useCallback((chatList) => {
+    if (!Array.isArray(chatList) || chatList.length === 0 || !currentUser) return;
+    const topChats = chatList.slice(0, 5);
+
+    const runPrewarm = async () => {
+      for (const chat of topChats) {
+        if (!chat || chat.id === activeChatIdRef.current) continue;
+        try {
+          const cached = await getCachedMessages(chat.id, currentUserId);
+          if (cached && cached.length > 1) {
+            setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => {
+              if (c.id === chat.id && (!c.messages || c.messages.length <= 1)) {
+                return { ...c, messages: cached };
+              }
+              return c;
+            }));
+            continue;
+          }
+
+          const msgsRaw = await dataService.loadChatMessages(chat.id, 50);
+          const msgs = Array.isArray(msgsRaw) ? msgsRaw : [];
+          if (msgs.length === 0) continue;
+
+          const sharedKey = await resolveSharedKey({
+            chatId: chat.id,
+            chat,
+            currentUserId: currentUser.id,
+            e2eePrivateKey: e2eePrivateKeyRef.current,
+            sharedKeysCache: sharedKeysCacheRef.current,
+            setSharedKeysCache
+          });
+
+          const decrypted = await Promise.all(
+            msgs.map((m) => decryptMessageFields(m, sharedKey, chat.type === 'personal'))
+          );
+
+          saveCachedMessages(chat.id, decrypted, currentUserId);
+          setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => {
+            if (c.id === chat.id && (!c.messages || c.messages.length <= 1)) {
+              return { ...c, messages: decrypted };
+            }
+            return c;
+          }));
+        } catch {
+          // Prewarm runs silently without interrupting UI
+        }
+      }
+    };
+
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(() => runPrewarm(), { timeout: 3000 });
+    } else {
+      setTimeout(runPrewarm, 500);
+    }
+  }, [currentUser, currentUserId, setChats, setSharedKeysCache, e2eePrivateKeyRef, sharedKeysCacheRef]);
 
   const loadActiveChatMessages = useCallback(async (chatId) => {
     if (!chatId || !currentUser) return;
@@ -163,12 +228,48 @@ export function useChatLoader({
         msgs.map((m) => decryptMessageFields(m, sharedKey, chat.type === 'personal'))
       );
 
-      setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => (c.id === chatId ? { ...c, messages: decryptedMsgs } : c)));
+      // Seamless Merge: preserve local optimistic & unlocked bodies without visual jumps
+      setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => {
+        if (c.id !== chatId) return c;
+        const existingMessages = Array.isArray(c.messages) ? c.messages : [];
+        const existingById = new Map(existingMessages.map((m) => [m.id, m]));
+
+        const merged = decryptedMsgs.map((incoming) => {
+          const existing = existingById.get(incoming.id);
+          if (!existing) return incoming;
+          const keepLocalBody = !existing.isLocked || incoming.isLocked;
+          return {
+            ...existing,
+            ...incoming,
+            text: keepLocalBody ? existing.text : incoming.text,
+            media: keepLocalBody ? existing.media : incoming.media,
+            isLocked: keepLocalBody ? existing.isLocked : incoming.isLocked,
+            read: Boolean(existing.read || incoming.read),
+            reads: incoming.reads?.length ? incoming.reads : existing.reads,
+            reactions: incoming.reactions ?? existing.reactions
+          };
+        });
+
+        // Retain optimistic / pending messages not yet reflected on server
+        const incomingIds = new Set(decryptedMsgs.map((m) => m.id));
+        const pending = existingMessages.filter(
+          (m) => (m.isPending || m.isOptimistic) && !incomingIds.has(m.id)
+        );
+        const finalMessages = [...merged, ...pending].sort(
+          (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+        );
+
+        saveCachedMessages(chatId, finalMessages, currentUserId);
+        return { ...c, messages: finalMessages };
+      }));
+
       setMessagePagination((prev) => ({ ...prev, [chatId]: { loading: false, hasMore: msgs.length >= 100 } }));
+      setIsChatLoading((prev) => ({ ...prev, [chatId]: false }));
     } catch (e) {
       console.error(e);
+      setIsChatLoading((prev) => ({ ...prev, [chatId]: false }));
     }
-  }, [currentUser, setSharedKeysCache, setChats, chatsRef, e2eePrivateKeyRef, sharedKeysCacheRef]);
+  }, [currentUser, currentUserId, setSharedKeysCache, setChats, chatsRef, e2eePrivateKeyRef, sharedKeysCacheRef]);
 
   const loadOlderMessages = useCallback(async (chatId) => {
     const chat = chatsRef.current.find((c) => c.id === chatId);
@@ -198,7 +299,9 @@ export function useChatLoader({
         if (c.id !== chatId) return c;
         const currentMessages = Array.isArray(c.messages) ? c.messages : [];
         const known = new Set(currentMessages.map((message) => message.id));
-        return { ...c, messages: [...decrypted.filter((message) => !known.has(message.id)), ...currentMessages] };
+        const finalMessages = [...decrypted.filter((message) => !known.has(message.id)), ...currentMessages];
+        saveCachedMessages(chatId, finalMessages, currentUserId);
+        return { ...c, messages: finalMessages };
       }));
       setMessagePagination((prev) => ({ ...prev, [chatId]: { loading: false, hasMore: older.length === 30 } }));
       return decrypted.length;
@@ -207,8 +310,39 @@ export function useChatLoader({
       setMessagePagination((prev) => ({ ...prev, [chatId]: { ...prev[chatId], loading: false } }));
       return 0;
     }
-  }, [currentUser, messagePagination, setSharedKeysCache, setChats, chatsRef, e2eePrivateKeyRef, sharedKeysCacheRef]);
+  }, [currentUser, currentUserId, messagePagination, setSharedKeysCache, setChats, chatsRef, e2eePrivateKeyRef, sharedKeysCacheRef]);
 
+  // Stale-While-Revalidate: hydrate instantly from cache on chat selection
+  useEffect(() => {
+    if (!activeChatId) return;
+
+    let isMounted = true;
+    const currentChat = chatsRef.current.find((c) => c.id === activeChatId);
+    const hasLoadedHistory = (currentChat?.messages?.length || 0) > 1;
+
+    if (!hasLoadedHistory) {
+      setIsChatLoading((prev) => ({ ...prev, [activeChatId]: true }));
+      getCachedMessages(activeChatId, currentUserId).then((cached) => {
+        if (!isMounted) return;
+        if (Array.isArray(cached) && cached.length > 0) {
+          setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => {
+            if (c.id !== activeChatId) return c;
+            const pending = (c.messages || []).filter((m) => m.isPending);
+            return { ...c, messages: [...cached, ...pending] };
+          }));
+          setIsChatLoading((prev) => ({ ...prev, [activeChatId]: false }));
+        }
+      });
+    } else {
+      setIsChatLoading((prev) => ({ ...prev, [activeChatId]: false }));
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeChatId, currentUserId, setChats, chatsRef]);
+
+  // Contract: active encrypted chat reloads after the private key becomes available
   useEffect(() => {
     if (activeChatId) {
       loadActiveChatMessages(activeChatId);
@@ -217,6 +351,7 @@ export function useChatLoader({
 
   return {
     messagePagination,
+    isChatLoading,
     fetchChats,
     loadActiveChatMessages,
     loadOlderMessages

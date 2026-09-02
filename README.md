@@ -170,5 +170,5 @@ npm run clean:all
 Версия приложения всегда берётся из `package.json` через Vite (`import.meta.env.APP_VERSION`). Перед тегом:
 
 ```bash
-npm run release:verify -- v1.20.42
+npm run release:verify -- v1.20.43
 ```
