@@ -148,5 +148,36 @@ test('StoryViewer implements robust separate manual pause and hold-to-pause gest
   assert.match(storyViewerCode, /handlePointerUp/);
 });
 
+test('Telegram Stories: Story Studio camera/editor and StoryViewer cross-user playback and reactions', async () => {
+  const createStoryCode = await readFile(
+    new URL('../src/components/CreateStoryModal.jsx', import.meta.url),
+    'utf8'
+  );
+  const storyViewerCode = await readFile(
+    new URL('../src/components/StoryViewer.jsx', import.meta.url),
+    'utf8'
+  );
+  const mediaServiceCode = await readFile(
+    new URL('../src/services/mediaService.js', import.meta.url),
+    'utf8'
+  );
 
+  // 1. CreateStoryModal provides live camera viewfinder & Telegram-style editor
+  assert.match(createStoryCode, /getUserMedia/);
+  assert.match(createStoryCode, /facingMode/);
+  assert.match(createStoryCode, /handleCapturePhoto/);
+  assert.match(createStoryCode, /story-shutter-btn/);
+  assert.match(createStoryCode, /story-caption-pill/);
+  assert.match(createStoryCode, /24 часа/);
 
+  // 2. StoryViewer provides cross-user continuous playback, reactions, and owner actions
+  assert.match(storyViewerCode, /groupedUsers/);
+  assert.match(storyViewerCode, /currentUserGroupIndex/);
+  assert.match(storyViewerCode, /story-reactions-row/);
+  assert.match(storyViewerCode, /story-reply-form/);
+  assert.match(storyViewerCode, /deleteStory/);
+  assert.match(storyViewerCode, /story-owner-bar/);
+
+  // 3. mediaService provides deleteStory capability
+  assert.match(mediaServiceCode, /deleteStory:\s*async/);
+});

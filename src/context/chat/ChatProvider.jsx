@@ -148,6 +148,7 @@ export const ChatProvider = ({ children }) => {
       setActiveStoryId: stories.setActiveStoryId,
       viewStory: stories.viewStory,
       publishStory: stories.publishStory,
+      deleteStory: stories.deleteStory,
       searchQuery: ui.searchQuery,
       setSearchQuery: ui.setSearchQuery,
       activeFolder: ui.activeFolder,

@@ -1,8 +1,18 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useChat } from '../context/ChatContext';
 import { isSupabaseConfigured } from '../supabaseClient';
-import { X, Sparkles, Upload, FileImage } from 'lucide-react';
+import {
+  X,
+  Camera,
+  RefreshCw,
+  Image as ImageIcon,
+  Send,
+  RotateCcw,
+  Clock
+} from 'lucide-react';
 import { uploadSanitizedPublicImage } from '../services/publicMediaService';
+
+const QUICK_EMOJIS = ['🔥', '❤️', '😂', '👍', '✨', '🪙', '😍', '🎉'];
 
 export default function CreateStoryModal() {
   const {
@@ -12,21 +22,159 @@ export default function CreateStoryModal() {
     publishStory
   } = useChat();
 
+  const [mode, setMode] = useState('camera'); // 'camera' | 'editor'
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [caption, setCaption] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [facingMode, setFacingMode] = useState('user');
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState(null);
+  const [isFlashActive, setIsFlashActive] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const fileInputRef = useRef(null);
 
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setCameraActive(false);
+  }, []);
+
+  const startCamera = useCallback(async (facing = facingMode) => {
+    stopCamera();
+    if (!navigator?.mediaDevices?.getUserMedia) {
+      setCameraError('Камера не поддерживается вашим браузером');
+      setMode('editor');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: facing,
+          width: { ideal: 1080 },
+          height: { ideal: 1920 }
+        },
+        audio: false
+      });
+
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
+      }
+      setCameraActive(true);
+      setCameraError(null);
+    } catch (err) {
+      console.warn('Camera access error:', err);
+      setCameraError('Доступ к камере заблокирован или не поддерживается');
+      setCameraActive(false);
+    }
+  }, [facingMode, stopCamera]);
+
+  // Lifecycle when modal opens/closes
+  useEffect(() => {
+    if (isCreateStoryOpen) {
+      setImageFile(null);
+      setImagePreview('');
+      setCaption('');
+      setMode('camera');
+      startCamera();
+    } else {
+      stopCamera();
+    }
+
+    return () => {
+      stopCamera();
+    };
+  }, [isCreateStoryOpen, startCamera, stopCamera]);
+
   if (!currentUser) return null;
+
+  const handleClose = () => {
+    stopCamera();
+    setImageFile(null);
+    setImagePreview('');
+    setCaption('');
+    setMode('camera');
+    setIsCreateStoryOpen(false);
+  };
+
+  const handleToggleCamera = () => {
+    const nextFacing = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(nextFacing);
+    startCamera(nextFacing);
+  };
+
+  const handleCapturePhoto = () => {
+    if (!videoRef.current || !cameraActive) return;
+
+    setIsFlashActive(true);
+    setTimeout(() => setIsFlashActive(false), 220);
+
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 720;
+    canvas.height = video.videoHeight || 1280;
+    const ctx = canvas.getContext('2d');
+
+    if (!ctx) return;
+
+    // If front camera, mirror image naturally
+    if (facingMode === 'user') {
+      ctx.translate(canvas.width, 0);
+      ctx.scale(-1, 1);
+    }
+
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `story-${Date.now()}.jpg`, { type: 'image/jpeg' });
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(blob));
+      stopCamera();
+      setMode('editor');
+    }, 'image/jpeg', 0.92);
+  };
+
+  const handleFileSelect = (file) => {
+    if (!file || !file.type.startsWith('image/')) {
+      alert('Пожалуйста, выберите файл изображения!');
+      return;
+    }
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target.result);
+      stopCamera();
+      setMode('editor');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRetake = () => {
+    setImageFile(null);
+    setImagePreview('');
+    setCaption('');
+    setMode('camera');
+    startCamera();
+  };
 
   const handleDrag = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
+    if (e.type === 'dragenter' || e.type === 'dragover') {
       setDragActive(true);
-    } else if (e.type === "dragleave") {
+    } else if (e.type === 'dragleave') {
       setDragActive(false);
     }
   };
@@ -36,48 +184,22 @@ export default function CreateStoryModal() {
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.type.startsWith("image/")) {
-        handleFileSelect(file);
-      } else {
-        alert("Пожалуйста, загрузите файл изображения!");
-      }
+      handleFileSelect(e.dataTransfer.files[0]);
     }
-  };
-
-  const handleFileChange = (e) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFileSelect(e.target.files[0]);
-    }
-  };
-
-  const handleFileSelect = (file) => {
-    setImageFile(file);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      setImagePreview(e.target.result);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const triggerFileInput = () => {
-    fileInputRef.current.click();
   };
 
   const uploadImageToSupabase = async (file) => {
     if (isSupabaseConfigured) {
       const { reference } = await uploadSanitizedPublicImage(file, 'story');
       return reference;
-    } else {
-      // In mock mode, the FileReader loaded preview is already Base64
-      return imagePreview;
     }
+    return imagePreview;
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     if (!imageFile) {
-      alert("Пожалуйста, выберите изображение для истории!");
+      alert('Пожалуйста, сделайте фото или выберите изображение!');
       return;
     }
 
@@ -86,149 +208,235 @@ export default function CreateStoryModal() {
       const mediaUrl = await uploadImageToSupabase(imageFile);
       const story = await publishStory(mediaUrl, caption.trim());
       if (story) {
-        // Reset states
-        setCaption('');
-        setImageFile(null);
-        setImagePreview('');
-        setIsCreateStoryOpen(false);
+        handleClose();
       }
     } catch (err) {
       console.error(err);
-      alert(`Ошибка при загрузке: ${err.message || err}`);
+      alert(`Ошибка при публикации истории: ${err.message || err}`);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleCancel = () => {
-    setCaption('');
-    setImageFile(null);
-    setImagePreview('');
-    setIsCreateStoryOpen(false);
-  };
-
   return (
-    <div className={`settings-modal-overlay ${isCreateStoryOpen ? 'open' : ''}`}>
-      <div className="new-chat-container story-create-modal">
-        {/* Header */}
-        <div className="settings-header">
-          <h3>Создать историю</h3>
-          <button className="settings-close-btn" onClick={handleCancel}>
-            <X size={20} />
-          </button>
-        </div>
+    <div
+      className={`settings-modal-overlay story-studio-overlay ${isCreateStoryOpen ? 'open' : ''}`}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) handleClose();
+      }}
+    >
+      <div
+        className={`story-studio-card ${dragActive ? 'drag-active' : ''}`}
+        onDragEnter={handleDrag}
+        onDragOver={handleDrag}
+        onDragLeave={handleDrag}
+        onDrop={handleDrop}
+      >
+        {/* Shutter flash effect */}
+        <div className={`story-studio-flash ${isFlashActive ? 'active' : ''}`} />
 
-        <form onSubmit={handleSubmit} className="new-chat-body story-form">
-          <div className="story-layout">
-            
-            {/* Story Live Preview */}
-            <div className="story-preview-container">
-              <span className="section-title-label">Предпросмотр</span>
-              <div 
-                className="story-preview-card" 
-                style={{ 
-                  backgroundImage: imagePreview ? `url(${imagePreview})` : 'none',
-                  backgroundColor: '#121922' 
-                }}
-              >
-                <div className="story-preview-overlay-bg" />
-                
-                <div className="story-preview-header">
-                  <div className="story-preview-avatar">🪙</div>
-                  <div className="story-preview-meta">
-                    <span className="story-preview-user">Вы</span>
-                    <span className="story-preview-time">Только что</span>
-                  </div>
-                </div>
+        {/* =========================================================
+            MODE 1: CAMERA VIEWFINDER
+           ========================================================= */}
+        {mode === 'camera' && (
+          <div className="story-studio-camera-layer">
+            <video
+              ref={videoRef}
+              className={`story-camera-stream ${facingMode === 'user' ? 'mirrored' : ''}`}
+              playsInline
+              autoPlay
+              muted
+            />
 
-                {!imagePreview && (
-                  <div className="story-preview-placeholder">
-                    <FileImage size={40} style={{ color: 'var(--text-secondary)', marginBottom: '8px' }} />
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Изображение не выбрано</span>
-                  </div>
-                )}
-
-                <div className="story-preview-caption-box">
-                  <p className="story-preview-caption-text">
-                    {caption.trim() || 'Ваша подпись будет здесь...'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Form Settings */}
-            <div className="story-settings-panel">
-              
-              {/* File Dropzone Area */}
-              <div className="form-group">
-                <label className="settings-section-title">Загрузите изображение истории</label>
-                <div 
-                  className={`file-dropzone ${dragActive ? 'drag-active' : ''} ${imageFile ? 'has-file' : ''}`}
-                  onDragEnter={handleDrag}
-                  onDragOver={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDrop={handleDrop}
-                  onClick={triggerFileInput}
+            {/* If camera is not available or disabled */}
+            {!cameraActive && (
+              <div className="story-camera-fallback">
+                <Camera size={54} className="story-fallback-icon" />
+                <h4 className="story-fallback-title">Создание истории</h4>
+                <p className="story-fallback-desc">
+                  {cameraError || 'Включите камеру или выберите готовое фото из галереи устройства'}
+                </p>
+                <button
+                  type="button"
+                  className="story-pick-gallery-btn"
+                  onClick={() => fileInputRef.current?.click()}
                 >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="file-upload-input-hidden"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ display: 'none' }}
-                  />
-                  
-                  <Upload size={28} className="dropzone-icon" />
-                  {imageFile ? (
-                    <div className="dropzone-text-group">
-                      <span className="dropzone-filename">{imageFile.name}</span>
-                      <span className="dropzone-filesize">({(imageFile.size / 1024).toFixed(1)} KB)</span>
-                    </div>
-                  ) : (
-                    <div className="dropzone-text-group">
-                      <span className="dropzone-title">Выберите файл изображения</span>
-                      <span className="dropzone-subtitle">или перетащите его сюда</span>
-                    </div>
-                  )}
-                </div>
+                  <ImageIcon size={18} />
+                  <span>Выбрать из галереи</span>
+                </button>
               </div>
+            )}
 
-              {/* Caption input */}
-              <div className="form-group">
-                <label htmlFor="story-caption" className="settings-section-title">Подпись</label>
-                <textarea
-                  id="story-caption"
-                  className="story-caption-textarea"
-                  maxLength={150}
-                  placeholder="Добавьте захватывающую подпись к вашей истории..."
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                />
-                <span className="char-counter">{caption.length}/150</span>
-              </div>
-
-              {/* Actions */}
+            {/* Top camera controls */}
+            <div className="story-studio-topbar">
               <button
-                type="submit"
-                disabled={isSubmitting || !imageFile}
-                className="btn-primary auth-submit-btn"
-                style={{ marginTop: '10px' }}
+                type="button"
+                className="story-studio-icon-btn"
+                onClick={handleClose}
+                aria-label="Закрыть"
               >
-                {isSubmitting ? (
-                  <div className="spinner" style={{ margin: '0 auto', width: '20px', height: '20px', borderColor: '#ffffff', borderTopColor: 'rgba(255,255,255,0.3)' }} />
-                ) : (
-                  <>
-                    <Sparkles size={16} />
-                    <span>Опубликовать историю</span>
-                  </>
-                )}
+                <X size={22} />
               </button>
 
+              <div className="story-duration-pill" title="Время жизни истории в Telegram">
+                <Clock size={13} />
+                <span>24 часа</span>
+              </div>
+
+              {cameraActive && (
+                <button
+                  type="button"
+                  className="story-studio-icon-btn"
+                  onClick={handleToggleCamera}
+                  aria-label="Переключить камеру"
+                  title="Переключить камеру"
+                >
+                  <RefreshCw size={19} />
+                </button>
+              )}
+            </div>
+
+            {/* Bottom Camera Toolbar: Gallery | Shutter | Placeholder */}
+            <div className="story-studio-bottom-toolbar">
+              {/* Gallery button */}
+              <button
+                type="button"
+                className="story-toolbar-btn gallery"
+                onClick={() => fileInputRef.current?.click()}
+                title="Выбрать из файлов"
+              >
+                <ImageIcon size={22} />
+              </button>
+
+              {/* Shutter capture button */}
+              <button
+                type="button"
+                className="story-shutter-btn"
+                onClick={handleCapturePhoto}
+                disabled={!cameraActive}
+                aria-label="Сделать снимок"
+                title={cameraActive ? 'Сделать фото' : 'Камера недоступна'}
+              >
+                <div className="story-shutter-inner" />
+              </button>
+
+              {/* Extra camera flip button for bottom bar on mobile */}
+              <button
+                type="button"
+                className="story-toolbar-btn flip"
+                onClick={handleToggleCamera}
+                disabled={!cameraActive}
+                title="Перевернуть камеру"
+              >
+                <RefreshCw size={20} />
+              </button>
             </div>
           </div>
-        </form>
+        )}
+
+        {/* =========================================================
+            MODE 2: STORY EDITOR (Image preview + Telegram-style caption)
+           ========================================================= */}
+        {mode === 'editor' && (
+          <div className="story-studio-editor-layer">
+            <img
+              src={imagePreview}
+              alt="Story Preview"
+              className="story-editor-media"
+            />
+            <div className="story-editor-gradient-top" />
+            <div className="story-editor-gradient-bottom" />
+
+            {/* Top Editor Bar */}
+            <div className="story-studio-topbar">
+              <button
+                type="button"
+                className="story-studio-retake-btn"
+                onClick={handleRetake}
+              >
+                <RotateCcw size={16} />
+                <span>Переснять</span>
+              </button>
+
+              <div className="story-duration-pill">
+                <Clock size={13} />
+                <span>24 часа</span>
+              </div>
+
+              <button
+                type="button"
+                className="story-studio-icon-btn"
+                onClick={handleClose}
+                aria-label="Закрыть"
+              >
+                <X size={22} />
+              </button>
+            </div>
+
+            {/* Floating In-Story Caption & Publishing Box */}
+            <form onSubmit={handleSubmit} className="story-editor-caption-container">
+              {/* Quick Emojis strip */}
+              <div className="story-quick-emojis">
+                {QUICK_EMOJIS.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className="story-quick-emoji-btn"
+                    onClick={() => setCaption((prev) => `${prev} ${emoji}`.trim())}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+
+              {/* Caption input pill with Telegram send button */}
+              <div className="story-caption-pill">
+                <input
+                  type="text"
+                  className="story-caption-input"
+                  placeholder="Добавить подпись..."
+                  value={caption}
+                  maxLength={150}
+                  onChange={(e) => setCaption(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSubmit();
+                    }
+                  }}
+                  autoFocus
+                />
+
+                <button
+                  type="submit"
+                  className="story-publish-send-btn"
+                  disabled={isSubmitting}
+                  title="Опубликовать историю"
+                >
+                  {isSubmitting ? (
+                    <div className="spinner story-publish-spinner" />
+                  ) : (
+                    <Send size={18} className="story-send-icon" />
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Hidden File Input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="file-upload-input-hidden"
+          style={{ display: 'none' }}
+          onChange={(e) => {
+            if (e.target.files && e.target.files[0]) {
+              handleFileSelect(e.target.files[0]);
+            }
+          }}
+        />
       </div>
     </div>
   );

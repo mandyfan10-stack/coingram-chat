@@ -91,6 +91,28 @@ export const mediaService = {
     return newStory;
   },
 
+  deleteStory: async (storyId) => {
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('stories')
+        .delete()
+        .eq('id', storyId);
+      if (error) throw error;
+      return true;
+    }
+
+    let savedStories = [];
+    try {
+      const stored = localStorage.getItem('tg-stories-mock');
+      if (stored) savedStories = JSON.parse(stored);
+    } catch {
+      /* ignore */
+    }
+    savedStories = savedStories.filter((s) => s.id !== storyId);
+    localStorage.setItem('tg-stories-mock', JSON.stringify(savedStories));
+    return true;
+  },
+
   fetchStickers: async (userId) => {
     if (!isSupabaseConfigured) return null;
 

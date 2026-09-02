@@ -69,6 +69,20 @@ export function useStories(currentUser) {
     setActiveStoryId(storyId);
   }, [currentUser]);
 
+  const deleteStory = useCallback(async (storyId) => {
+    try {
+      await dataService.deleteStory(storyId);
+      await fetchStories();
+      if (activeStoryId === storyId) {
+        setActiveStoryId(null);
+      }
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  }, [fetchStories, activeStoryId]);
+
   return {
     stories,
     setStories,
@@ -76,6 +90,7 @@ export function useStories(currentUser) {
     setActiveStoryId,
     fetchStories,
     publishStory,
+    deleteStory,
     viewStory
   };
 }

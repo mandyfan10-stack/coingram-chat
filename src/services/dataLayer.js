@@ -53,6 +53,7 @@ export const dataService = {
   // Stories + stickers
   fetchStories: mediaService.fetchStories,
   publishStory: mediaService.publishStory,
+  deleteStory: mediaService.deleteStory,
   fetchStickers: mediaService.fetchStickers,
   importStickerPack: mediaService.importStickerPack
 };
