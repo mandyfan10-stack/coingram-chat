@@ -105,7 +105,7 @@
 }
 
 .mobile-sheet-reaction-pill:hover {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--surface-hover, rgba(255, 255, 255, 0.12));
   transform: scale(1.15);
 }
 
@@ -160,11 +160,11 @@
 }
 
 .mobile-sheet-item:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--surface-hover, rgba(255, 255, 255, 0.04));
 }
 
 .mobile-sheet-item:active {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-row, rgba(255, 255, 255, 0.08));
 }
 
 .mobile-sheet-item-icon {

@@ -151,7 +151,7 @@
 }
 
 .picker-cat-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-hover, rgba(255, 255, 255, 0.08));
 }
 
 .picker-cat-btn.active {
@@ -206,7 +206,7 @@
 }
 
 .emoji-cell-btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--surface-hover, rgba(255, 255, 255, 0.1));
   transform: scale(1.22);
   z-index: 2;
 }
@@ -245,7 +245,7 @@
   min-height: 72px;
   max-height: 72px;
   aspect-ratio: 1 / 1;
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--surface-row, rgba(255, 255, 255, 0.03));
   border: 1px solid transparent;
   border-radius: 12px;
   cursor: pointer;
@@ -259,9 +259,9 @@
 }
 
 .sticker-cell-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-hover, rgba(255, 255, 255, 0.08));
   transform: scale(1.06);
-  border-color: rgba(255, 255, 255, 0.1);
+  border-color: var(--border-color, rgba(255, 255, 255, 0.1));
 }
 
 .sticker-cell-btn:active {

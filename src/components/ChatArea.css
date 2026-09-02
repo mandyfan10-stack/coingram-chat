@@ -466,6 +466,11 @@ html.theme-light[data-wallpaper="mint"] .chat-body {
   font-weight: 500;
 }
 
+html.theme-light .message-text a {
+  color: var(--accent-color);
+  font-weight: 600;
+}
+
 .message-text a:hover {
   text-decoration: underline;
 }
@@ -484,6 +489,10 @@ html.theme-light[data-wallpaper="mint"] .chat-body {
   line-height: 1;
   user-select: none;
   white-space: nowrap;
+}
+
+html.theme-light .bubble-metadata {
+  color: var(--text-secondary);
 }
 
 .bubble-metadata .message-time {
@@ -509,11 +518,19 @@ html.theme-light[data-wallpaper="mint"] .chat-body {
   overflow: hidden;
 }
 
+html.theme-light .reply-preview-bubble {
+  background-color: rgba(15, 23, 42, 0.05);
+}
+
 .reply-preview-sender {
   font-weight: 600;
   font-size: 11.5px;
   color: #64b5f6;
   display: block;
+}
+
+html.theme-light .reply-preview-sender {
+  color: var(--accent-color);
 }
 
 .reply-preview-text {

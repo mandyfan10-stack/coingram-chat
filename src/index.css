@@ -7,6 +7,7 @@
   --bg-secondary: #17212b;
   --bg-active: #2b394a;
   --bg-input: #24303f;
+  --bg-tertiary: #24303f;
   --text-primary: #f5f6f7;
   --text-secondary: #7f91a4;
   --border-color: #101921;
@@ -587,6 +588,10 @@ body {
 
 .seen-check.blue {
   color: #4facfe;
+}
+
+html.theme-light .seen-check.blue {
+  color: #1d78c1;
 }
 
 .reply-preview-sender {
@@ -2031,6 +2036,7 @@ body {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
+html.theme-light .auth-showcase-panel,
 body.light-mode .auth-showcase-panel {
   background: rgba(255, 255, 255, 0.85);
   border-color: rgba(0, 0, 0, 0.08);
@@ -2562,6 +2568,7 @@ body.light-mode .auth-showcase-panel {
   }
 }
 
+html.theme-light .auth-card,
 body.light-mode .auth-card {
   background: rgba(255, 255, 255, 0.88);
   border: 1px solid rgba(0, 0, 0, 0.08);
@@ -2702,6 +2709,7 @@ body.light-mode .auth-card {
   gap: 4px;
 }
 
+html.theme-light .auth-tabs,
 body.light-mode .auth-tabs {
   background: rgba(240, 242, 245, 0.8);
   border-color: rgba(0, 0, 0, 0.05);
@@ -2734,6 +2742,7 @@ body.light-mode .auth-tabs {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
+html.theme-light .auth-tab.active,
 body.light-mode .auth-tab.active {
   background: #ffffff;
   color: var(--accent-color, #2481cc);
@@ -2793,6 +2802,7 @@ body.light-mode .auth-tab.active {
   transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
 }
 
+html.theme-light .auth-input-wrapper input,
 body.light-mode .auth-input-wrapper input {
   background: rgba(245, 247, 250, 0.8);
   border-color: rgba(0, 0, 0, 0.1);
@@ -2803,6 +2813,11 @@ body.light-mode .auth-input-wrapper input {
   border-color: var(--accent-color, #2481cc);
   background: rgba(14, 22, 33, 0.8);
   box-shadow: 0 0 0 3px rgba(36, 129, 204, 0.16);
+}
+
+html.theme-light .auth-input-wrapper input:focus,
+body.light-mode .auth-input-wrapper input:focus {
+  background: #ffffff;
 }
 
 .auth-input-wrapper input:focus + .input-icon,
@@ -4306,6 +4321,24 @@ body.light-mode .auth-input-wrapper input {
   height: 4px;
   border-radius: 2px;
   background: var(--accent-color);
+}
+
+html.theme-light .voice-seek-bar {
+  background: rgba(15, 23, 42, 0.12);
+}
+
+html.theme-light .voice-seek-bar::-webkit-slider-runnable-track {
+  background: linear-gradient(
+    to right,
+    var(--accent-color) 0%,
+    var(--accent-color) var(--voice-progress, 0%),
+    rgba(15, 23, 42, 0.12) var(--voice-progress, 0%),
+    rgba(15, 23, 42, 0.12) 100%
+  );
+}
+
+html.theme-light .voice-seek-bar::-moz-range-track {
+  background: rgba(15, 23, 42, 0.12);
 }
 
 .voice-seek-bar::-webkit-slider-thumb {

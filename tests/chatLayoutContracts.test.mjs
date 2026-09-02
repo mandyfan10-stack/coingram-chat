@@ -326,3 +326,33 @@ test('light theme swaps overlay surfaces so info/settings tabs are not dark stai
 
   assert.match(chatAreaCss, /html\.theme-light\[data-wallpaper="classic"\]\s+\.chat-body/);
 });
+
+test('light theme fixes tails, auth selectors, background tiers, and contrast', () => {
+  const mobileSheetCss = fs.readFileSync(new URL('../src/components/chat/MobileActionSheet.css', import.meta.url), 'utf8');
+
+  // 1. --bg-tertiary exists in both :root and html.theme-light
+  assert.match(indexCss, /:root\s*\{[^}]*--bg-tertiary:\s*#24303f/s);
+  assert.match(settingsCss, /html\.theme-light\s*\{[^}]*--bg-tertiary:\s*#f1f5f9/s);
+
+  // 2. Auth selectors include html.theme-light
+  assert.match(indexCss, /html\.theme-light\s+\.auth-showcase-panel/);
+  assert.match(indexCss, /html\.theme-light\s+\.auth-card/);
+  assert.match(indexCss, /html\.theme-light\s+\.auth-tabs/);
+  assert.match(indexCss, /html\.theme-light\s+\.auth-tab\.active/);
+  assert.match(indexCss, /html\.theme-light\s+\.auth-input-wrapper\s+input/);
+
+  // 3. Message bubble tails in light theme are white and theme pastel
+  assert.match(settingsCss, /html\.theme-light\s+\.message-row\.group-last\.row-other\s+\.message-bubble[^{]*::before\s*\{[^}]*%23ffffff/s);
+  assert.match(settingsCss, /html\.theme-light\.theme-telegram-blue\s+\.message-row\.group-last\.row-me\s+\.message-bubble[^{]*::after\s*\{[^}]*%23bae6fd/s);
+
+  // 4. Voice seek bar is visible on light background
+  assert.match(indexCss, /html\.theme-light\s+\.voice-seek-bar\s*\{[^}]*rgba\(15,\s*23,\s*42,\s*0\.12\)/s);
+
+  // 5. Links and replies have readable contrast
+  assert.match(chatAreaCss, /html\.theme-light\s+\.message-text\s+a\s*\{[^}]*var\(--accent-color\)/s);
+  assert.match(chatAreaCss, /html\.theme-light\s+\.reply-preview-sender\s*\{[^}]*var\(--accent-color\)/s);
+
+  // 6. Mobile action sheet uses surface variables for hovers
+  assert.match(mobileSheetCss, /\.mobile-sheet-reaction-pill:hover\s*\{[^}]*var\(--surface-hover/s);
+  assert.match(mobileSheetCss, /\.mobile-sheet-item:hover\s*\{[^}]*var\(--surface-hover/s);
+});
