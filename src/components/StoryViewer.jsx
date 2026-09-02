@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import useResolvedMedia from '../hooks/useResolvedMedia';
 import { personAvatarFallback } from '../context/chat/avatarFallback';
+import { triggerHaptic } from '../hooks/useMessageTouch';
 
 export default function StoryViewer() {
   const {
@@ -116,6 +117,7 @@ export default function StoryViewer() {
 
   // Telegram cross-user story navigation
   const handleNext = useCallback(() => {
+    triggerHaptic(6);
     if (activeIndexInUserStories < userStories.length - 1) {
       // Advance to next story of the same user
       resetTimer();
@@ -146,6 +148,7 @@ export default function StoryViewer() {
   ]);
 
   const handlePrev = useCallback(() => {
+    triggerHaptic(6);
     if (activeIndexInUserStories > 0) {
       // Previous story of current user
       resetTimer();
@@ -333,6 +336,7 @@ export default function StoryViewer() {
     e.stopPropagation();
     if (!displayStory) return;
     if (window.confirm('Удалить эту историю?')) {
+      triggerHaptic(18);
       const storyToDelete = displayStory.id;
       if (userStories.length > 1) {
         handleNext();
@@ -347,6 +351,7 @@ export default function StoryViewer() {
 
   const handleReaction = (emoji, e) => {
     e.stopPropagation();
+    triggerHaptic(12);
     setFloatingReaction(emoji);
     setTimeout(() => setFloatingReaction(null), 1300);
   };
@@ -355,6 +360,7 @@ export default function StoryViewer() {
     if (e) e.preventDefault();
     if (!replyText.trim() || !displayStory) return;
 
+    triggerHaptic(15);
     const targetChat = chats?.find(
       (c) => c.type === 'personal' && c.members?.some((m) => m.id === displayStory.userId)
     );

@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useE2EE } from '../../context/E2EEContext';
 import { isSavedMessagesChat, requiresPersonalE2EE, savedMessagesDisplayName } from '../../utils/savedMessages';
 import { chatAvatarFallback } from '../../context/chat/avatarFallback';
+import { triggerHaptic } from '../../hooks/useMessageTouch';
 
 export default function ChatHeader({
   activeChat,
@@ -17,6 +18,7 @@ export default function ChatHeader({
   const { currentUser } = useAuth();
   const { e2eePrivateKey } = useE2EE();
   const toggleInfo = () => {
+    triggerHaptic(8);
     setIsInfoOpen(!isInfoOpen);
   };
   const isSaved = isSavedMessagesChat(activeChat);
@@ -34,6 +36,7 @@ export default function ChatHeader({
           className="chat-back-btn"
           onClick={(e) => {
             e.stopPropagation();
+            triggerHaptic(10);
             setActiveChatId(null);
           }}
           title="Назад"

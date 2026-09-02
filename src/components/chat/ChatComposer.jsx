@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { CHAT_MEDIA_ACCEPT } from '../../utils/mediaValidation';
 import MediaPickerPanel from './MediaPickerPanel';
+import { triggerHaptic } from '../../hooks/useMessageTouch';
 
 /**
  * Presentational chat footer: reply bar, text input, emoji/sticker picker,
@@ -113,7 +114,10 @@ export default function ChatComposer({
                   <button
                     type="button"
                     className="record-control-btn btn-trash"
-                    onClick={() => stopRecordingAndSend(true)}
+                    onClick={() => {
+                      triggerHaptic(12);
+                      stopRecordingAndSend(true);
+                    }}
                     title="Удалить запись"
                   >
                     <Trash2 size={18} />
@@ -131,7 +135,10 @@ export default function ChatComposer({
                   <button
                     type="button"
                     className="record-control-btn btn-send"
-                    onClick={() => stopRecordingAndSend(false)}
+                    onClick={() => {
+                      triggerHaptic(18);
+                      stopRecordingAndSend(false);
+                    }}
                     title="Отправить"
                   >
                     <Send size={18} />
@@ -181,7 +188,10 @@ export default function ChatComposer({
                   <button
                     type="button"
                     className={`input-action-btn emoji-trigger ${showEmojiPicker ? 'active' : ''}`}
-                    onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                    onClick={() => {
+                      triggerHaptic(8);
+                      setShowEmojiPicker(!showEmojiPicker);
+                    }}
                   >
                     <Smile size={22} />
                   </button>
@@ -208,7 +218,10 @@ export default function ChatComposer({
           {inputVal.trim() && !recipientMissingE2EE ? (
             <button
               className="send-message-btn"
-              onClick={handleSend}
+              onClick={(e) => {
+                triggerHaptic(15);
+                handleSend(e);
+              }}
               title="Отправить"
             >
               <Send size={20} />
@@ -226,7 +239,10 @@ export default function ChatComposer({
               <button
                 type="button"
                 className={`send-message-btn record-message-btn ${isRecording ? 'recording' : ''}`}
-                onPointerDown={handlePointerDown}
+                onPointerDown={(e) => {
+                  triggerHaptic(25);
+                  handlePointerDown(e);
+                }}
                 onPointerUp={handlePointerUp}
                 onContextMenu={(event) => event.preventDefault()}
                 title={recordMode === 'voice' ? 'Голосовое сообщение' : 'Видеосообщение'}

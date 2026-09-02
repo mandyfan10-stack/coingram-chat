@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { triggerHaptic } from './useMessageTouch.js';
 
 /**
  * Hook for edge-swipe gestures on mobile screens (< 768px).
@@ -50,13 +51,7 @@ export function useEdgeSwipeBack({
 
       // Horizontal gesture must dominate vertical scroll and exceed min distance
       if (deltaX >= minDistancePx && deltaX > deltaY * 1.6) {
-        try {
-          if (typeof navigator !== 'undefined' && typeof navigator.vibrate === 'function') {
-            navigator.vibrate(10);
-          }
-        } catch {
-          /* ignore */
-        }
+        triggerHaptic(12);
         if (typeof onSwipeBackRef.current === 'function') {
           onSwipeBackRef.current();
         }

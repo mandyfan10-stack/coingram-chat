@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { triggerHaptic } from '../../hooks/useMessageTouch.js';
 
 /**
  * UI chrome state: folders, modals, theme, wallpaper, dark mode.
@@ -62,32 +63,38 @@ export function useChatUiState(currentUser) {
       // 1. Close open image preview / lightbox
       const activeImageViewerClose = document.querySelector('.image-viewer-close, .lightbox-close');
       if (activeImageViewerClose instanceof HTMLElement) {
+        triggerHaptic(10);
         activeImageViewerClose.click();
         return true;
       }
 
       // 2. Close settings modal
       if (isSettingsOpen) {
+        triggerHaptic(10);
         setIsSettingsOpen(false);
         return true;
       }
 
       // 3. Close side drawer / new chat / story modals
       if (isDrawerOpen) {
+        triggerHaptic(10);
         setIsDrawerOpen(false);
         return true;
       }
       if (isNewChatOpen) {
+        triggerHaptic(10);
         setIsNewChatOpen(false);
         return true;
       }
       if (isCreateStoryOpen) {
+        triggerHaptic(10);
         setIsCreateStoryOpen(false);
         return true;
       }
 
       // 4. Close chat info pane
       if (isInfoOpen) {
+        triggerHaptic(10);
         setIsInfoOpen(false);
         return true;
       }
@@ -95,12 +102,14 @@ export function useChatUiState(currentUser) {
       // 5. Close mobile action sheet / reaction drawer if open
       const actionSheetBackdrop = document.querySelector('.msg-actions-backdrop, .reaction-drawer-backdrop');
       if (actionSheetBackdrop instanceof HTMLElement) {
+        triggerHaptic(10);
         actionSheetBackdrop.click();
         return true;
       }
 
       // 6. Return from active chat to chat list
       if (activeChatId) {
+        triggerHaptic(10);
         setActiveChatId(null);
         return true;
       }

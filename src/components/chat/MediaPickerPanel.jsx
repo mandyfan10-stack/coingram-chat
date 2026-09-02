@@ -19,6 +19,7 @@ import {
   searchTenorGifs,
   TENOR_CATEGORIES
 } from '../../services/tenorService';
+import { triggerHaptic } from '../../hooks/useMessageTouch';
 import './MediaPickerPanel.css';
 
 const RECENT_EMOJIS_KEY = 'coiny_recent_emojis';
@@ -132,6 +133,7 @@ export default function MediaPickerPanel({
 
   // Handle Emoji Selection
   const handleEmojiClick = (emoji) => {
+    triggerHaptic(6);
     onSelectEmoji(emoji);
     setRecentEmojis((prev) => {
       const updated = [emoji, ...prev.filter((e) => e !== emoji)].slice(0, 24);
@@ -165,6 +167,7 @@ export default function MediaPickerPanel({
 
   // Scroll to category in emoji list
   const scrollToCategory = (categoryId) => {
+    triggerHaptic(6);
     setActiveCategory(categoryId);
     setSearchQuery('');
     const el = document.getElementById(`emoji-cat-${categoryId}`);
@@ -183,6 +186,7 @@ export default function MediaPickerPanel({
           type="button"
           className={`picker-top-tab ${activeTab === 'emoji' ? 'active' : ''}`}
           onClick={() => {
+            triggerHaptic(8);
             setActiveTab('emoji');
             setSearchQuery('');
           }}
@@ -194,6 +198,7 @@ export default function MediaPickerPanel({
           type="button"
           className={`picker-top-tab ${activeTab === 'sticker' ? 'active' : ''}`}
           onClick={() => {
+            triggerHaptic(8);
             setActiveTab('sticker');
             setSearchQuery('');
           }}
@@ -205,6 +210,7 @@ export default function MediaPickerPanel({
           type="button"
           className={`picker-top-tab ${activeTab === 'gif' ? 'active' : ''}`}
           onClick={() => {
+            triggerHaptic(8);
             setActiveTab('gif');
             setSearchQuery('');
           }}
@@ -431,6 +437,7 @@ export default function MediaPickerPanel({
                         className="sticker-cell-btn"
                         onClick={() => {
                           handleStickerPointerLeave();
+                          triggerHaptic(12);
                           onSelectSticker(`sticker:${activePack.name}`, fileUrl);
                           onClose();
                         }}
@@ -543,6 +550,7 @@ export default function MediaPickerPanel({
                     type="button"
                     className="gif-cell-btn"
                     onClick={() => {
+                      triggerHaptic(12);
                       if (onSelectGif) {
                         onSelectGif(gif.url);
                       }

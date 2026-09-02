@@ -181,6 +181,45 @@ export function isInteractiveTarget(
   }
 }
 
+export const HAPTIC_STORAGE_KEY = 'coiny_haptics_enabled';
+
+export const HAPTIC_LIGHT = 8;
+export const HAPTIC_MEDIUM = 15;
+export const HAPTIC_HEAVY = 25;
+export const HAPTIC_SUCCESS = [10, 30, 15];
+
+let inMemoryHapticsEnabled = true;
+
+/**
+ * Checks whether haptic tactile feedback is enabled by user preference.
+ * @returns {boolean}
+ */
+export function isHapticsEnabled() {
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage?.getItem) {
+      return localStorage.getItem(HAPTIC_STORAGE_KEY) !== 'false';
+    }
+  } catch {
+    /* ignore */
+  }
+  return inMemoryHapticsEnabled;
+}
+
+/**
+ * Sets user preference for haptic tactile feedback.
+ * @param {boolean} enabled
+ */
+export function setHapticsEnabled(enabled) {
+  inMemoryHapticsEnabled = Boolean(enabled);
+  try {
+    if (typeof localStorage !== 'undefined' && localStorage?.setItem) {
+      localStorage.setItem(HAPTIC_STORAGE_KEY, enabled ? 'true' : 'false');
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Multi-tier safe haptic vibration feedback engine.
  * Dispatches vibration feedback across mobile web, Capacitor hybrid apps, and WebKit bridges.
@@ -190,7 +229,7 @@ export function isInteractiveTarget(
  * @returns {boolean} Whether haptics were successfully dispatched
  */
 export function triggerHaptic(pattern = DEFAULT_HAPTIC_HOLD_MS) {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined' || !isHapticsEnabled()) return false;
 
   // Tier 1: Web Standard Navigator Vibration API
   try {

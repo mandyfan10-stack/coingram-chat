@@ -4,10 +4,17 @@ import {
   Bell,
   Palette,
   Image as ImageIcon,
-  Upload
+  Upload,
+  Smartphone
 } from 'lucide-react';
 import { requestNotificationPermission } from '../../services/notificationService';
 import { SETTINGS_THEMES as themes, SETTINGS_WALLPAPERS as wallpapers } from './themesData';
+import {
+  isHapticsEnabled,
+  setHapticsEnabled,
+  triggerHaptic,
+  HAPTIC_SUCCESS
+} from '../../hooks/useMessageTouch';
 
 export default function AppearanceTab({
   theme,
@@ -144,6 +151,29 @@ export default function AppearanceTab({
               setNotif(nextVal);
               if (nextVal) {
                 await requestNotificationPermission();
+              }
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Haptics & Tactility Toggle */}
+      <div className="settings-section">
+        <h5 className="section-title">
+          <Smartphone size={16} />
+          <span>Тактильный отклик</span>
+        </h5>
+        <div className="notif-toggle-row">
+          <label htmlFor="haptics-toggle">Вибрация и тактильная отдача на нажатия</label>
+          <input
+            type="checkbox"
+            id="haptics-toggle"
+            checked={isHapticsEnabled()}
+            onChange={(e) => {
+              const nextVal = e.target.checked;
+              setHapticsEnabled(nextVal);
+              if (nextVal) {
+                triggerHaptic(HAPTIC_SUCCESS);
               }
             }}
           />

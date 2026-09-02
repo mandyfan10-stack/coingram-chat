@@ -11,6 +11,7 @@ import {
   Clock
 } from 'lucide-react';
 import { uploadSanitizedPublicImage } from '../services/publicMediaService';
+import { triggerHaptic } from '../hooks/useMessageTouch';
 
 const QUICK_EMOJIS = ['🔥', '❤️', '😂', '👍', '✨', '🪙', '😍', '🎉'];
 
@@ -109,6 +110,7 @@ export default function CreateStoryModal() {
   };
 
   const handleToggleCamera = () => {
+    triggerHaptic(12);
     const nextFacing = facingMode === 'user' ? 'environment' : 'user';
     setFacingMode(nextFacing);
     startCamera(nextFacing);
@@ -117,6 +119,7 @@ export default function CreateStoryModal() {
   const handleCapturePhoto = () => {
     if (!videoRef.current || !cameraActive) return;
 
+    triggerHaptic([15, 30, 20]);
     setIsFlashActive(true);
     setTimeout(() => setIsFlashActive(false), 220);
 
@@ -204,6 +207,7 @@ export default function CreateStoryModal() {
     }
 
     setIsSubmitting(true);
+    triggerHaptic(18);
     try {
       const mediaUrl = await uploadImageToSupabase(imageFile);
       const story = await publishStory(mediaUrl, caption.trim());

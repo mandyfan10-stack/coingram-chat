@@ -181,3 +181,49 @@ test('Telegram Stories: Story Studio camera/editor and StoryViewer cross-user pl
   // 3. mediaService provides deleteStory capability
   assert.match(mediaServiceCode, /deleteStory:\s*async/);
 });
+
+test('Mobile Tactility: multi-tier haptics engine, user settings toggle, and active touch micro-interactions', async () => {
+  const {
+    triggerHaptic,
+    isHapticsEnabled,
+    setHapticsEnabled,
+    HAPTIC_LIGHT,
+    HAPTIC_MEDIUM,
+    HAPTIC_HEAVY,
+    HAPTIC_SUCCESS
+  } = await import('../src/hooks/useMessageTouch.js');
+
+  // 1. Validate Haptics presets & safe execution in node environment
+  assert.strictEqual(typeof HAPTIC_LIGHT, 'number');
+  assert.strictEqual(typeof HAPTIC_MEDIUM, 'number');
+  assert.strictEqual(typeof HAPTIC_HEAVY, 'number');
+  assert.ok(Array.isArray(HAPTIC_SUCCESS));
+  assert.strictEqual(triggerHaptic(HAPTIC_LIGHT), false, 'Safe fallback in headless / node environment');
+
+  // 2. Validate haptics enablement storage toggle
+  setHapticsEnabled(false);
+  assert.strictEqual(isHapticsEnabled(), false);
+  assert.strictEqual(triggerHaptic(HAPTIC_MEDIUM), false);
+  setHapticsEnabled(true);
+  assert.strictEqual(isHapticsEnabled(), true);
+
+  // 3. Verify component code contracts for haptics integration
+  const chatComposerCode = await readFile(new URL('../src/components/chat/ChatComposer.jsx', import.meta.url), 'utf8');
+  const sidebarCode = await readFile(new URL('../src/components/Sidebar.jsx', import.meta.url), 'utf8');
+  const chatHeaderCode = await readFile(new URL('../src/components/chat/ChatHeader.jsx', import.meta.url), 'utf8');
+  const mediaPickerCode = await readFile(new URL('../src/components/chat/MediaPickerPanel.jsx', import.meta.url), 'utf8');
+  const appearanceTabCode = await readFile(new URL('../src/components/settings/AppearanceTab.jsx', import.meta.url), 'utf8');
+  const swipeGestureCode = await readFile(new URL('../src/hooks/useSwipeGesture.js', import.meta.url), 'utf8');
+  const indexCss = await readFile(new URL('../src/index.css', import.meta.url), 'utf8');
+
+  assert.match(chatComposerCode, /triggerHaptic\(15\)/, 'ChatComposer dispatches haptic on send');
+  assert.match(chatComposerCode, /triggerHaptic\(25\)/, 'ChatComposer dispatches haptic on record pointer down');
+  assert.match(sidebarCode, /triggerHaptic\(8\)/, 'Sidebar dispatches haptic on chat click');
+  assert.match(chatHeaderCode, /triggerHaptic\(10\)/, 'ChatHeader dispatches haptic on back click');
+  assert.match(mediaPickerCode, /triggerHaptic\(6\)/, 'MediaPickerPanel dispatches haptic on emoji click');
+  assert.match(appearanceTabCode, /Тактильный отклик/, 'AppearanceTab has Tactility/Haptics toggle');
+  assert.match(swipeGestureCode, /triggerHaptic\(12\)/, 'Edge swipe back dispatches haptic');
+  assert.match(indexCss, /touch-action:\s*manipulation/, 'CSS enforces touch-action: manipulation');
+  assert.match(indexCss, /\.chat-item:active/, 'CSS defines active press scaling for chat items');
+});
+

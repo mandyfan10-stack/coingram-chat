@@ -4,6 +4,7 @@ import { dataService } from '../services/dataLayer';
 import { Menu, Search, Pin, VolumeX, MessageSquare, User, Users, Megaphone, MessageSquarePlus, Eye, Plus, Lock, WifiOff } from 'lucide-react';
 import { isSavedMessagesChat } from '../utils/savedMessages';
 import { chatAvatarFallback, personAvatarFallback } from '../context/chat/avatarFallback';
+import { triggerHaptic } from '../hooks/useMessageTouch';
 
 
 export default function Sidebar() {
@@ -165,7 +166,14 @@ export default function Sidebar() {
     <aside className="sidebar">
       {/* Top Header */}
       <div className="sidebar-header">
-        <button className="menu-btn" onClick={() => setIsDrawerOpen(true)} title="Настройки">
+        <button
+          className="menu-btn"
+          onClick={() => {
+            triggerHaptic(8);
+            setIsDrawerOpen(true);
+          }}
+          title="Настройки"
+        >
           <Menu size={22} />
         </button>
         <div className="search-container">
@@ -177,10 +185,15 @@ export default function Sidebar() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <button className="menu-btn" onClick={() => {
-          setNewChatModalTab('personal');
-          setIsNewChatOpen(true);
-        }} title="Новый чат">
+        <button
+          className="menu-btn"
+          onClick={() => {
+            triggerHaptic(8);
+            setNewChatModalTab('personal');
+            setIsNewChatOpen(true);
+          }}
+          title="Новый чат"
+        >
           <MessageSquarePlus size={22} />
         </button>
       </div>
@@ -202,7 +215,10 @@ export default function Sidebar() {
           <button
             key={folder.id}
             className={`folder-tab ${activeFolder === folder.id ? 'active' : ''}`}
-            onClick={() => setActiveFolder(folder.id)}
+            onClick={() => {
+              triggerHaptic(6);
+              setActiveFolder(folder.id);
+            }}
           >
             {getFolderIcon(folder.id)}
             <span>{folder.name}</span>
@@ -223,6 +239,7 @@ export default function Sidebar() {
               style={{ position: 'relative', minWidth: '72px' }}
               onClick={(e) => {
                 e.stopPropagation();
+                triggerHaptic(10);
                 if (hasMyStories) {
                   setShowMyStoriesMenu(prev => !prev);
                 } else {
@@ -262,7 +279,10 @@ export default function Sidebar() {
             <div
               key={story.userId}
               className={`story-item ${story.hasUnviewed ? 'unviewed' : 'viewed'}`}
-              onClick={() => viewStory(story.storyToOpenId)}
+              onClick={() => {
+                triggerHaptic(8);
+                viewStory(story.storyToOpenId);
+              }}
             >
               <div className="story-avatar-wrapper">
                 <div className="story-avatar-initials" style={{ padding: 0 }}>{renderAvatar(story.userAvatar, personAvatarFallback(story))}</div>
@@ -307,7 +327,10 @@ export default function Sidebar() {
                 className={`chat-item ${isActive ? 'active' : ''}`}
                 data-chat-id={chat.id}
                 data-chat-username={chat.username || undefined}
-                onClick={() => setActiveChatId(chat.id)}
+                onClick={() => {
+                  triggerHaptic(8);
+                  setActiveChatId(chat.id);
+                }}
               >
                 {/* Avatar */}
                 <div className="chat-avatar">
