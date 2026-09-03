@@ -28,6 +28,62 @@ export function useChatLoader({
 
   const currentUserId = currentUser?.id;
 
+  const prewarmTopChats = useCallback((chatList) => {
+    if (!Array.isArray(chatList) || chatList.length === 0 || !currentUser) return;
+    const topChats = chatList.slice(0, 5);
+
+    const runPrewarm = async () => {
+      for (const chat of topChats) {
+        if (!chat || chat.id === activeChatIdRef.current) continue;
+        try {
+          const cached = await getCachedMessages(chat.id, currentUserId);
+          if (cached && cached.length > 1) {
+            setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => {
+              if (c.id === chat.id && (!c.messages || c.messages.length <= 1)) {
+                return { ...c, messages: cached };
+              }
+              return c;
+            }));
+            continue;
+          }
+
+          const msgsRaw = await dataService.loadChatMessages(chat.id, 50);
+          const msgs = Array.isArray(msgsRaw) ? msgsRaw : [];
+          if (msgs.length === 0) continue;
+
+          const sharedKey = await resolveSharedKey({
+            chatId: chat.id,
+            chat,
+            currentUserId: currentUser.id,
+            e2eePrivateKey: e2eePrivateKeyRef.current,
+            sharedKeysCache: sharedKeysCacheRef.current,
+            setSharedKeysCache
+          });
+
+          const decrypted = await Promise.all(
+            msgs.map((m) => decryptMessageFields(m, sharedKey, chat.type === 'personal'))
+          );
+
+          saveCachedMessages(chat.id, decrypted, currentUserId);
+          setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => {
+            if (c.id === chat.id && (!c.messages || c.messages.length <= 1)) {
+              return { ...c, messages: decrypted };
+            }
+            return c;
+          }));
+        } catch {
+          // Prewarm runs silently without interrupting UI
+        }
+      }
+    };
+
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(() => runPrewarm(), { timeout: 3000 });
+    } else {
+      setTimeout(runPrewarm, 500);
+    }
+  }, [currentUser, currentUserId, setChats, setSharedKeysCache, e2eePrivateKeyRef, sharedKeysCacheRef]);
+
   const fetchChats = useCallback(async () => {
     if (!currentUserId) return;
     try {
@@ -130,6 +186,7 @@ export function useChatLoader({
               reactions: refreshed.reactions ?? message.reactions
             };
           });
+
           const knownMessageIds = new Set(existingMessages.map((message) => message.id));
           const missingPreviewMessages = nextMessages.filter(
             (message) => !knownMessageIds.has(message.id)
@@ -150,62 +207,6 @@ export function useChatLoader({
       console.error('Failed to load chats', e);
     }
   }, [currentUserId, currentUser?.name, setSharedKeysCache, setChats, e2eePrivateKeyRef, sharedKeysCacheRef, prewarmTopChats]);
-
-  const prewarmTopChats = useCallback((chatList) => {
-    if (!Array.isArray(chatList) || chatList.length === 0 || !currentUser) return;
-    const topChats = chatList.slice(0, 5);
-
-    const runPrewarm = async () => {
-      for (const chat of topChats) {
-        if (!chat || chat.id === activeChatIdRef.current) continue;
-        try {
-          const cached = await getCachedMessages(chat.id, currentUserId);
-          if (cached && cached.length > 1) {
-            setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => {
-              if (c.id === chat.id && (!c.messages || c.messages.length <= 1)) {
-                return { ...c, messages: cached };
-              }
-              return c;
-            }));
-            continue;
-          }
-
-          const msgsRaw = await dataService.loadChatMessages(chat.id, 50);
-          const msgs = Array.isArray(msgsRaw) ? msgsRaw : [];
-          if (msgs.length === 0) continue;
-
-          const sharedKey = await resolveSharedKey({
-            chatId: chat.id,
-            chat,
-            currentUserId: currentUser.id,
-            e2eePrivateKey: e2eePrivateKeyRef.current,
-            sharedKeysCache: sharedKeysCacheRef.current,
-            setSharedKeysCache
-          });
-
-          const decrypted = await Promise.all(
-            msgs.map((m) => decryptMessageFields(m, sharedKey, chat.type === 'personal'))
-          );
-
-          saveCachedMessages(chat.id, decrypted, currentUserId);
-          setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => {
-            if (c.id === chat.id && (!c.messages || c.messages.length <= 1)) {
-              return { ...c, messages: decrypted };
-            }
-            return c;
-          }));
-        } catch {
-          // Prewarm runs silently without interrupting UI
-        }
-      }
-    };
-
-    if (typeof requestIdleCallback === 'function') {
-      requestIdleCallback(() => runPrewarm(), { timeout: 3000 });
-    } else {
-      setTimeout(runPrewarm, 500);
-    }
-  }, [currentUser, currentUserId, setChats, setSharedKeysCache, e2eePrivateKeyRef, sharedKeysCacheRef]);
 
   const loadActiveChatMessages = useCallback(async (chatId) => {
     if (!chatId || !currentUser) return;
