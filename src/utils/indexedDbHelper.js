@@ -7,7 +7,7 @@ import {
 } from './offlineQueueCrypto.js';
 
 const DB_NAME = 'CoinyOfflineDB';
-const DB_VERSION = 7;
+const DB_VERSION = 8;
 const ATTACHMENT_STORE_NAME = 'offline-attachments';
 const E2EE_KEY_STORE_NAME = 'e2ee-keys';
 const OFFLINE_QUEUE_STORE_NAME = 'offline-queue';
@@ -16,6 +16,9 @@ const MLS_STATE_STORE_NAME = 'mls-state';
 const CRYPTO_OUTBOX_STORE_NAME = 'crypto-outbox';
 const CRYPTO_INBOX_STORE_NAME = 'crypto-inbox';
 const MESSAGES_CACHE_STORE_NAME = 'messages-cache';
+const MESSAGES_CACHE_V2_STORE_NAME = 'messages-cache-v2';
+const CHATS_CACHE_STORE_NAME = 'chats-cache';
+const MEDIA_CACHE_STORE_NAME = 'media-cache';
 const OFFLINE_QUEUE_KEY_ID = 'offline-queue-aes-gcm-v1';
 const LEGACY_QUEUE_STORAGE_KEY = 'tg-offline-queue';
 
@@ -34,6 +37,21 @@ function ensureStores(db) {
     MESSAGES_CACHE_STORE_NAME
   ]) {
     if (!db.objectStoreNames.contains(storeName)) db.createObjectStore(storeName);
+  }
+
+  if (!db.objectStoreNames.contains(MESSAGES_CACHE_V2_STORE_NAME)) {
+    const msgStore = db.createObjectStore(MESSAGES_CACHE_V2_STORE_NAME, { keyPath: 'id' });
+    msgStore.createIndex('by-chat', 'chatId', { unique: false });
+    msgStore.createIndex('by-chat-timestamp', ['chatId', 'timestampIso'], { unique: false });
+  }
+
+  if (!db.objectStoreNames.contains(CHATS_CACHE_STORE_NAME)) {
+    db.createObjectStore(CHATS_CACHE_STORE_NAME, { keyPath: 'id' });
+  }
+
+  if (!db.objectStoreNames.contains(MEDIA_CACHE_STORE_NAME)) {
+    const mediaStore = db.createObjectStore(MEDIA_CACHE_STORE_NAME, { keyPath: 'key' });
+    mediaStore.createIndex('by-accessed', 'lastAccessedAt', { unique: false });
   }
 }
 
@@ -293,10 +311,427 @@ export async function clearOfflineDatabase() {
 }
 
 /**
- * Persists up to 100 recent messages for a chat to IndexedDB for instantaneous reopening.
- * @param {string} chatId
- * @param {Array<object>} messages
- * @param {string} [userId]
+ * Normalize message object for relational indexing in messages-cache-v2
+ */
+export function normalizeCachedMessage(m, chatId, userId) {
+  if (!m || !m.id) return null;
+  const ts = m.timestamp instanceof Date ? m.timestamp : new Date(m.timestamp || Date.now());
+  const validTs = isNaN(ts.getTime()) ? new Date() : ts;
+  return {
+    id: String(m.id),
+    chatId: String(chatId || m.chatId || m.chat_id || ''),
+    userId: userContext(userId),
+    senderId: m.senderId || m.sender_id || '',
+    senderName: m.senderName || '',
+    text: typeof m.text === 'string' ? m.text : '',
+    media: m.media || null,
+    mediaPath: m.mediaPath || m.media_path || null,
+    replyTo: m.replyTo || m.reply_to || null,
+    read: Boolean(m.read),
+    reads: Array.isArray(m.reads) ? m.reads : [],
+    reactions: Array.isArray(m.reactions) ? m.reactions : [],
+    timestampIso: validTs.toISOString(),
+    isOptimistic: Boolean(m.isOptimistic),
+    isPending: Boolean(m.isPending),
+    isLocked: Boolean(m.isLocked),
+    isFailed: Boolean(m.isFailed)
+  };
+}
+
+/**
+ * Denormalize cached message row to runtime ChatMessage format
+ */
+export function denormalizeCachedMessage(row) {
+  if (!row) return null;
+  return {
+    ...row,
+    timestamp: new Date(row.timestampIso)
+  };
+}
+
+/**
+ * Persist or update a single message in messages-cache-v2
+ */
+export async function saveCachedMessage(message, chatId, userId) {
+  if (!message || !message.id || typeof indexedDB === 'undefined') return;
+  const norm = normalizeCachedMessage(message, chatId, userId);
+  if (!norm || !norm.chatId) return;
+
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction(MESSAGES_CACHE_V2_STORE_NAME, 'readwrite');
+    tx.objectStore(MESSAGES_CACHE_V2_STORE_NAME).put(norm);
+    await transactionComplete(tx);
+  } catch (err) {
+    console.warn('Failed to save message in messages-cache-v2:', err);
+  }
+}
+
+/**
+ * Batch saves messages in messages-cache-v2 (relational storage per message)
+ */
+export async function saveCachedMessagesBatch(chatId, messages, userId) {
+  if (!chatId || !Array.isArray(messages) || messages.length === 0 || typeof indexedDB === 'undefined') return;
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction(MESSAGES_CACHE_V2_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(MESSAGES_CACHE_V2_STORE_NAME);
+
+    for (const m of messages) {
+      const norm = normalizeCachedMessage(m, chatId, userId);
+      if (norm) {
+        store.put(norm);
+      }
+    }
+    await transactionComplete(tx);
+
+    // Also update legacy store for backwards compatibility
+    await saveCachedMessages(chatId, messages, userId);
+  } catch (err) {
+    console.warn('Failed to save messages batch in IndexedDB:', err);
+  }
+}
+
+/**
+ * Retrieve messages for a chat from messages-cache-v2 sorted chronologically
+ */
+export async function getCachedMessagesForChat(chatId, userId, limit = 200) {
+  if (!chatId || typeof indexedDB === 'undefined') return [];
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction(MESSAGES_CACHE_V2_STORE_NAME, 'readonly');
+    const store = tx.objectStore(MESSAGES_CACHE_V2_STORE_NAME);
+    const index = store.index('by-chat-timestamp');
+
+    const lowerBound = [String(chatId), ''];
+    const upperBound = [String(chatId), '\uffff'];
+    const range = IDBKeyRange.bound(lowerBound, upperBound);
+
+    return new Promise((resolve) => {
+      const results = [];
+      const req = index.openCursor(range, 'prev'); // Most recent first
+      req.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor && results.length < limit) {
+          results.push(denormalizeCachedMessage(cursor.value));
+          cursor.continue();
+        } else {
+          if (results.length === 0) {
+            // Fallback to legacy messages-cache if v2 has no entries for this chat yet
+            getCachedMessages(chatId, userId).then((legacy) => {
+              resolve(Array.isArray(legacy) ? legacy : []);
+            }).catch(() => resolve([]));
+          } else {
+            resolve(results.reverse()); // Chronological order
+          }
+        }
+      };
+      req.onerror = () => {
+        getCachedMessages(chatId, userId).then((legacy) => {
+          resolve(Array.isArray(legacy) ? legacy : []);
+        }).catch(() => resolve([]));
+      };
+    });
+  } catch (err) {
+    console.warn('Failed to read messages-cache-v2:', err);
+    return getCachedMessages(chatId, userId).catch(() => []);
+  }
+}
+
+/**
+ * Delete a single cached message by message ID
+ */
+export async function deleteCachedMessage(messageId) {
+  if (!messageId || typeof indexedDB === 'undefined') return;
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction(MESSAGES_CACHE_V2_STORE_NAME, 'readwrite');
+    tx.objectStore(MESSAGES_CACHE_V2_STORE_NAME).delete(String(messageId));
+    await transactionComplete(tx);
+  } catch (err) {
+    console.warn('Failed to delete cached message:', err);
+  }
+}
+
+/**
+ * Update specific fields (reactions, read status, text) of a cached message
+ */
+export async function updateCachedMessageFields(messageId, updates) {
+  if (!messageId || !updates || typeof indexedDB === 'undefined') return;
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction(MESSAGES_CACHE_V2_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(MESSAGES_CACHE_V2_STORE_NAME);
+    const existing = await requestResult(store.get(String(messageId)));
+    if (existing) {
+      const merged = { ...existing, ...updates };
+      store.put(merged);
+    }
+    await transactionComplete(tx);
+  } catch (err) {
+    console.warn('Failed to update cached message fields:', err);
+  }
+}
+
+/**
+ * Persist the entire chat list for instantaneous 0ms startup
+ */
+export async function saveCachedChatList(chats, userId) {
+  if (!Array.isArray(chats) || typeof indexedDB === 'undefined') return;
+  const owner = userContext(userId);
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction(CHATS_CACHE_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(CHATS_CACHE_STORE_NAME);
+
+    const entry = {
+      id: `chats:${owner}`,
+      owner,
+      chats: chats.map((c) => ({
+        id: c.id,
+        name: c.name,
+        avatar: c.avatar,
+        avatarColor: c.avatarColor,
+        username: c.username,
+        type: c.type,
+        pinned: c.pinned,
+        notifications: c.notifications,
+        settings: c.settings,
+        members: c.members,
+        unreadCount: c.unreadCount || 0,
+        messages: Array.isArray(c.messages)
+          ? c.messages.slice(-5).map((m) => ({
+              ...m,
+              timestamp: m.timestamp instanceof Date ? m.timestamp.toISOString() : m.timestamp
+            }))
+          : []
+      })),
+      updatedAt: Date.now()
+    };
+    store.put(entry);
+    await transactionComplete(tx);
+  } catch (err) {
+    console.warn('Failed to save cached chat list:', err);
+  }
+}
+
+/**
+ * Retrieve the cached chat list for instantaneous 0ms startup
+ */
+export async function getCachedChatList(userId) {
+  if (typeof indexedDB === 'undefined') return null;
+  const owner = userContext(userId);
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction(CHATS_CACHE_STORE_NAME, 'readonly');
+    const row = await requestResult(tx.objectStore(CHATS_CACHE_STORE_NAME).get(`chats:${owner}`));
+    if (row && Array.isArray(row.chats)) {
+      return row.chats.map((c) => ({
+        ...c,
+        messages: Array.isArray(c.messages)
+          ? c.messages.map((m) => ({ ...m, timestamp: new Date(m.timestamp) }))
+          : []
+      }));
+    }
+    return null;
+  } catch (err) {
+    console.warn('Failed to read cached chat list:', err);
+    return null;
+  }
+}
+
+const MAX_MEDIA_CACHE_BYTES = 150 * 1024 * 1024; // 150 MB
+const MAX_MEDIA_CACHE_COUNT = 500;
+
+/**
+ * Save a media Blob (avatar, photo, voice) in media-cache with LRU eviction
+ */
+export async function saveCachedMedia(key, blob, mimeType) {
+  if (!key || !(blob instanceof Blob) || typeof indexedDB === 'undefined') return;
+  const cleanKey = String(key).trim();
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction(MEDIA_CACHE_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(MEDIA_CACHE_STORE_NAME);
+
+    const record = {
+      key: cleanKey,
+      blob,
+      mimeType: mimeType || blob.type || 'application/octet-stream',
+      size: blob.size || 0,
+      cachedAt: Date.now(),
+      lastAccessedAt: Date.now()
+    };
+
+    store.put(record);
+    await transactionComplete(tx);
+
+    enforceMediaCacheLru().catch(() => {});
+  } catch (err) {
+    console.warn('Failed to save cached media:', err);
+  }
+}
+
+/**
+ * Retrieve a cached media Blob by key and touch its lastAccessedAt timestamp
+ */
+export async function getCachedMedia(key) {
+  if (!key || typeof indexedDB === 'undefined') return null;
+  const cleanKey = String(key).trim();
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction(MEDIA_CACHE_STORE_NAME, 'readwrite');
+    const store = tx.objectStore(MEDIA_CACHE_STORE_NAME);
+    const record = await requestResult(store.get(cleanKey));
+
+    if (record && record.blob instanceof Blob) {
+      record.lastAccessedAt = Date.now();
+      store.put(record);
+      await transactionComplete(tx);
+      return record.blob;
+    }
+    return null;
+  } catch (err) {
+    console.warn('Failed to get cached media:', err);
+    return null;
+  }
+}
+
+/**
+ * Enforces LRU eviction on media-cache if item count > 500 or size > 150 MB
+ */
+async function enforceMediaCacheLru() {
+  if (typeof indexedDB === 'undefined') return;
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction(MEDIA_CACHE_STORE_NAME, 'readonly');
+    const store = tx.objectStore(MEDIA_CACHE_STORE_NAME);
+    const index = store.index('by-accessed');
+
+    const entries = [];
+    let totalBytes = 0;
+
+    await new Promise((resolve, reject) => {
+      const req = index.openCursor();
+      req.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor) {
+          const val = cursor.value;
+          totalBytes += val.size || 0;
+          entries.push({ key: val.key, size: val.size || 0, accessed: val.lastAccessedAt || 0 });
+          cursor.continue();
+        } else {
+          resolve();
+        }
+      };
+      req.onerror = () => reject(req.error);
+    });
+
+    if (entries.length > MAX_MEDIA_CACHE_COUNT || totalBytes > MAX_MEDIA_CACHE_BYTES) {
+      entries.sort((a, b) => a.accessed - b.accessed);
+
+      const keysToDelete = [];
+      let bytesToFree = Math.max(0, totalBytes - MAX_MEDIA_CACHE_BYTES * 0.8);
+      const countToFree = Math.max(0, entries.length - MAX_MEDIA_CACHE_COUNT * 0.8);
+
+      for (const item of entries) {
+        if (keysToDelete.length < countToFree || bytesToFree > 0) {
+          keysToDelete.push(item.key);
+          bytesToFree -= item.size;
+        } else {
+          break;
+        }
+      }
+
+      if (keysToDelete.length > 0) {
+        const delTx = db.transaction(MEDIA_CACHE_STORE_NAME, 'readwrite');
+        const delStore = delTx.objectStore(MEDIA_CACHE_STORE_NAME);
+        for (const k of keysToDelete) {
+          delStore.delete(k);
+        }
+        await transactionComplete(delTx);
+      }
+    }
+  } catch {
+    // Non-fatal
+  }
+}
+
+/**
+ * Get stats about cached messages and media for Settings UI
+ */
+export async function getCacheStorageStats() {
+  if (typeof indexedDB === 'undefined') {
+    return { messageCount: 0, chatCount: 0, mediaCount: 0, mediaBytes: 0 };
+  }
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction(
+      [MESSAGES_CACHE_V2_STORE_NAME, MEDIA_CACHE_STORE_NAME, CHATS_CACHE_STORE_NAME],
+      'readonly'
+    );
+
+    const msgCountReq = tx.objectStore(MESSAGES_CACHE_V2_STORE_NAME).count();
+    const chatCountReq = tx.objectStore(CHATS_CACHE_STORE_NAME).count();
+
+    const mediaStore = tx.objectStore(MEDIA_CACHE_STORE_NAME);
+    let mediaBytes = 0;
+    let mediaCount = 0;
+
+    await new Promise((resolve) => {
+      const cursorReq = mediaStore.openCursor();
+      cursorReq.onsuccess = (e) => {
+        const cursor = e.target.result;
+        if (cursor) {
+          mediaCount++;
+          mediaBytes += cursor.value.size || 0;
+          cursor.continue();
+        } else {
+          resolve();
+        }
+      };
+      cursorReq.onerror = () => resolve();
+    });
+
+    const [messageCount, chatCount] = await Promise.all([
+      requestResult(msgCountReq).catch(() => 0),
+      requestResult(chatCountReq).catch(() => 0)
+    ]);
+
+    return {
+      messageCount: messageCount || 0,
+      chatCount: chatCount || 0,
+      mediaCount,
+      mediaBytes
+    };
+  } catch {
+    return { messageCount: 0, chatCount: 0, mediaCount: 0, mediaBytes: 0 };
+  }
+}
+
+/**
+ * Clear all message, chat, and media caches without touching auth tokens or E2EE keys
+ */
+export async function clearMediaAndMessageCache() {
+  if (typeof indexedDB === 'undefined') return;
+  try {
+    const db = await initOfflineDB();
+    const tx = db.transaction(
+      [MESSAGES_CACHE_V2_STORE_NAME, MESSAGES_CACHE_STORE_NAME, CHATS_CACHE_STORE_NAME, MEDIA_CACHE_STORE_NAME],
+      'readwrite'
+    );
+    tx.objectStore(MESSAGES_CACHE_V2_STORE_NAME).clear();
+    tx.objectStore(MESSAGES_CACHE_STORE_NAME).clear();
+    tx.objectStore(CHATS_CACHE_STORE_NAME).clear();
+    tx.objectStore(MEDIA_CACHE_STORE_NAME).clear();
+    await transactionComplete(tx);
+  } catch (err) {
+    console.warn('Failed to clear media and message cache:', err);
+  }
+}
+
+/**
+ * Persists up to 100 recent messages for a chat to IndexedDB (legacy fallback)
  */
 export async function saveCachedMessages(chatId, messages, userId) {
   if (!chatId || !Array.isArray(messages) || messages.length === 0) return;
@@ -314,10 +749,7 @@ export async function saveCachedMessages(chatId, messages, userId) {
 }
 
 /**
- * Retrieves cached messages for a chat from IndexedDB.
- * @param {string} chatId
- * @param {string} [userId]
- * @returns {Promise<Array<object>|null>}
+ * Retrieves cached messages for a chat from IndexedDB (legacy fallback)
  */
 export async function getCachedMessages(chatId, userId) {
   if (!chatId || typeof indexedDB === 'undefined') return null;
@@ -336,9 +768,7 @@ export async function getCachedMessages(chatId, userId) {
 }
 
 /**
- * Removes cached messages for a chat from IndexedDB.
- * @param {string} chatId
- * @param {string} [userId]
+ * Removes cached messages for a chat from IndexedDB
  */
 export async function clearCachedMessages(chatId, userId) {
   if (!chatId || typeof indexedDB === 'undefined') return;
@@ -349,3 +779,4 @@ export async function clearCachedMessages(chatId, userId) {
     console.warn('Failed to clear cached messages from IndexedDB:', err);
   }
 }
+

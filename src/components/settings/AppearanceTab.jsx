@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Check,
   Bell,
   Palette,
   Image as ImageIcon,
   Upload,
-  Smartphone
+  Smartphone,
+  Database,
+  Trash2
 } from 'lucide-react';
 import { requestNotificationPermission } from '../../services/notificationService';
 import { SETTINGS_THEMES as themes, SETTINGS_WALLPAPERS as wallpapers } from './themesData';
@@ -15,6 +17,10 @@ import {
   triggerHaptic,
   HAPTIC_SUCCESS
 } from '../../hooks/useMessageTouch';
+import {
+  getCacheStorageStats,
+  clearMediaAndMessageCache
+} from '../../utils/indexedDbHelper';
 
 export default function AppearanceTab({
   theme,
@@ -29,6 +35,14 @@ export default function AppearanceTab({
   handleWallpaperUpload,
   isUploadingWallpaper
 }) {
+  const [cacheStats, setCacheStats] = useState({ messageCount: 0, chatCount: 0, mediaCount: 0, mediaBytes: 0 });
+  const [isClearingCache, setIsClearingCache] = useState(false);
+  const [cacheClearedSuccess, setCacheClearedSuccess] = useState(false);
+
+  useEffect(() => {
+    getCacheStorageStats().then(setCacheStats).catch(() => {});
+  }, []);
+
   return (
     <div className="settings-appearance-tab" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Theme Customizer */}
@@ -177,6 +191,51 @@ export default function AppearanceTab({
               }
             }}
           />
+        </div>
+      </div>
+
+      {/* Storage & Data / Cache Management */}
+      <div className="settings-section">
+        <h5 className="section-title">
+          <Database size={16} />
+          <span>Память и данные</span>
+        </h5>
+        <div className="cache-stats-card">
+          <div className="cache-stats-grid">
+            <div className="cache-stat-item">
+              <span className="cache-stat-value">{cacheStats.messageCount}</span>
+              <span className="cache-stat-label">Сообщений в кэше</span>
+            </div>
+            <div className="cache-stat-item">
+              <span className="cache-stat-value">
+                {(cacheStats.mediaBytes / (1024 * 1024)).toFixed(1)} МБ
+              </span>
+              <span className="cache-stat-label">{cacheStats.mediaCount} медиафайлов</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            className="cache-clear-btn"
+            disabled={isClearingCache || (cacheStats.messageCount === 0 && cacheStats.mediaCount === 0)}
+            onClick={async () => {
+              setIsClearingCache(true);
+              triggerHaptic(HAPTIC_SUCCESS);
+              try {
+                await clearMediaAndMessageCache();
+                const stats = await getCacheStorageStats();
+                setCacheStats(stats);
+                setCacheClearedSuccess(true);
+                setTimeout(() => setCacheClearedSuccess(false), 3000);
+              } catch (e) {
+                console.error(e);
+              } finally {
+                setIsClearingCache(false);
+              }
+            }}
+          >
+            <Trash2 size={15} />
+            <span>{isClearingCache ? 'Очистка...' : cacheClearedSuccess ? 'Кэш очищен' : 'Очистить кэш'}</span>
+          </button>
         </div>
       </div>
     </div>

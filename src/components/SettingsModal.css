@@ -1977,3 +1977,64 @@ html.theme-light .e2ee-info-card .info-desc {
   margin-left: 4px;
   vertical-align: middle;
 }
+
+/* Cache & Data Management */
+.cache-stats-card {
+  background: var(--surface-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cache-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.cache-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cache-stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.cache-stat-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.cache-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 14px;
+  background: var(--surface-chip, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.cache-clear-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+.cache-clear-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -2,14 +2,29 @@ import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { getPrivateMediaReference } from '../utils/storageMedia';
 import { createManagedObjectUrl, revokeManagedObjectUrl } from '../utils/objectUrlRegistry';
+import { getCachedMedia, saveCachedMedia } from '../utils/indexedDbHelper';
 
 async function loadPrivateImage(url, objectUrlKey) {
   const storageReference = getPrivateMediaReference(url);
+  const cacheKey = `storage:${storageReference.bucket}:${storageReference.path}`;
+
+  try {
+    const cachedBlob = await getCachedMedia(cacheKey);
+    if (cachedBlob instanceof Blob) {
+      return createManagedObjectUrl(objectUrlKey, cachedBlob);
+    }
+  } catch {
+    // Fall through to network
+  }
+
   const { data, error } = await supabase.storage
     .from(storageReference.bucket)
     .download(storageReference.path);
 
   if (error) throw error;
+
+  saveCachedMedia(cacheKey, data, data.type).catch(() => {});
+
   return createManagedObjectUrl(objectUrlKey, data);
 }
 

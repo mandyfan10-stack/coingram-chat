@@ -191,7 +191,8 @@ export const ChatProvider = ({ children }) => {
       loadActiveChatMessages: loader.loadActiveChatMessages,
       loadOlderMessages: loader.loadOlderMessages,
       messagePagination: loader.messagePagination,
-      isChatLoading: loader.isChatLoading
+      isChatLoading: loader.isChatLoading,
+      isSyncing: loader.isSyncing
     }}>
       {children}
     </ChatContext.Provider>

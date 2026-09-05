@@ -6,7 +6,12 @@ import {
   encryptMessage,
   requireE2EEKey
 } from '../../utils/e2eeHelper';
-import { saveOfflineAttachment } from '../../utils/indexedDbHelper';
+import {
+  saveOfflineAttachment,
+  saveCachedMessage,
+  deleteCachedMessage,
+  updateCachedMessageFields
+} from '../../utils/indexedDbHelper';
 import { createManagedObjectUrl } from '../../utils/objectUrlRegistry';
 import {
   cloneReactions,
@@ -43,6 +48,7 @@ export function useChatActions({
         if (c.id === chatId) {
           const updatedMessages = c.messages.map((m) => {
             if (m.senderId !== currentUser.id && !m.read) {
+              updateCachedMessageFields(m.id, { read: true });
               return { ...m, read: true };
             }
             return m;
@@ -235,6 +241,8 @@ export function useChatActions({
       return c;
     }));
 
+    saveCachedMessage(optimisticMsg, activeChatId, currentUser.id);
+
     playSound('outgoing');
 
     if (!dataService.isLive() && activeChat) {
@@ -342,6 +350,7 @@ export function useChatActions({
         console.error('Send failed:', error);
         const isNetwork = !navigator.onLine || error.message?.includes('FetchError') || error.message?.includes('failed to fetch');
         if (isNetwork) {
+          updateCachedMessageFields(messageId, { isPending: true });
           setChats((prevChats) => prevChats.map((c) => {
             if (c.id === activeChatId) {
               return {
@@ -362,6 +371,7 @@ export function useChatActions({
             hasOfflineMedia: false
           })]);
         } else {
+          deleteCachedMessage(messageId);
           setChats((prevChats) => prevChats.map((c) => {
             if (c.id === activeChatId) {
               return { ...c, messages: c.messages.filter((m) => m.id !== messageId) };
@@ -376,6 +386,7 @@ export function useChatActions({
 
   const deleteMessage = useCallback(async (chatId, messageId) => {
     try {
+      deleteCachedMessage(messageId);
       await dataService.deleteMessage(messageId);
       setChats((prevChats) => prevChats.map((c) => {
         if (c.id === chatId) {
@@ -402,6 +413,7 @@ export function useChatActions({
           if (m.id !== messageId) return m;
           previousReactions = cloneReactions(normalizeReactions(m.reactions));
           const next = toggleUserReaction(previousReactions, emoji, userKey);
+          updateCachedMessageFields(messageId, { reactions: next });
           return { ...m, reactions: next };
         }),
       };
@@ -411,13 +423,15 @@ export function useChatActions({
       if (dataService.isLive()) {
         const serverReactions = await dataService.toggleReaction(messageId, emoji);
         if (Array.isArray(serverReactions)) {
+          const normalized = normalizeReactions(serverReactions);
+          updateCachedMessageFields(messageId, { reactions: normalized });
           setChats((prevChats) => prevChats.map((c) => {
             if (c.id !== chatId) return c;
             return {
               ...c,
               messages: c.messages.map((m) => (
                 m.id === messageId
-                  ? { ...m, reactions: normalizeReactions(serverReactions) }
+                  ? { ...m, reactions: normalized }
                   : m
               )),
             };
@@ -427,6 +441,7 @@ export function useChatActions({
     } catch (err) {
       console.error(err);
       if (previousReactions) {
+        updateCachedMessageFields(messageId, { reactions: previousReactions });
         setChats((prevChats) => prevChats.map((c) => {
           if (c.id !== chatId) return c;
           return {

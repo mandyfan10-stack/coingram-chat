@@ -1,6 +1,14 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { dataService } from '../../services/dataLayer';
-import { getOfflineAttachment, getCachedMessages, saveCachedMessages } from '../../utils/indexedDbHelper';
+import {
+  getOfflineAttachment,
+  getCachedMessages,
+  saveCachedMessages,
+  saveCachedMessagesBatch,
+  getCachedMessagesForChat,
+  saveCachedChatList,
+  getCachedChatList
+} from '../../utils/indexedDbHelper';
 import { loadOfflineQueue } from '../../services/offlineQueue';
 import { createManagedObjectUrl } from '../../utils/objectUrlRegistry';
 import { decryptMessageFields, resolveSharedKey } from './decryptHelpers';
@@ -20,6 +28,7 @@ export function useChatLoader({
 }) {
   const [messagePagination, setMessagePagination] = useState({});
   const [isChatLoading, setIsChatLoading] = useState({});
+  const [isSyncing, setIsSyncing] = useState({});
 
   const activeChatIdRef = useRef(activeChatId);
   useEffect(() => {
@@ -27,6 +36,16 @@ export function useChatLoader({
   }, [activeChatId]);
 
   const currentUserId = currentUser?.id;
+
+  // Instant 0ms Chat List Hydration from IndexedDB
+  useEffect(() => {
+    if (!currentUserId) return;
+    getCachedChatList(currentUserId).then((cached) => {
+      if (Array.isArray(cached) && cached.length > 0) {
+        setChats((prev) => (!prev || prev.length === 0 ? cached : prev));
+      }
+    }).catch(() => {});
+  }, [currentUserId, setChats]);
 
   const prewarmTopChats = useCallback((chatList) => {
     if (!Array.isArray(chatList) || chatList.length === 0 || !currentUser) return;
@@ -203,6 +222,7 @@ export function useChatLoader({
 
       // Smart Pre-warming: quietly cache top chats in idle moments
       prewarmTopChats(updatedChats);
+      saveCachedChatList(updatedChats, currentUserId);
     } catch (e) {
       console.error('Failed to load chats', e);
     }
@@ -210,6 +230,7 @@ export function useChatLoader({
 
   const loadActiveChatMessages = useCallback(async (chatId) => {
     if (!chatId || !currentUser) return;
+    setIsSyncing((prev) => ({ ...prev, [chatId]: true }));
     try {
       const msgsRaw = await dataService.loadChatMessages(chatId, 100);
       const msgs = Array.isArray(msgsRaw) ? msgsRaw : [];
@@ -260,14 +281,15 @@ export function useChatLoader({
           (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
         );
 
-        saveCachedMessages(chatId, finalMessages, currentUserId);
+        saveCachedMessagesBatch(chatId, finalMessages, currentUserId);
         return { ...c, messages: finalMessages };
       }));
 
       setMessagePagination((prev) => ({ ...prev, [chatId]: { loading: false, hasMore: msgs.length >= 100 } }));
-      setIsChatLoading((prev) => ({ ...prev, [chatId]: false }));
     } catch (e) {
       console.error(e);
+    } finally {
+      setIsSyncing((prev) => ({ ...prev, [chatId]: false }));
       setIsChatLoading((prev) => ({ ...prev, [chatId]: false }));
     }
   }, [currentUser, currentUserId, setSharedKeysCache, setChats, chatsRef, e2eePrivateKeyRef, sharedKeysCacheRef]);
@@ -301,7 +323,7 @@ export function useChatLoader({
         const currentMessages = Array.isArray(c.messages) ? c.messages : [];
         const known = new Set(currentMessages.map((message) => message.id));
         const finalMessages = [...decrypted.filter((message) => !known.has(message.id)), ...currentMessages];
-        saveCachedMessages(chatId, finalMessages, currentUserId);
+        saveCachedMessagesBatch(chatId, finalMessages, currentUserId);
         return { ...c, messages: finalMessages };
       }));
       setMessagePagination((prev) => ({ ...prev, [chatId]: { loading: false, hasMore: older.length === 30 } }));
@@ -322,16 +344,19 @@ export function useChatLoader({
     const hasLoadedHistory = (currentChat?.messages?.length || 0) > 1;
 
     if (!hasLoadedHistory) {
-      setIsChatLoading((prev) => ({ ...prev, [activeChatId]: true }));
-      getCachedMessages(activeChatId, currentUserId).then((cached) => {
+      getCachedMessagesForChat(activeChatId, currentUserId).then((cached) => {
         if (!isMounted) return;
         if (Array.isArray(cached) && cached.length > 0) {
           setChats((prev) => (Array.isArray(prev) ? prev : []).map((c) => {
             if (c.id !== activeChatId) return c;
-            const pending = (c.messages || []).filter((m) => m.isPending);
-            return { ...c, messages: [...cached, ...pending] };
+            const pending = (c.messages || []).filter((m) => m.isPending || m.isOptimistic);
+            const cachedIds = new Set(cached.map((m) => m.id));
+            const uniquePending = pending.filter((m) => !cachedIds.has(m.id));
+            return { ...c, messages: [...cached, ...uniquePending] };
           }));
           setIsChatLoading((prev) => ({ ...prev, [activeChatId]: false }));
+        } else {
+          setIsChatLoading((prev) => ({ ...prev, [activeChatId]: true }));
         }
       });
     } else {
@@ -353,6 +378,7 @@ export function useChatLoader({
   return {
     messagePagination,
     isChatLoading,
+    isSyncing,
     fetchChats,
     loadActiveChatMessages,
     loadOlderMessages

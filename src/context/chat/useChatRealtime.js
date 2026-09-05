@@ -8,6 +8,11 @@ import {
 } from '../../utils/e2eeHelper';
 import { playSound } from '../../utils/sounds';
 import { showIncomingNotification } from '../../services/notificationService';
+import {
+  saveCachedMessage,
+  deleteCachedMessage,
+  updateCachedMessageFields
+} from '../../utils/indexedDbHelper';
 
 /**
  * Supabase realtime: messages, members, presence, typing, stories; mock bootstrap.
@@ -170,6 +175,8 @@ export function useChatRealtime({
                 }
               }
 
+              saveCachedMessage(formattedMsg, newMsg.chat_id, currentUser.id);
+
               return prevChats.map((c) => {
                 if (c.id === newMsg.chat_id) {
                   return {
@@ -183,6 +190,7 @@ export function useChatRealtime({
           })
           .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'messages' }, (payload) => {
             const deletedMsgId = payload.old.id;
+            deleteCachedMessage(deletedMsgId);
             setChats((prevChats) => prevChats.map((c) => ({
               ...c,
               messages: c.messages.filter((m) => m.id !== deletedMsgId)
@@ -190,6 +198,10 @@ export function useChatRealtime({
           })
           .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
             const updatedMsg = payload.new;
+            updateCachedMessageFields(updatedMsg.id, {
+              read: updatedMsg.read,
+              reactions: updatedMsg.reactions || []
+            });
             setChats((prevChats) => prevChats.map((c) => {
               if (c.id === updatedMsg.chat_id) {
                 return {
@@ -206,6 +218,7 @@ export function useChatRealtime({
           })
           .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'message_reads' }, (payload) => {
             const receipt = payload.new;
+            updateCachedMessageFields(receipt.message_id, { read: true });
             setChats((prevChats) => prevChats.map((chat) => ({
               ...chat,
               messages: chat.messages.map((message) => (

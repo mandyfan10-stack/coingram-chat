@@ -122,6 +122,11 @@ html.theme-light[data-wallpaper="mint"] .chat-body {
   animation: pulse 1s infinite alternate;
 }
 
+.chat-header-status.syncing {
+  color: var(--accent-color);
+  opacity: 0.85;
+}
+
 .chat-header-btn {
   background: none;
   border: none;

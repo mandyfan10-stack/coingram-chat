@@ -11,6 +11,7 @@ export default function ChatHeader({
   renderAvatar,
   getChatStatus,
   isTypingText,
+  isSyncing,
   isInfoOpen,
   setIsInfoOpen,
   setActiveChatId
@@ -56,8 +57,8 @@ export default function ChatHeader({
               />
             )}
           </h4>
-          <span className={`chat-header-status ${isTypingText ? 'typing' : ''}`}>
-            {isTypingText || getChatStatus(activeChat)}
+          <span className={`chat-header-status ${isTypingText ? 'typing' : ''} ${isSyncing && !isTypingText ? 'syncing' : ''}`}>
+            {isTypingText || (isSyncing ? 'Обновление...' : getChatStatus(activeChat))}
           </span>
         </div>
       </div>

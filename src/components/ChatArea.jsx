@@ -63,6 +63,7 @@ export default function ChatArea() {
     loadOlderMessages,
     messagePagination,
     isChatLoading,
+    isSyncing,
     setIsSettingsOpen,
     setSettingsTab
   } = useChat();
@@ -101,7 +102,7 @@ export default function ChatArea() {
   const recipientMissingE2EE = requiresE2EE && (!otherMember || !otherMember.hasE2ee);
 
   const chatMessagesCount = activeChat?.messages?.length || 0;
-  const isInitialLoading = Boolean(isChatLoading?.[activeChat?.id] && chatMessagesCount <= 1);
+  const isInitialLoading = Boolean(isChatLoading?.[activeChat?.id] && chatMessagesCount === 0);
 
   const resolveSharedKeyForUpload = async () => {
     if (!requiresE2EE) return null;
@@ -1163,6 +1164,7 @@ function formatDateDivider(timestamp) {
         renderAvatar={renderAvatar}
         getChatStatus={getChatStatus}
         isTypingText={isTypingText}
+        isSyncing={Boolean(isSyncing?.[activeChat?.id])}
         isInfoOpen={isInfoOpen}
         setIsInfoOpen={setIsInfoOpen}
         setActiveChatId={setActiveChatId}
