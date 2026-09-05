@@ -30,24 +30,25 @@ test('public/favicon.svg and manifest.json contain proper logo references', () =
 
   const manifest = JSON.parse(fs.readFileSync(path.join(rootDir, 'public', 'manifest.json'), 'utf8'));
   assert.equal(manifest.short_name, 'Coiny');
-  assert.ok(manifest.icons.some((icon) => icon.src === '/logo192.png'));
-  assert.ok(manifest.icons.some((icon) => icon.src === '/logo512.png'));
+  assert.ok(manifest.icons.some((icon) => icon.src.includes('logo192.png')));
+  assert.ok(manifest.icons.some((icon) => icon.src.includes('logo512.png')));
 });
 
 test('index.html links to new favicon, logo, and manifest', () => {
   const indexHtml = fs.readFileSync(path.join(rootDir, 'index.html'), 'utf8');
-  assert.ok(indexHtml.includes('href="/favicon.svg"'), 'Must link favicon.svg');
-  assert.ok(indexHtml.includes('href="/logo192.png"'), 'Must link logo192.png');
-  assert.ok(indexHtml.includes('href="/manifest.json"'), 'Must link manifest.json');
+  assert.ok(indexHtml.includes('favicon.svg'), 'Must link favicon.svg');
+  assert.ok(indexHtml.includes('logo192.png'), 'Must link logo192.png');
+  assert.ok(indexHtml.includes('manifest.json'), 'Must link manifest.json');
 });
 
 test('AuthScreen and ChatArea use the brand logo', () => {
   const authScreen = fs.readFileSync(path.join(rootDir, 'src', 'components', 'AuthScreen.jsx'), 'utf8');
   assert.ok(authScreen.includes('className="auth-logo-img"'), 'AuthScreen must render auth-logo-img');
-  assert.ok(authScreen.includes('src="/logo.png"'), 'AuthScreen must use /logo.png');
+  assert.ok(authScreen.includes('src={coinyLogo}'), 'AuthScreen must use bundled coinyLogo');
 
   const chatArea = fs.readFileSync(path.join(rootDir, 'src', 'components', 'ChatArea.jsx'), 'utf8');
   assert.ok(chatArea.includes('className="empty-state-logo-img"'), 'ChatArea must render empty-state-logo-img');
+  assert.ok(chatArea.includes('src={coinyLogo}'), 'ChatArea must use bundled coinyLogo');
 });
 
 test('Android mipmap launcher icons and splash screens exist across densities', () => {

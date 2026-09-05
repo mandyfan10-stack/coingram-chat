@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
 import { useChat } from '../context/ChatContext';
 import './ChatArea.css';
+import coinyLogo from '../assets/logo.png';
 import { supabase, isSupabaseConfigured } from '../supabaseClient';
 import {
   Send,
@@ -1084,7 +1085,7 @@ function formatDateDivider(timestamp) {
       <main className="chat-area empty">
         <div className="empty-state">
           <div className="empty-state-logo">
-            <img src="/logo.png" alt="Coiny" className="empty-state-logo-img" width="76" height="76" />
+            <img src={coinyLogo} alt="Coiny" className="empty-state-logo-img" width="76" height="76" />
           </div>
           <h3>Выберите чат, чтобы начать общение</h3>
           <p>Или откройте историю в списке чатов</p>

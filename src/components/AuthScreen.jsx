@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { isSupabaseConfigured } from '../supabaseClient';
+import coinyLogo from '../assets/logo.png';
 import { 
   Lock, 
   User, 
@@ -336,7 +337,7 @@ export default function AuthScreen() {
             <div className="auth-logo-section">
               <div className="auth-logo-svg-wrapper">
                 <div className="auth-logo-halo" />
-                <img src="/logo.png" alt="Coiny" className="auth-logo-img" width="76" height="76" />
+                <img src={coinyLogo} alt="Coiny" className="auth-logo-img" width="76" height="76" />
               </div>
               <h2>Coiny</h2>
               <p className="auth-subtitle">Быстрый и защищённый мессенджер</p>
