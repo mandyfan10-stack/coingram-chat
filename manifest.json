@@ -1,0 +1,20 @@
+{
+  "short_name": "Coiny",
+  "name": "Coiny Messenger",
+  "icons": [
+    {
+      "src": "/logo192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/logo512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0e1621",
+  "theme_color": "#0e1621",
+  "display": "standalone"
+}
