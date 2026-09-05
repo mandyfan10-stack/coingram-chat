@@ -8,7 +8,9 @@ import {
   Plus,
   Clock,
   Settings,
-  Loader2
+  Loader2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import {
   EMOJI_CATEGORIES,
@@ -63,6 +65,125 @@ export default function MediaPickerPanel({
   const searchInputRef = useRef(null);
   const contentBodyRef = useRef(null);
   const debounceTimerRef = useRef(null);
+
+  // GIF Categories Slider State
+  const gifPillsRef = useRef(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isDraggingPills, setIsDraggingPills] = useState(false);
+  const dragInfoRef = useRef({ isDown: false, startX: 0, scrollLeft: 0, hasMoved: false });
+
+  const updatePillsScrollState = useCallback(() => {
+    const el = gifPillsRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 2);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 2);
+  }, []);
+
+  const handlePillsSlide = useCallback((direction) => {
+    const el = gifPillsRef.current;
+    if (!el) return;
+    const distance = 140;
+    el.scrollBy({
+      left: direction === 'left' ? -distance : distance,
+      behavior: 'smooth'
+    });
+  }, []);
+
+  // Update slider arrows and attach wheel/resize handlers
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'gif' || searchQuery) return undefined;
+
+    const el = gifPillsRef.current;
+    if (!el) return undefined;
+
+    const checkScroll = () => {
+      updatePillsScrollState();
+    };
+
+    // Initial check after layout
+    const timer = setTimeout(checkScroll, 50);
+
+    const onWheel = (e) => {
+      if (e.deltaY !== 0 && Math.abs(e.deltaY) >= Math.abs(e.deltaX)) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY;
+        checkScroll();
+      }
+    };
+
+    el.addEventListener('wheel', onWheel, { passive: false });
+    window.addEventListener('resize', checkScroll);
+
+    let resizeObserver;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => checkScroll());
+      resizeObserver.observe(el);
+    }
+
+    return () => {
+      clearTimeout(timer);
+      el.removeEventListener('wheel', onWheel);
+      window.removeEventListener('resize', checkScroll);
+      if (resizeObserver) resizeObserver.disconnect();
+    };
+  }, [isOpen, activeTab, searchQuery, updatePillsScrollState]);
+
+  // Center / scroll active category into view
+  useEffect(() => {
+    if (!isOpen || activeTab !== 'gif' || searchQuery) return undefined;
+    const el = gifPillsRef.current;
+    if (!el) return undefined;
+
+    const activeBtn = el.querySelector(`.gif-cat-pill[data-cat-id="${activeGifCategory}"]`);
+    if (activeBtn) {
+      activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+      const timer = setTimeout(updatePillsScrollState, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, activeTab, activeGifCategory, searchQuery, updatePillsScrollState]);
+
+  // Drag-to-scroll handlers for category pills
+  const handlePillsMouseDown = (e) => {
+    if (e.button !== 0) return;
+    const el = gifPillsRef.current;
+    if (!el) return;
+
+    dragInfoRef.current = {
+      isDown: true,
+      startX: e.pageX - el.offsetLeft,
+      scrollLeft: el.scrollLeft,
+      hasMoved: false
+    };
+  };
+
+  const handlePillsMouseMove = (e) => {
+    if (!dragInfoRef.current.isDown) return;
+    const el = gifPillsRef.current;
+    if (!el) return;
+
+    const x = e.pageX - el.offsetLeft;
+    const walk = x - dragInfoRef.current.startX;
+    if (Math.abs(walk) > 4) {
+      if (!dragInfoRef.current.hasMoved) {
+        dragInfoRef.current.hasMoved = true;
+        setIsDraggingPills(true);
+      }
+      el.scrollLeft = dragInfoRef.current.scrollLeft - walk;
+      updatePillsScrollState();
+    }
+  };
+
+  const handlePillsMouseUpOrLeave = () => {
+    if (dragInfoRef.current.isDown) {
+      dragInfoRef.current.isDown = false;
+      setTimeout(() => {
+        setIsDraggingPills(false);
+        dragInfoRef.current.hasMoved = false;
+      }, 50);
+    }
+  };
 
   // Set default active sticker pack
   useEffect(() => {
@@ -518,21 +639,60 @@ export default function MediaPickerPanel({
       {/* Tenor GIFs Mode */}
       {activeTab === 'gif' && (
         <div className="gif-picker-view">
-          {/* Quick Category Pills */}
+          {/* Quick Category Pills Slider */}
           {!searchQuery && (
-            <div className="gif-cat-pills">
-              {TENOR_CATEGORIES.map((cat) => (
+            <div
+              className={`gif-cat-slider-container ${canScrollLeft ? 'has-left-overflow' : ''} ${canScrollRight ? 'has-right-overflow' : ''}`}
+            >
+              {canScrollLeft && (
                 <button
-                  key={cat.id}
                   type="button"
-                  className={`gif-cat-pill ${activeGifCategory === cat.id ? 'active' : ''}`}
-                  onClick={() => {
-                    setActiveGifCategory(cat.id);
-                  }}
+                  className="gif-cat-slider-btn left"
+                  onClick={() => handlePillsSlide('left')}
+                  title="Предыдущие категории"
+                  aria-label="Предыдущие категории"
                 >
-                  {cat.label}
+                  <ChevronLeft size={16} />
                 </button>
-              ))}
+              )}
+
+              <div
+                ref={gifPillsRef}
+                className={`gif-cat-pills ${isDraggingPills ? 'is-dragging' : ''}`}
+                onScroll={updatePillsScrollState}
+                onMouseDown={handlePillsMouseDown}
+                onMouseMove={handlePillsMouseMove}
+                onMouseUp={handlePillsMouseUpOrLeave}
+                onMouseLeave={handlePillsMouseUpOrLeave}
+              >
+                {TENOR_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    data-cat-id={cat.id}
+                    type="button"
+                    className={`gif-cat-pill ${activeGifCategory === cat.id ? 'active' : ''}`}
+                    onClick={() => {
+                      if (dragInfoRef.current.hasMoved) return;
+                      triggerHaptic(6);
+                      setActiveGifCategory(cat.id);
+                    }}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              {canScrollRight && (
+                <button
+                  type="button"
+                  className="gif-cat-slider-btn right"
+                  onClick={() => handlePillsSlide('right')}
+                  title="Следующие категории"
+                  aria-label="Следующие категории"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              )}
             </div>
           )}
 

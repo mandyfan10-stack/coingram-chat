@@ -400,15 +400,109 @@
   overflow: hidden;
 }
 
+/* GIF Category Slider Container */
+.gif-cat-slider-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  background: var(--surface-muted);
+  border-bottom: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+/* Gradient edge fades when there's overflow */
+.gif-cat-slider-container::before,
+.gif-cat-slider-container::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.gif-cat-slider-container::before {
+  left: 0;
+  background: linear-gradient(to right, var(--surface-muted) 30%, transparent 100%);
+}
+
+.gif-cat-slider-container::after {
+  right: 0;
+  background: linear-gradient(to left, var(--surface-muted) 30%, transparent 100%);
+}
+
+.gif-cat-slider-container.has-left-overflow::before {
+  opacity: 1;
+}
+
+.gif-cat-slider-container.has-right-overflow::after {
+  opacity: 1;
+}
+
+/* GIF Category Slider Navigation Buttons */
+.gif-cat-slider-btn {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 4;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: all var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.gif-cat-slider-btn:hover {
+  color: var(--text-primary);
+  background: var(--surface-hover, rgba(255, 255, 255, 0.16));
+  border-color: var(--accent-color);
+  transform: translateY(-50%) scale(1.08);
+}
+
+.gif-cat-slider-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.gif-cat-slider-btn.left {
+  left: 4px;
+}
+
+.gif-cat-slider-btn.right {
+  right: 4px;
+}
+
 /* GIF Category Pills */
 .gif-cat-pills {
   display: flex;
   gap: 6px;
-  padding: 6px 8px;
-  background: var(--surface-muted);
-  border-bottom: 1px solid var(--border-color);
+  padding: 6px 10px;
   overflow-x: auto;
   scrollbar-width: none;
+  scroll-behavior: smooth;
+  width: 100%;
+  -webkit-overflow-scrolling: touch;
+  user-select: none;
+  cursor: grab;
+}
+
+.gif-cat-pills.is-dragging {
+  cursor: grabbing;
+  scroll-behavior: auto;
 }
 
 .gif-cat-pills::-webkit-scrollbar {
@@ -427,6 +521,7 @@
   white-space: nowrap;
   transition: all var(--transition-fast);
   flex-shrink: 0;
+  user-select: none;
 }
 
 .gif-cat-pill:hover {
