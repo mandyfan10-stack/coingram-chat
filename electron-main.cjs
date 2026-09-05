@@ -177,6 +177,7 @@ function createWindow() {
     width: 1280,
     height: 800,
     title: 'Coiny',
+    icon: path.join(__dirname, 'dist', 'logo.png'),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,

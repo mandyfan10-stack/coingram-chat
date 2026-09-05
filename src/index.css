@@ -539,7 +539,28 @@ body {
 }
 
 .empty-state-logo {
-  font-size: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.empty-state-logo-img {
+  width: 76px;
+  height: 76px;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 20px rgba(255, 193, 7, 0.28));
+  animation: logoFloatBounce 3s ease-in-out infinite;
+  user-select: none;
+}
+
+@keyframes logoFloatBounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
 }
 
 .empty-state h3 {
@@ -2601,7 +2622,8 @@ body.light-mode .auth-showcase-panel {
     height: 64px;
     margin-bottom: 8px;
   }
-  .auth-logo-svg {
+  .auth-logo-svg,
+  .auth-logo-img {
     width: 56px;
     height: 56px;
   }
@@ -2650,6 +2672,16 @@ body.light-mode .auth-card {
 
 .auth-logo-svg-wrapper:hover {
   transform: scale(1.08) rotate(6deg);
+}
+
+.auth-logo-img {
+  width: 76px;
+  height: 76px;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(255, 193, 7, 0.35));
+  position: relative;
+  z-index: 1;
+  user-select: none;
 }
 
 .auth-logo-section h2 {
@@ -5397,7 +5429,8 @@ html.theme-light .voice-seek-bar::-moz-range-track {
     height: 48px;
     margin-bottom: 4px;
   }
-  .auth-logo-svg {
+  .auth-logo-svg,
+  .auth-logo-img {
     width: 48px;
     height: 48px;
   }

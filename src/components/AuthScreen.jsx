@@ -336,34 +336,7 @@ export default function AuthScreen() {
             <div className="auth-logo-section">
               <div className="auth-logo-svg-wrapper">
                 <div className="auth-logo-halo" />
-                <svg width="72" height="72" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" className="auth-logo-svg">
-                  <defs>
-                    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#FFE57F" />
-                      <stop offset="45%" stopColor="#FFC107" />
-                      <stop offset="100%" stopColor="#FF8F00" />
-                    </linearGradient>
-                    <linearGradient id="goldInner" x1="0%" y1="100%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor="#FFF9C4" />
-                      <stop offset="100%" stopColor="#FFA000" />
-                    </linearGradient>
-                    <radialGradient id="coinShine" cx="30%" cy="30%" r="70%">
-                      <stop offset="0%" stopColor="#FFFFFF" stopOpacity="0.6" />
-                      <stop offset="60%" stopColor="#FFFFFF" stopOpacity="0" />
-                    </radialGradient>
-                  </defs>
-                  <circle cx="50" cy="50" r="46" fill="url(#goldGrad)" />
-                  <circle cx="50" cy="50" r="40" fill="#17212b" />
-                  <circle cx="50" cy="50" r="35" fill="url(#goldInner)" />
-                  <circle cx="50" cy="50" r="35" fill="url(#coinShine)" />
-                  <path 
-                    d="M57 44C56 38 48 37 45 40C41 43 41 51 45 54C49 57 56 55 57 50H50" 
-                    stroke="#17212b" 
-                    strokeWidth="4.5" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round" 
-                  />
-                </svg>
+                <img src="/logo.png" alt="Coiny" className="auth-logo-img" width="76" height="76" />
               </div>
               <h2>Coiny</h2>
               <p className="auth-subtitle">Быстрый и защищённый мессенджер</p>
